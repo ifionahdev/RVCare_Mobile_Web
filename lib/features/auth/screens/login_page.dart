@@ -3,6 +3,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/auth_text_field.dart';
 import '../widgets/create_account_dialog.dart';
 import 'forgot_password_page.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -12,12 +15,35 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _emailController = TextEditingController();
+
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+
+
+  Future<void> _login() async {
+    final auth = context.read<AuthProvider>();
+
+    final success = await auth.login(
+      _usernameController.text,
+      _passwordController.text,
+    );
+
+    if (!mounted) return;
+
+    if (!success) {
+      _showFrontendMessage(
+        auth.error ?? 'Unable to log in. Please try again.',
+      );
+    }
+
+    // Successful login automatically switches to the existing
+    // home screen through the root authentication gate.
+  }
+
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -65,7 +91,7 @@ class _LoginPageState extends State<LoginPage> {
                               width: 76,
                               height: 65,
                               fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => const Icon(
+                              errorBuilder: (_, _, _) => const Icon(
                                 Icons.pets,
                                 color: AppTheme.primaryDark,
                                 size: 56,
@@ -93,10 +119,9 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 35),
                           AuthTextField(
-                            label: 'Email Address',
-                            hint: 'Enter your email address',
-                            controller: _emailController,
-                            email: true,
+                            label: 'Username',
+                            hint: 'Enter your username',
+                            controller: _usernameController,
                             textInputAction: TextInputAction.next,
                           ),
                           const SizedBox(height: 20),
@@ -148,12 +173,9 @@ class _LoginPageState extends State<LoginPage> {
                           SizedBox(
                             height: 52,
                             child: ElevatedButton(
-                              onPressed: () {
-                                _showFrontendMessage(
-                                  'Login is frontend-only. '
-                                  'Authentication will be added later.',
-                                );
-                              },
+                              onPressed: context.watch<AuthProvider>().isLoading
+                                  ? null
+                                  : _login,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.primary,
                                 foregroundColor: AppTheme.heading,
@@ -162,13 +184,21 @@ class _LoginPageState extends State<LoginPage> {
                                   borderRadius: BorderRadius.circular(13),
                                 ),
                               ),
-                              child: const Text(
-                                'Log In',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15,
-                                ),
-                              ),
+                              child: context.watch<AuthProvider>().isLoading
+                                  ? const Text(
+                                      'Logging in...',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 15,
+                                      ),
+                                    )
+                                  : const Text(
+                                      'Log In',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 15,
+                                      ),
+                                    ),
                             ),
                           ),
                           const SizedBox(height: 30),

@@ -2,20 +2,37 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LockKeyhole, Mail, ArrowRight } from "lucide-react";
 import AuthLayout from "../../components/auth/AuthLayout.jsx";
+import { useAuth } from "../../context/authContext.jsx";
+
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+  
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
-  const navigate = useNavigate();
 
-  function submit(event) {
+  const navigate = useNavigate();
+  const { login, loading, error } = useAuth();
+  
+  async function submit(event) {
     event.preventDefault();
-    if (!email.trim() || !password.trim()) return;
-    // DEMO ONLY. Replace with server-validated login before production.
-    sessionStorage.setItem("raphacare_demo_admin", "true");
-    navigate("/admin/dashboard", { replace: true });
+
+    if (!username.trim() || !password) return;
+
+    try {
+      const user = await login(username, password);
+
+      if (user.role === "admin") {
+        navigate("/admin/dashboard", { replace: true });
+      } else if (user.role === "vet") {
+        // Replace with your existing veterinarian route.
+        navigate("/admin/dashboard", { replace: true });
+      }
+    } catch {
+      // AuthContext already exposes the error message.
+    }
   }
+
 
   return (
     <AuthLayout>
@@ -23,10 +40,23 @@ export default function Login() {
       <p className="subheading">Access the RaphaCare portal.</p>
       <form onSubmit={submit} className="mt-9 space-y-5">
         <div>
-          <label htmlFor="email" className="field-label">Email address</label>
-          <div className="field"><Mail size={18} />
-            <input id="email" type="email" autoComplete="username" required placeholder="Enter your work email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
+        <label htmlFor="username" className="field-label">
+          Username
+        </label>
+
+        <div className="field">
+          <Mail size={18} />
+          <input
+            id="username"
+            type="text"
+            autoComplete="username"
+            required
+            placeholder="Enter your username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+        </div>
+
         </div>
         <div>
           <div className="mb-2 flex items-center justify-between">
@@ -38,9 +68,24 @@ export default function Login() {
             <button type="button" aria-label={show ? "Hide password" : "Show password"} onClick={() => setShow(!show)} className="text-slate-500">{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
           </div>
         </div>
-        <button type="submit" className="primary-btn">Sign in <ArrowRight size={18} /></button>
+        <button
+          type="submit"
+          className="primary-btn"
+          disabled={loading}
+        >
+          {loading ? "Signing in..." : "Sign in"}
+          <ArrowRight size={18} />
+        </button>
       </form>
-      <p className="mt-5 text-xs leading-relaxed text-slate-500">Demo access: enter any valid email and a non-empty password. No real authentication is performed.</p>
+
+      {error && (
+        <p
+          role="alert"
+          className="mt-5 text-xs leading-relaxed text-red-600"
+        >
+          {error}
+        </p>
+      )}
     </AuthLayout>
   );
 }

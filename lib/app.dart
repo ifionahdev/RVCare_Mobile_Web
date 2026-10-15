@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import 'core/theme/app_theme.dart';
+import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_page.dart';
+import 'features/home/screens/home_page.dart';
 
 class RaphaCareApp extends StatelessWidget {
   const RaphaCareApp({super.key});
@@ -11,7 +15,31 @@ class RaphaCareApp extends StatelessWidget {
       title: 'RaphaCare',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: const LoginPage(),
+      home: AuthGate(
+        authenticatedBuilder: (_) => const HomePage(),
+      ),
     );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key, required this.authenticatedBuilder});
+
+  final WidgetBuilder authenticatedBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+
+    switch (auth.status) {
+      case AuthStatus.unknown:
+        return const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        );
+      case AuthStatus.authenticated:
+        return authenticatedBuilder(context);
+      case AuthStatus.unauthenticated:
+        return const LoginPage();
+    }
   }
 }
