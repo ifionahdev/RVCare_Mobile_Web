@@ -12,3 +12,11 @@ backend/
 ├── uploads/            # lab and medical report files (or cloud storage)
 ├── server.js
 └── .env
+
+for test accounts
+cd backend 
+npm run create:account -- admin01 "AdminPass123!" "System" "Admin" admin
+>> 
+>> npm run create:account -- vet01 "VetPass123!" "Test" "Veterinarian" vet
+>> 
+>> npm run create:account -- customer01 "CustomerPass123!" "Test" "Customer" customer
