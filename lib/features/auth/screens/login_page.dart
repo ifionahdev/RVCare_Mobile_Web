@@ -1,11 +1,12 @@
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/auth_text_field.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/create_account_dialog.dart';
 import 'forgot_password_page.dart';
-import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -15,17 +16,43 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  // Checks whether the entered value is a valid email format.
+  bool _isValidEmail(String email) {
+    final emailPattern = RegExp(
+      r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+    );
 
+    return emailPattern.hasMatch(email);
+  }
+
+  // Logs in using the email stored in the username database column.
   Future<void> _login() async {
+    final email = _usernameController.text.trim().toLowerCase();
+    final password = _passwordController.text;
+
+    if (email.isEmpty) {
+      _showFrontendMessage('Please enter your email address.');
+      return;
+    }
+
+    if (!_isValidEmail(email)) {
+      _showFrontendMessage('Please enter a valid email address.');
+      return;
+    }
+
+    if (password.isEmpty) {
+      _showFrontendMessage('Please enter your password.');
+      return;
+    }
+
     final auth = context.read<AuthProvider>();
 
     final success = await auth.login(
-      _usernameController.text,
-      _passwordController.text,
+      email,
+      password,
     );
 
     if (!mounted) return;
@@ -36,10 +63,9 @@ class _LoginPageState extends State<LoginPage> {
       );
     }
 
-    // Successful login automatically switches to the existing
-    // home screen through the root authentication gate.
+    // A successful login updates AuthProvider.
+    // The root authentication gate displays the customer home page.
   }
-
 
   @override
   void dispose() {
@@ -67,6 +93,8 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = context.watch<AuthProvider>().isLoading;
+
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -118,13 +146,17 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                           const SizedBox(height: 35),
+
+                          // Email input
                           AuthTextField(
-                            label: 'Username',
-                            hint: 'Enter your username',
+                            label: 'Email',
+                            hint: 'Enter your email address',
                             controller: _usernameController,
                             textInputAction: TextInputAction.next,
                           ),
+
                           const SizedBox(height: 20),
+
                           Row(
                             children: [
                               const Expanded(
@@ -161,7 +193,10 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ],
                           ),
+
                           const SizedBox(height: 8),
+
+                          // Password input
                           AuthTextField(
                             label: '',
                             hint: 'Enter your password',
@@ -169,13 +204,13 @@ class _LoginPageState extends State<LoginPage> {
                             password: true,
                             textInputAction: TextInputAction.done,
                           ),
+
                           const SizedBox(height: 25),
+
                           SizedBox(
                             height: 52,
                             child: ElevatedButton(
-                              onPressed: context.watch<AuthProvider>().isLoading
-                                  ? null
-                                  : _login,
+                              onPressed: isLoading ? null : _login,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.primary,
                                 foregroundColor: AppTheme.heading,
@@ -184,26 +219,20 @@ class _LoginPageState extends State<LoginPage> {
                                   borderRadius: BorderRadius.circular(13),
                                 ),
                               ),
-                              child: context.watch<AuthProvider>().isLoading
-                                  ? const Text(
-                                      'Logging in...',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 15,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Log In',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 15,
-                                      ),
-                                    ),
+                              child: Text(
+                                isLoading ? 'Logging in...' : 'Log In',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                              ),
                             ),
                           ),
+
                           const SizedBox(height: 30),
                           const Divider(color: AppTheme.border),
                           const SizedBox(height: 12),
+
                           TextButton(
                             onPressed: _showAccountDialog,
                             child: const Text(

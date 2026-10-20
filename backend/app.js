@@ -1,10 +1,31 @@
 
 import express from "express";
+import crypto from "node:crypto";
 import helmet from "helmet";
 import cors from "cors";
 import authRoutes from "./src/routes/authRoutes.js";
+import passwordResetRoutes from "./src/routes/passwordResetRoutes.js";
 
 const app = express();
+
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  const requestId = crypto.randomUUID();
+
+  req.requestId = requestId;
+  res.setHeader("X-Request-Id", requestId);
+  console.log(
+    `[http] ${requestId} ${req.method} ${req.originalUrl} from ${req.ip}`
+  );
+
+  res.on("finish", () => {
+    console.log(
+      `[http] ${requestId} ${req.method} ${req.originalUrl} -> ${res.statusCode} in ${Date.now() - startedAt}ms`
+    );
+  });
+
+  next();
+});
 
 const allowedOrigins = (process.env.CORS_ORIGINS ?? "")
   .split(",")
@@ -29,9 +50,23 @@ app.use(
 
 app.use(express.json({ limit: "16kb" }));
 
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    service: "RaphaCare API",
+  });
+});
+
+app.use("/api/auth", passwordResetRoutes);
+
 app.use("/api/auth", authRoutes);
 
 app.use((error, req, res, next) => {
+  console.error(
+    `[http] ${req.requestId ?? "unknown"} ${req.method} ${req.originalUrl} failed:`,
+    error.message
+  );
+
   if (error.message === "CORS origin not allowed") {
     return res.status(403).json({
       message: "Origin not allowed.",

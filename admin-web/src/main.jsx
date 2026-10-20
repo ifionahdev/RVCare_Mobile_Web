@@ -11,6 +11,7 @@ import {
 import Login from "./pages/auth/Login.jsx";
 import ForgotPassword from "./pages/auth/ForgotPassword.jsx";
 import AdminDashboard from "./pages/admin/Dashboard.jsx";
+import ResetPassword from "./pages/auth/ResetPassword.jsx";
 
 import { AuthProvider } from "./context/authContext.jsx";
 import ProtectedRoute from "./components/auth/ProtectedRoute.jsx";
@@ -29,6 +30,8 @@ createRoot(document.getElementById("root")).render(
             path="/forgot-password"
             element={<ForgotPassword />}
           />
+          
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Admin-only route */}
           <Route

@@ -9,6 +9,7 @@ class AuthTextField extends StatefulWidget {
     required this.controller,
     this.email = false,
     this.password = false,
+    this.enabled = true,
     this.textInputAction,
   });
 
@@ -17,6 +18,7 @@ class AuthTextField extends StatefulWidget {
   final TextEditingController controller;
   final bool email;
   final bool password;
+  final bool enabled;
   final TextInputAction? textInputAction;
 
   @override
@@ -42,6 +44,7 @@ class _AuthTextFieldState extends State<AuthTextField> {
         const SizedBox(height: 8),
         TextField(
           controller: widget.controller,
+          enabled: widget.enabled,
           obscureText: widget.password && _obscureText,
           keyboardType: widget.email
               ? TextInputType.emailAddress

@@ -13,10 +13,10 @@ backend/
 ├── server.js
 └── .env
 
+flutter run --dart-define=API_URL=http://192.168.1.15:5000/api
+
 for test accounts
 cd backend 
-npm run create:account -- admin01 "AdminPass123!" "System" "Admin" admin
->> 
->> npm run create:account -- vet01 "VetPass123!" "Test" "Veterinarian" vet
->> 
->> npm run create:account -- customer01 "CustomerPass123!" "Test" "Customer" customer
+npm run create:account -- markmapili29@gmail.com "AdminPass123!" "System" "Admin" admin
+npm run create:account -- vet@gmail.com "VetPass123!" "Test" "Veterinarian" vet
+npm run create:account -- markmapili2004@gmail.com  "CustomerPass123!" "Test" "Customer" customer
