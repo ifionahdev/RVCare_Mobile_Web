@@ -48,7 +48,7 @@ const TEST_ACCOUNTS = [
 async function main() {
   // Roles first (accounts need them). upsert = skip if it already exists.
   for (const r of ROLES) {
-    await prisma.tbl_role.upsert({
+    await prisma.role.upsert({
       where: { role_slug: r.role_slug },
       update: {},
       create: r,
@@ -57,11 +57,11 @@ async function main() {
 
   // Accounts, then each account's profile row.
   for (const a of TEST_ACCOUNTS) {
-    const role = await prisma.tbl_role.findUniqueOrThrow({
+    const role = await prisma.role.findUniqueOrThrow({
       where: { role_slug: a.role },
     });
 
-    const account = await prisma.tbl_account.upsert({
+    const account = await prisma.account.upsert({
       where: { username: a.username },
       update: {},
       create: {
@@ -73,10 +73,14 @@ async function main() {
       },
     });
 
-    const profile = { where: { account_id: account.account_id }, update: {}, create: { account_id: account.account_id } };
-    if (a.role === "admin") await prisma.tbl_admin.upsert(profile);
-    if (a.role === "vet") await prisma.tbl_veterinarian.upsert(profile);
-    if (a.role === "customer") await prisma.tbl_pet_owner.upsert(profile);
+    const profile = {
+      where: { account_id: account.account_id },
+      update: {},
+      create: { account_id: account.account_id },
+    };
+    if (a.role === "admin") await prisma.admin.upsert(profile);
+    if (a.role === "vet") await prisma.veterinarian.upsert(profile);
+    if (a.role === "customer") await prisma.petOwner.upsert(profile);
   }
 
   console.log("Seed complete: roles + test accounts");
