@@ -17,28 +17,32 @@ model tbl_account {
   last_name               String                    @db.VarChar(100)
   date_registered         DateTime                  @default(now()) @db.DateTime(0)
   tbl_role                tbl_role                  @relation(fields: [role_id], references: [role_id], onUpdate: Restrict, map: "tbl_account_tbl_role_FK")
-  tbl_admin               tbl_admin[]
+  tbl_admin               tbl_admin?
   tbl_medical_record_file tbl_medical_record_file[]
   tbl_password_reset      tbl_password_reset[]
-  tbl_pet_owner           tbl_pet_owner[]
-  tbl_veterinarian        tbl_veterinarian[]
+  tbl_pet_owner           tbl_pet_owner?
+  tbl_veterinarian        tbl_veterinarian?
+  tbl_activity_log        tbl_activity_log[]
 
   @@index([role_id], map: "tbl_account_tbl_role_FK")
 }
 
 model tbl_activity_log {
-  activity_id Int      @id @default(autoincrement())
+  activity_id Int         @id @default(autoincrement())
   account_id  Int
-  action      String   @db.VarChar(100)
-  source      String   @db.VarChar(100)
-  created_at  DateTime @default(now()) @db.DateTime(0)
+  action      String      @db.VarChar(100)
+  source      String      @db.VarChar(100)
+  created_at  DateTime    @default(now()) @db.DateTime(0)
+  tbl_account tbl_account @relation(fields: [account_id], references: [account_id], onUpdate: Restrict, map: "tbl_activity_log_tbl_account_FK")
+
+  @@index([account_id], map: "tbl_activity_log_tbl_account_FK")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model tbl_admin {
-  admin_id    Int         @id
-  account_id  Int
-  is_deleted  Boolean?    @default(false)
+  admin_id    Int         @id @default(autoincrement())
+  account_id  Int         @unique
+  is_deleted  Boolean     @default(false)
   tbl_account tbl_account @relation(fields: [account_id], references: [account_id], onUpdate: Restrict, map: "tbl_admin_tbl_account_FK")
 
   @@index([account_id], map: "tbl_admin_tbl_account_FK")
@@ -48,12 +52,12 @@ model tbl_appointment {
   appointment_id Int                    @id @default(autoincrement())
   pet_id         Int
   service_id     Int
-  scheduled_date DateTime?              @db.Date
-  scheduled_time DateTime?              @db.Time(0)
-  status         tbl_appointment_status
-  created_at     DateTime?              @default(now()) @db.DateTime(0)
-  last_updated   DateTime?              @default(now()) @db.DateTime(0)
-  is_deleted     Boolean?               @default(false)
+  scheduled_date DateTime               @db.Date
+  scheduled_time DateTime               @db.Time(0)
+  status         tbl_appointment_status @default(Pending)
+  created_at     DateTime               @default(now()) @db.DateTime(0)
+  last_updated   DateTime               @default(now()) @db.DateTime(0)
+  is_deleted     Boolean                @default(false)
   tbl_pet        tbl_pet                @relation(fields: [pet_id], references: [pet_id], onUpdate: Restrict, map: "tbl_appointment_tbl_pet_FK")
   tbl_service    tbl_service            @relation(fields: [service_id], references: [service_id], onUpdate: Restrict, map: "tbl_appointment_tbl_service_FK")
   tbl_visit      tbl_visit[]
@@ -93,8 +97,8 @@ model tbl_medical_record_file {
   file_size_bytes     Int
   checksum            String             @db.Char(64)
   uploader_account_id Int
-  uploaded_at         DateTime?          @default(now()) @db.DateTime(0)
-  is_deleted          Boolean?           @default(false)
+  uploaded_at         DateTime           @default(now()) @db.DateTime(0)
+  is_deleted          Boolean            @default(false)
   tbl_account         tbl_account        @relation(fields: [uploader_account_id], references: [account_id], onUpdate: Restrict, map: "tbl_medical_record_file_tbl_account_FK")
   tbl_medical_record  tbl_medical_record @relation(fields: [record_id], references: [record_id], onUpdate: Restrict, map: "tbl_medical_record_file_tbl_medical_record_FK")
 
@@ -104,7 +108,7 @@ model tbl_medical_record_file {
 
 model tbl_medical_record_type {
   record_type_id     Int                  @id @default(autoincrement())
-  record_type        String?              @unique(map: "tbl_medical_record_type_unique") @db.VarChar(100)
+  record_type        String               @unique(map: "tbl_medical_record_type_unique") @db.VarChar(100)
   description        String?              @db.VarChar(255)
   tbl_medical_record tbl_medical_record[]
 }
@@ -117,30 +121,33 @@ model tbl_pet {
   gender          tbl_pet_gender
   date_registered DateTime          @default(now()) @db.DateTime(0)
   is_deleted      Boolean           @default(false)
+  tbl_pet_owner   tbl_pet_owner     @relation(fields: [owner_id], references: [owner_id], onUpdate: Restrict, map: "tbl_pet_tbl_pet_owner_FK")
   tbl_appointment tbl_appointment[]
   tbl_pet_breed   tbl_pet_breed     @relation(fields: [breed_id], references: [breed_id], onUpdate: Restrict, map: "tbl_pet_tbl_pet_breed_FK")
   tbl_visit       tbl_visit[]
 
   @@index([breed_id], map: "tbl_pet_tbl_pet_breed_FK")
+  @@index([owner_id], map: "tbl_pet_tbl_pet_owner_FK")
 }
 
 model tbl_pet_breed {
   breed_id   Int                   @id @default(autoincrement())
   species    tbl_pet_breed_species
   breed_name String                @db.VarChar(100)
-  is_deleted Boolean?              @default(false)
+  is_deleted Boolean               @default(false)
   tbl_pet    tbl_pet[]
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model tbl_pet_owner {
   owner_id          Int         @id @default(autoincrement())
-  account_id        Int
+  account_id        Int         @unique
   address           String?     @db.VarChar(100)
   contact_number    String?     @db.VarChar(11)
   alternate_contact String?     @db.VarChar(100)
   is_deleted        Boolean     @default(false)
   tbl_account       tbl_account @relation(fields: [account_id], references: [account_id], onUpdate: Restrict, map: "tbl_pet_owner_tbl_account_FK")
+  tbl_pet           tbl_pet[]
 
   @@index([account_id], map: "tbl_pet_owner_tbl_account_FK")
 }
@@ -155,7 +162,7 @@ model tbl_role {
 
 model tbl_service {
   service_id      Int               @id @default(autoincrement())
-  service_name    String?           @db.VarChar(100)
+  service_name    String            @db.VarChar(100)
   description     String?           @db.VarChar(255)
   tbl_appointment tbl_appointment[]
   tbl_visit       tbl_visit[]
@@ -164,8 +171,8 @@ model tbl_service {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model tbl_veterinarian {
   vet_id      Int         @id @default(autoincrement())
-  account_id  Int
-  is_deleted  Boolean?    @default(false)
+  account_id  Int         @unique
+  is_deleted  Boolean     @default(false)
   tbl_account tbl_account @relation(fields: [account_id], references: [account_id], onUpdate: Restrict, map: "tbl_veterinarian_tbl_account_FK")
 
   @@index([account_id], map: "tbl_veterinarian_tbl_account_FK")
