@@ -42,7 +42,7 @@ class AppointmentSummaryScreen extends StatelessWidget {
                     const Text(
                       'Review your appointment',
                       style: TextStyle(
-                        fontSize: 24,
+                        fontSize: 22,
                         fontWeight: FontWeight.w800,
                         color: AppTheme.heading,
                       ),
@@ -51,14 +51,14 @@ class AppointmentSummaryScreen extends StatelessWidget {
                     const Text(
                       'Please check the details before confirming your booking.',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         height: 1.45,
                         color: AppTheme.muted,
                       ),
                     ),
                     const SizedBox(height: 24),
                     Container(
-                      padding: const EdgeInsets.all(18),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
@@ -137,7 +137,7 @@ class _SummaryRow extends StatelessWidget {
             child: Text(
               value,
               style: const TextStyle(
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
                 color: AppTheme.primaryDark,
               ),
@@ -147,7 +147,7 @@ class _SummaryRow extends StatelessWidget {
             value,
             textAlign: TextAlign.right,
             style: const TextStyle(
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w700,
               color: AppTheme.heading,
             ),
@@ -159,7 +159,7 @@ class _SummaryRow extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: const TextStyle(fontSize: 15, color: AppTheme.muted),
+            style: const TextStyle(fontSize: 13, color: AppTheme.muted),
           ),
         ),
         const SizedBox(width: 12),

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../appointments/screens/book_appointment_flow.dart';
+import '../../appointments/screens/my_appointments_screen.dart';
+import '../../pets/screens/manage_pet_profile_screen.dart';
+import '../../pets/screens/my_pets_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,6 +22,22 @@ class _HomePageState extends State<HomePage> {
     Navigator.push<void>(
       context,
       MaterialPageRoute<void>(builder: (_) => const BookAppointmentFlow()),
+    );
+  }
+
+  void _openAppointments() {
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => const MyAppointmentsScreen(),
+      ),
+    );
+  }
+
+  void _openMyPets() {
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const MyPetsScreen()),
     );
   }
 
@@ -97,14 +116,14 @@ class _HomePageState extends State<HomePage> {
           AppBottomNavItem(icon: Icons.home_outlined, label: 'Home'),
           AppBottomNavItem(
             icon: Icons.calendar_today_outlined,
-            label: 'Bookings',
+            label: 'Appointments',
           ),
           AppBottomNavItem(icon: Icons.description_outlined, label: 'Records'),
           AppBottomNavItem(icon: Icons.menu_book_outlined, label: 'Pet Care'),
         ],
         onSelected: (index) {
           if (index == 1) {
-            _openBooking();
+            _openAppointments();
             return;
           }
           setState(() => _selectedTab = index);
@@ -117,13 +136,13 @@ class _HomePageState extends State<HomePage> {
     return SafeArea(
       top: true,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
               'Good evening',
-              style: TextStyle(fontSize: 13, color: AppTheme.muted),
+              style: TextStyle(fontSize: 12, color: AppTheme.muted),
             ),
             const SizedBox(height: 2),
             Row(
@@ -132,7 +151,7 @@ class _HomePageState extends State<HomePage> {
                   child: Text(
                     'Hello, Sarah',
                     style: TextStyle(
-                      fontSize: 25,
+                      fontSize: 22,
                       height: 1.15,
                       fontWeight: FontWeight.w800,
                       color: AppTheme.heading,
@@ -140,8 +159,8 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 Container(
-                  width: 54,
-                  height: 54,
+                  width: 48,
+                  height: 48,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: const Color(0xFFE7EAEC),
@@ -151,7 +170,7 @@ class _HomePageState extends State<HomePage> {
                   child: const Text(
                     'SJ',
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: _teal,
                     ),
@@ -159,22 +178,22 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
             _AppointmentCard(
               onDetails: () => _openDetails('Upcoming appointment'),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             _ReminderCard(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             const Text(
               'What would you like to do?',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w800,
                 color: AppTheme.heading,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
@@ -194,7 +213,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
@@ -215,17 +234,44 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'My pets',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.heading,
-              ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'My pets',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.heading,
+                  ),
+                ),
+                TextButton(
+                  onPressed: _openMyPets,
+                  style: TextButton.styleFrom(
+                    foregroundColor: _teal,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'See all',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            _PetCard(onTap: () => _openDetails('Luna')),
+            const SizedBox(height: 10),
+            _PetCard(
+              onTap: () {
+                Navigator.push<void>(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ManagePetProfileScreen(),
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),
@@ -233,42 +279,132 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildPlaceholder() {
-    final labels = ['', 'Bookings', 'Records', 'Pet Care'];
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              [
-                Icons.home_outlined,
-                Icons.calendar_today_outlined,
-                Icons.description_outlined,
-                Icons.menu_book_outlined,
-              ][_selectedTab],
-              size: 42,
-              color: _teal,
+    final labels = ['', 'My Appointments', 'Medical Records', 'Pet Care'];
+    final descriptions = [
+      '',
+      'Manage your upcoming and previous appointments.',
+      'View Luna’s visit history, prescriptions, and reports.',
+      'Helpful articles and daily care reminders for Luna.',
+    ];
+
+    return SafeArea(
+      top: true,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+        children: [
+          Text(
+            labels[_selectedTab],
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.heading,
             ),
-            const SizedBox(height: 16),
-            Text(
-              labels[_selectedTab],
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.heading,
+          ),
+          const SizedBox(height: 5),
+          Text(
+            descriptions[_selectedTab],
+            style: const TextStyle(fontSize: 13, color: AppTheme.muted),
+          ),
+          const SizedBox(height: 18),
+          if (_selectedTab == 1)
+            ElevatedButton.icon(
+              onPressed: _openBooking,
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Book new appointment'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _teal,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                minimumSize: const Size.fromHeight(48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Mock data screen',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppTheme.muted),
-            ),
-          ],
-        ),
+          if (_selectedTab == 1) const SizedBox(height: 16),
+          ..._buildTabCards(),
+        ],
       ),
     );
+  }
+
+  List<Widget> _buildTabCards() {
+    final cards = switch (_selectedTab) {
+      1 => const [
+          ('Wed, Nov 4 • 10:00 AM', 'Checkup for Luna', 'Confirmed'),
+          ('Tue, Dec 8 • 9:30 AM', 'Vaccination for Luna', 'Upcoming'),
+        ],
+      2 => const [
+          ('Checkup report', 'Nov 4, 2026 • Dr. Rachel Carter', 'Available'),
+          ('Blood test results', 'Oct 12, 2026 • Laboratory', '2 new'),
+        ],
+      3 => const [
+          ('Dental care', 'How often should you brush your pet’s teeth?', ''),
+          ('Nutrition guide', 'A balanced diet for your pet’s life stage.', ''),
+        ],
+      _ => const <(String, String, String)>[],
+    };
+
+    return [
+      for (var index = 0; index < cards.length; index++) ...[
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE1E4E7)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDBF5F8),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(
+                  _selectedTab == 1
+                      ? Icons.calendar_month_outlined
+                      : _selectedTab == 2
+                      ? Icons.description_outlined
+                      : Icons.menu_book_outlined,
+                  color: _teal,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      cards[index].$1,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.heading,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      cards[index].$2,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.3,
+                        color: AppTheme.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, size: 20, color: AppTheme.muted),
+            ],
+          ),
+        ),
+        if (index != cards.length - 1) const SizedBox(height: 12),
+      ],
+    ];
   }
 }
 
@@ -280,7 +416,7 @@ class _AppointmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: const Color(0xFF068A98),
         borderRadius: BorderRadius.circular(18),
@@ -324,7 +460,7 @@ class _AppointmentCard extends StatelessWidget {
           const Text(
             'Wed, Nov 4 • 10:00 AM',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.w800,
               color: Colors.white,
             ),
@@ -337,7 +473,7 @@ class _AppointmentCard extends StatelessWidget {
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
-            height: 48,
+            height: 44,
             child: ElevatedButton(
               onPressed: onDetails,
               style: ElevatedButton.styleFrom(
@@ -416,7 +552,7 @@ class _ActionCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        height: 112,
+        height: 100,
         padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
         decoration: BoxDecoration(
           color: Colors.white,

@@ -11,7 +11,7 @@ PreferredSizeWidget appointmentAppBar(
     backgroundColor: Colors.white,
     foregroundColor: AppTheme.heading,
     scrolledUnderElevation: 0,
-    leadingWidth: 58,
+    leadingWidth: 54,
     leading: showBack
         ? Padding(
             padding: const EdgeInsets.only(left: 10),
@@ -27,7 +27,7 @@ PreferredSizeWidget appointmentAppBar(
     title: Text(
       title,
       style: const TextStyle(
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: FontWeight.w800,
         color: AppTheme.heading,
       ),
@@ -55,7 +55,7 @@ class AppointmentSectionLabel extends StatelessWidget {
   Widget build(BuildContext context) => Text(
     label,
     style: const TextStyle(
-      fontSize: 15,
+      fontSize: 13,
       fontWeight: FontWeight.w700,
       color: Color(0xFF687886),
     ),
@@ -90,7 +90,7 @@ class AppointmentProgress extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: FontWeight.w700,
             color: AppTheme.muted,
           ),
@@ -115,7 +115,7 @@ class AppointmentBottomButton extends StatelessWidget {
     padding: EdgeInsets.fromLTRB(margin, 12, margin, 16),
     child: SizedBox(
       width: double.infinity,
-      height: 58,
+      height: 50,
       child: ElevatedButton(
         onPressed: onTap,
         style: ElevatedButton.styleFrom(
@@ -128,7 +128,7 @@ class AppointmentBottomButton extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
       ),
     ),

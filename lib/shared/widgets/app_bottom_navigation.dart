@@ -29,7 +29,7 @@ class AppBottomNavigation extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 72,
+          height: 68,
           child: Row(
             children: List.generate(items.length, (index) {
               final selected = selectedIndex == index;
@@ -43,7 +43,7 @@ class AppBottomNavigation extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(item.icon, size: 21, color: color),
+                      Icon(item.icon, size: 20, color: color),
                       const SizedBox(height: 5),
                       Text(
                         item.label,

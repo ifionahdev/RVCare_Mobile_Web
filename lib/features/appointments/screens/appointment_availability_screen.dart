@@ -82,7 +82,7 @@ class _AppointmentAvailabilityScreenState
                             child: Text(
                               'November 2026',
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: 16,
                                 fontWeight: FontWeight.w800,
                                 color: AppTheme.heading,
                               ),
@@ -100,7 +100,7 @@ class _AppointmentAvailabilityScreenState
                     ),
                     const SizedBox(height: 14),
                     Container(
-                      height: 92,
+                      height: 82,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(color: AppTheme.border),
@@ -161,7 +161,7 @@ class _AppointmentAvailabilityScreenState
                           onTap: () => setState(() => _vet = vet.$1),
                           borderRadius: BorderRadius.circular(18),
                           child: Container(
-                            height: 82,
+                            height: 72,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(18),
@@ -175,7 +175,7 @@ class _AppointmentAvailabilityScreenState
                             child: Row(
                               children: [
                                 CircleAvatar(
-                                  radius: 23,
+                                  radius: 21,
                                   backgroundColor: selected
                                       ? const Color(0xFFDBF5F8)
                                       : const Color(0xFFF0F1F2),
@@ -204,7 +204,7 @@ class _AppointmentAvailabilityScreenState
                                       Text(
                                         vet.$1,
                                         style: const TextStyle(
-                                          fontSize: 16,
+                                          fontSize: 15,
                                           fontWeight: FontWeight.w800,
                                           color: AppTheme.heading,
                                         ),
@@ -256,7 +256,7 @@ class _AppointmentAvailabilityScreenState
                         final selected = _time == slot.$1;
                         return SizedBox(
                           width: (MediaQuery.sizeOf(context).width - 50) / 2,
-                          height: 52,
+                          height: 46,
                           child: OutlinedButton(
                             onPressed: slot.$2
                                 ? () => setState(() => _time = slot.$1)
@@ -279,7 +279,7 @@ class _AppointmentAvailabilityScreenState
                             child: Text(
                               slot.$1,
                               style: const TextStyle(
-                                fontSize: 16,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),

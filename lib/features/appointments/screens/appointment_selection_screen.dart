@@ -178,7 +178,7 @@ class _AppointmentSelectionScreenState
                       onTap: _selectPet,
                       borderRadius: BorderRadius.circular(18),
                       child: Container(
-                        height: 82,
+                        height: 72,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(18),
@@ -187,8 +187,8 @@ class _AppointmentSelectionScreenState
                         child: Row(
                           children: [
                             Container(
-                              width: 50,
-                              height: 50,
+                              width: 44,
+                              height: 44,
                               decoration: const BoxDecoration(
                                 color: Color(0xFFF0F1F2),
                                 shape: BoxShape.circle,
@@ -207,7 +207,7 @@ class _AppointmentSelectionScreenState
                                   Text(
                                     _pet,
                                     style: const TextStyle(
-                                      fontSize: 19,
+                                      fontSize: 17,
                                       fontWeight: FontWeight.w800,
                                       color: AppTheme.heading,
                                     ),
@@ -241,7 +241,7 @@ class _AppointmentSelectionScreenState
                             crossAxisCount: 2,
                             mainAxisSpacing: 14,
                             crossAxisSpacing: 14,
-                            mainAxisExtent: 205,
+                            mainAxisExtent: 178,
                           ),
                       itemCount: _procedures.length,
                       itemBuilder: (_, index) {
@@ -251,7 +251,7 @@ class _AppointmentSelectionScreenState
                           onTap: () => setState(() => _procedure = item.$1),
                           borderRadius: BorderRadius.circular(24),
                           child: Container(
-                            padding: const EdgeInsets.all(18),
+                            padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(24),
@@ -266,8 +266,8 @@ class _AppointmentSelectionScreenState
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Container(
-                                  width: 58,
-                                  height: 58,
+                                  width: 50,
+                                  height: 50,
                                   decoration: BoxDecoration(
                                     color: selected
                                         ? const Color(0xFF62D4EA)
@@ -276,15 +276,15 @@ class _AppointmentSelectionScreenState
                                   ),
                                   child: Icon(
                                     item.$3,
-                                    size: 28,
+                                    size: 24,
                                     color: AppTheme.heading,
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 12),
                                 Text(
                                   item.$1,
                                   style: const TextStyle(
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w800,
                                     color: AppTheme.heading,
                                   ),
@@ -293,7 +293,7 @@ class _AppointmentSelectionScreenState
                                 Text(
                                   item.$2,
                                   style: const TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     height: 1.25,
                                     color: AppTheme.muted,
                                   ),
