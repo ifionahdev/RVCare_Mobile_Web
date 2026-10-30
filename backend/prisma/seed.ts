@@ -15,9 +15,9 @@ const prisma = new PrismaClient({ adapter });
 
 // 1) Roles. Add new roles here.
 const ROLES = [
-  { role_slug: "admin", role_name: "Administrator" },
-  { role_slug: "vet", role_name: "Veterinarian" },
-  { role_slug: "customer", role_name: "Pet Owner" },
+  { roleSlug: "admin", roleName: "Administrator" },
+  { roleSlug: "vet", roleName: "Veterinarian" },
+  { roleSlug: "customer", roleName: "Pet Owner" },
 ];
 
 // 2) Test accounts (dev only). username = email.
@@ -25,22 +25,22 @@ const TEST_ACCOUNTS = [
   {
     username: "markmapili29@gmail.com",
     password: "AdminPass123!",
-    first_name: "System",
-    last_name: "Admin",
+    firstName: "System",
+    lastName: "Admin",
     role: "admin",
   },
   {
     username: "vet@gmail.com",
     password: "VetPass123!",
-    first_name: "Test",
-    last_name: "Veterinarian",
+    firstName: "Test",
+    lastName: "Veterinarian",
     role: "vet",
   },
   {
     username: "markmapili2004@gmail.com",
     password: "CustomerPass123!",
-    first_name: "Test",
-    last_name: "Customer",
+    firstName: "Test",
+    lastName: "Customer",
     role: "customer",
   },
 ];
@@ -49,7 +49,7 @@ async function main() {
   // Roles first (accounts need them). upsert = skip if it already exists.
   for (const r of ROLES) {
     await prisma.role.upsert({
-      where: { role_slug: r.role_slug },
+      where: { roleSlug: r.roleSlug },
       update: {},
       create: r,
     });
@@ -58,7 +58,7 @@ async function main() {
   // Accounts, then each account's profile row.
   for (const a of TEST_ACCOUNTS) {
     const role = await prisma.role.findUniqueOrThrow({
-      where: { role_slug: a.role },
+      where: { roleSlug: a.role },
     });
 
     const account = await prisma.account.upsert({
@@ -67,16 +67,16 @@ async function main() {
       create: {
         username: a.username,
         password: await bcrypt.hash(a.password, 10),
-        first_name: a.first_name,
-        last_name: a.last_name,
-        role_id: role.role_id,
+        firstName: a.firstName,
+        lastName: a.lastName,
+        roleId: role.roleId,
       },
     });
 
     const profile = {
-      where: { account_id: account.account_id },
+      where: { accountId: account.accountId },
       update: {},
-      create: { account_id: account.account_id },
+      create: { accountId: account.accountId },
     };
     if (a.role === "admin") await prisma.admin.upsert(profile);
     if (a.role === "vet") await prisma.veterinarian.upsert(profile);
