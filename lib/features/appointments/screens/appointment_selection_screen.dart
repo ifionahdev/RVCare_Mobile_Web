@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../data/appointment_service.dart';
 import '../../../core/theme/app_theme.dart';
 import 'appointment_availability_screen.dart';
 import '../widgets/appointment_widgets.dart';
@@ -16,11 +18,40 @@ class _AppointmentSelectionScreenState
     extends State<AppointmentSelectionScreen> {
   String _pet = 'Luna';
   String _procedure = 'Checkup';
+  List<AppointmentPet> _pets = const [];
+  List<AppointmentServiceOption> _services = const [];
+  Object? _loadError;
+  bool _isLoading = true;
 
-  static const _pets = [
-    ('Luna', 'Golden Retriever', '2 yrs, 4 mos'),
-    ('Milo', 'British Shorthair', '3 yrs, 1 mo'),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadSelectionData();
+  }
+
+  Future<void> _loadSelectionData() async {
+    try {
+      final service = context.read<AppointmentService>();
+      final results = await Future.wait([
+        service.fetchUserPets(),
+        service.fetchServices(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _pets = results[0] as List<AppointmentPet>;
+        _services = results[1] as List<AppointmentServiceOption>;
+        _isLoading = false;
+        if (_pets.isNotEmpty) _pet = _pets.first.name;
+        if (_services.isNotEmpty) _procedure = _services.first.name;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error;
+        _isLoading = false;
+      });
+    }
+  }
 
   Future<void> _selectPet() async {
     final selected = await showModalBottomSheet<String>(
@@ -60,11 +91,11 @@ class _AppointmentSelectionScreenState
                 ),
                 const SizedBox(height: 16),
                 ..._pets.map((pet) {
-                  final isSelected = _pet == pet.$1;
+                  final isSelected = _pet == pet.name;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: InkWell(
-                      onTap: () => Navigator.pop(sheetContext, pet.$1),
+                      onTap: () => Navigator.pop(sheetContext, pet.name),
                       borderRadius: BorderRadius.circular(18),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -86,7 +117,7 @@ class _AppointmentSelectionScreenState
                               radius: 25,
                               backgroundColor: const Color(0xFFF0F1F2),
                               child: Icon(
-                                pet.$1 == 'Luna'
+                                pet.name == 'Luna'
                                     ? Icons.pets
                                     : Icons.cruelty_free_outlined,
                                 color: AppTheme.primaryDark,
@@ -98,7 +129,7 @@ class _AppointmentSelectionScreenState
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    pet.$1,
+                                    pet.name,
                                     style: const TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w800,
@@ -107,7 +138,7 @@ class _AppointmentSelectionScreenState
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
-                                    '${pet.$2} · ${pet.$3}',
+                                    pet.breed,
                                     style: const TextStyle(
                                       fontSize: 13,
                                       color: AppTheme.muted,
@@ -144,12 +175,28 @@ class _AppointmentSelectionScreenState
     }
   }
 
-  static const _procedures = [
-    ('Checkup', 'Routine health\nscreening', Icons.medical_services_outlined),
-    ('Vaccination', 'Scheduled\nimmunizations', Icons.shield_outlined),
-    ('Surgery', 'Specialist procedures', Icons.add_box_outlined),
-    ('Grooming', 'Nails, coat & bath style', Icons.content_cut_outlined),
-  ];
+  IconData _serviceIcon(String name) {
+    final normalized = name.toLowerCase();
+    if (normalized.contains('vacc')) return Icons.shield_outlined;
+    if (normalized.contains('surg')) return Icons.add_box_outlined;
+    if (normalized.contains('groom')) return Icons.content_cut_outlined;
+    return Icons.medical_services_outlined;
+  }
+
+  String _serviceDescription(String name) {
+    final normalized = name.toLowerCase();
+    if (normalized.contains('vacc')) return 'Scheduled immunizations';
+    if (normalized.contains('surg')) return 'Specialist procedures';
+    if (normalized.contains('groom')) return 'Nails, coat & bath style';
+    return 'Routine health screening';
+  }
+
+  AppointmentPet? get _selectedPet {
+    for (final pet in _pets) {
+      if (pet.name == _pet) return pet;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -212,9 +259,9 @@ class _AppointmentSelectionScreenState
                                       color: AppTheme.heading,
                                     ),
                                   ),
-                                  const Text(
-                                    'Golden Retriever · 2 yrs, 4 mos',
-                                    style: TextStyle(
+                                  Text(
+                                    _selectedPet?.breed ?? '',
+                                    style: const TextStyle(
                                       fontSize: 13,
                                       color: AppTheme.muted,
                                     ),
@@ -233,92 +280,100 @@ class _AppointmentSelectionScreenState
                     const SizedBox(height: 26),
                     const AppointmentSectionLabel('SELECT PROCEDURE TYPE'),
                     const SizedBox(height: 16),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 14,
-                            crossAxisSpacing: 14,
-                            mainAxisExtent: 178,
-                          ),
-                      itemCount: _procedures.length,
-                      itemBuilder: (_, index) {
-                        final item = _procedures[index];
-                        final selected = _procedure == item.$1;
-                        return InkWell(
-                          onTap: () => setState(() => _procedure = item.$1),
-                          borderRadius: BorderRadius.circular(24),
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: selected
-                                    ? const Color(0xFF55D6E5)
-                                    : AppTheme.border,
-                                width: selected ? 3 : 1,
+                    if (_loadError != null)
+                      const Text(
+                        'Unable to load pets and services. Please try again.',
+                        style: TextStyle(color: AppTheme.muted),
+                      )
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              mainAxisSpacing: 14,
+                              crossAxisSpacing: 14,
+                              mainAxisExtent: 178,
+                            ),
+                        itemCount: _services.length,
+                        itemBuilder: (_, index) {
+                          final item = _services[index];
+                          final selected = _procedure == item.name;
+                          return InkWell(
+                            onTap: () => setState(() => _procedure = item.name),
+                            borderRadius: BorderRadius.circular(24),
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: selected
+                                      ? const Color(0xFF55D6E5)
+                                      : AppTheme.border,
+                                  width: selected ? 3 : 1,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 50,
+                                    height: 50,
+                                    decoration: BoxDecoration(
+                                      color: selected
+                                          ? const Color(0xFF62D4EA)
+                                          : const Color(0xFFF0F1F2),
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                    child: Icon(
+                                      _serviceIcon(item.name),
+                                      size: 24,
+                                      color: AppTheme.heading,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    item.name,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.heading,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _serviceDescription(item.name),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      height: 1.25,
+                                      color: AppTheme.muted,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 50,
-                                  height: 50,
-                                  decoration: BoxDecoration(
-                                    color: selected
-                                        ? const Color(0xFF62D4EA)
-                                        : const Color(0xFFF0F1F2),
-                                    borderRadius: BorderRadius.circular(18),
-                                  ),
-                                  child: Icon(
-                                    item.$3,
-                                    size: 24,
-                                    color: AppTheme.heading,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  item.$1,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppTheme.heading,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  item.$2,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    height: 1.25,
-                                    color: AppTheme.muted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      ),
                   ],
                 ),
               ),
             ),
             AppointmentBottomButton(
               label: 'Next',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => AppointmentAvailabilityScreen(
-                    pet: _pet,
-                    procedure: _procedure,
-                  ),
-                ),
-              ),
+              onTap: _isLoading || _loadError != null
+                  ? null
+                  : () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => AppointmentAvailabilityScreen(
+                          pet: _pet,
+                          procedure: _procedure,
+                        ),
+                      ),
+                    ),
             ),
           ],
         ),

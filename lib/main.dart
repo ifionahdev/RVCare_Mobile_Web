@@ -5,9 +5,10 @@ import 'app.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import 'core/api_client.dart';
+import 'core/network/api_client.dart';
 import 'features/auth/services/auth_service.dart';
 import 'features/auth/providers/auth_provider.dart';
+import 'features/appointments/data/appointment_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,8 +20,13 @@ void main() {
   final authService = AuthService(apiClient: apiClient, storage: storage);
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AuthProvider(authService)..bootstrap(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => AuthProvider(authService)..bootstrap(),
+        ),
+        Provider(create: (_) => AppointmentService(apiClient)),
+      ],
       child: const RaphaCareApp(),
     ),
   );

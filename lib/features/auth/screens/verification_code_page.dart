@@ -4,7 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/constants.dart';
+import '../../../core/network/constants.dart';
 import '../../../core/theme/app_theme.dart';
 import 'reset_password_page.dart';
 

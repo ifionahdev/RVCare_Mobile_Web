@@ -5,6 +5,10 @@ import helmet from "helmet";
 import cors from "cors";
 import authRoutes from "./src/routes/authRoutes.js";
 import passwordResetRoutes from "./src/routes/passwordResetRoutes.js";
+import petRoutes from "./src/routes/petRoutes.js";
+import serviceRoutes from "./src/routes/serviceRoute.js";
+import availabilityRoutes from "./src/routes/availabilityRoute.js";
+import vetRoutes from "./src/routes/vetRoute.js";
 
 const app = express();
 
@@ -60,6 +64,14 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", passwordResetRoutes);
 
 app.use("/api/auth", authRoutes);
+
+app.use("/api/pets", petRoutes);
+
+app.use("/api/services", serviceRoutes);
+
+app.use("/api/availability", availabilityRoutes);
+
+app.use("/api/vets", vetRoutes);
 
 app.use((error, req, res, next) => {
   console.error(

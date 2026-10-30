@@ -25,7 +25,10 @@
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.24.6",
     "nodemailer": "^10.1.7",
-    "tsx": "^4.23.15",
-    "prisma": "^7.10.1"
+    "prisma": "^7.10.1",
+    "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6"
   }
 }

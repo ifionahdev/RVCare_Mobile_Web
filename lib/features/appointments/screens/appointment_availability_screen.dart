@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../data/appointment_service.dart';
 import '../widgets/appointment_widgets.dart';
 import 'appointment_summary_screen.dart';
 
@@ -22,8 +24,12 @@ class AppointmentAvailabilityScreen extends StatefulWidget {
 class _AppointmentAvailabilityScreenState
     extends State<AppointmentAvailabilityScreen> {
   String _vet = 'Any available vet';
-  String _time = '10:00 AM';
+  int? _vetId;
+  String? _time;
   int _dateIndex = 2;
+  List<AppointmentTimeslot> _slots = const [];
+  Object? _availabilityError;
+  bool _isLoadingAvailability = false;
 
   static const _dates = [
     ('Mon', '2'),
@@ -33,18 +39,143 @@ class _AppointmentAvailabilityScreenState
     ('Fri', '6'),
     ('Sat', '7'),
   ];
-  static const _vets = [
-    ('Any available vet', 'Fastest · we assign the first open vet'),
-    ('Dr. Rachel Carter', '2 open slots on Nov 4'),
-    ('Dr. Alan Mercer', '1 open slot on Nov 4'),
-  ];
-  static const _slots = [
-    ('09:00 AM', false),
-    ('10:00 AM', true),
-    ('11:00 AM', true),
-    ('02:00 PM', false),
-    ('03:00 PM', true),
-  ];
+  List<AppointmentVeterinarian> _vets = const [];
+  DateTime get _selectedDate => DateTime(2026, 11, _dateIndex + 2);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadVeterinarians();
+    });
+  }
+
+  Future<void> _loadVeterinarians() async {
+    try {
+      final vets = await context
+          .read<AppointmentService>()
+          .fetchVeterinarians();
+      if (!mounted) return;
+      setState(() => _vets = vets);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _availabilityError = error);
+    } finally {
+      if (mounted) _loadAvailability();
+    }
+  }
+
+  Future<void> _loadAvailability() async {
+    setState(() {
+      _isLoadingAvailability = true;
+      _availabilityError = null;
+      _time = null;
+    });
+
+    try {
+      final slots = await context.read<AppointmentService>().fetchAvailability(
+        date: _selectedDate,
+        vetId: _vetId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _slots = slots;
+        _isLoadingAvailability = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _availabilityError = error;
+        _isLoadingAvailability = false;
+      });
+    }
+  }
+
+  Widget _buildAnyVetOption() {
+    final selected = _vetId == null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _vet = 'Any available vet';
+            _vetId = null;
+          });
+          _loadAvailability();
+        },
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          height: 72,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: selected ? const Color(0xFF55D6E5) : AppTheme.border,
+              width: selected ? 3 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 21,
+                backgroundColor: selected
+                    ? const Color(0xFFDBF5F8)
+                    : const Color(0xFFF0F1F2),
+                child: const Text(
+                  'Any',
+                  style: TextStyle(
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Any available vet',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.heading,
+                      ),
+                    ),
+                    Text(
+                      'Fastest · we assign the first open vet',
+                      style: TextStyle(fontSize: 12, color: AppTheme.muted),
+                    ),
+                  ],
+                ),
+              ),
+              _buildSelectionIndicator(selected),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectionIndicator(bool selected) {
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: selected ? AppTheme.primary : const Color(0xFF9CA9B5),
+          width: 2,
+        ),
+      ),
+      child: selected
+          ? const Center(
+              child: CircleAvatar(radius: 6, backgroundColor: AppTheme.primary),
+            )
+          : null,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -110,7 +241,10 @@ class _AppointmentAvailabilityScreenState
                           final selected = index == _dateIndex;
                           return Expanded(
                             child: InkWell(
-                              onTap: () => setState(() => _dateIndex = index),
+                              onTap: () {
+                                setState(() => _dateIndex = index);
+                                _loadAvailability();
+                              },
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -153,12 +287,19 @@ class _AppointmentAvailabilityScreenState
                     const SizedBox(height: 24),
                     const AppointmentSectionLabel('PREFERRED VET'),
                     const SizedBox(height: 14),
+                    _buildAnyVetOption(),
                     ..._vets.map((vet) {
-                      final selected = _vet == vet.$1;
+                      final selected = _vetId == vet.vetId;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: InkWell(
-                          onTap: () => setState(() => _vet = vet.$1),
+                          onTap: () {
+                            setState(() {
+                              _vet = vet.name;
+                              _vetId = vet.vetId;
+                            });
+                            _loadAvailability();
+                          },
                           borderRadius: BorderRadius.circular(18),
                           child: Container(
                             height: 72,
@@ -180,14 +321,12 @@ class _AppointmentAvailabilityScreenState
                                       ? const Color(0xFFDBF5F8)
                                       : const Color(0xFFF0F1F2),
                                   child: Text(
-                                    vet.$1 == 'Any available vet'
-                                        ? 'Any'
-                                        : vet.$1
-                                              .split(' ')
-                                              .skip(1)
-                                              .map((e) => e[0])
-                                              .take(2)
-                                              .join(),
+                                    vet.name
+                                        .split(' ')
+                                        .skip(1)
+                                        .map((e) => e[0])
+                                        .take(2)
+                                        .join(),
                                     style: const TextStyle(
                                       color: AppTheme.primary,
                                       fontWeight: FontWeight.w800,
@@ -202,16 +341,16 @@ class _AppointmentAvailabilityScreenState
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        vet.$1,
+                                        vet.name,
                                         style: const TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w800,
                                           color: AppTheme.heading,
                                         ),
                                       ),
-                                      Text(
-                                        vet.$2,
-                                        style: const TextStyle(
+                                      const Text(
+                                        'Select a specific veterinarian',
+                                        style: TextStyle(
                                           fontSize: 12,
                                           color: AppTheme.muted,
                                         ),
@@ -249,44 +388,64 @@ class _AppointmentAvailabilityScreenState
                     const SizedBox(height: 12),
                     const AppointmentSectionLabel('TIME SLOTS · ANY VET'),
                     const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: _slots.map((slot) {
-                        final selected = _time == slot.$1;
-                        return SizedBox(
-                          width: (MediaQuery.sizeOf(context).width - 50) / 2,
-                          height: 46,
-                          child: OutlinedButton(
-                            onPressed: slot.$2
-                                ? () => setState(() => _time = slot.$1)
-                                : null,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: selected
-                                  ? AppTheme.primary
-                                  : AppTheme.heading,
-                              disabledForegroundColor: const Color(0xFFBFC8CC),
-                              side: BorderSide(
-                                color: selected
-                                    ? AppTheme.primary
-                                    : AppTheme.border,
-                                width: selected ? 2 : 1,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
+                    if (_isLoadingAvailability)
+                      const Center(child: CircularProgressIndicator())
+                    else if (_availabilityError != null)
+                      Row(
+                        children: [
+                          const Expanded(
                             child: Text(
-                              slot.$1,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                              ),
+                              'Unable to load available times.',
+                              style: TextStyle(color: AppTheme.muted),
                             ),
                           ),
-                        );
-                      }).toList(),
-                    ),
+                          TextButton(
+                            onPressed: _loadAvailability,
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      )
+                    else
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: _slots.map((slot) {
+                          final selected = _time == slot.display;
+                          return SizedBox(
+                            width: (MediaQuery.sizeOf(context).width - 50) / 2,
+                            height: 46,
+                            child: OutlinedButton(
+                              onPressed: slot.isBooked
+                                  ? null
+                                  : () => setState(() => _time = slot.display),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: selected
+                                    ? AppTheme.primary
+                                    : AppTheme.heading,
+                                disabledForegroundColor: const Color(
+                                  0xFFBFC8CC,
+                                ),
+                                side: BorderSide(
+                                  color: selected
+                                      ? AppTheme.primary
+                                      : AppTheme.border,
+                                  width: selected ? 2 : 1,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: Text(
+                                slot.display,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     const SizedBox(height: 14),
                     const Text(
                       'Greyed slots have no vet free. The assigned vet appears in your booking details.',
@@ -302,21 +461,23 @@ class _AppointmentAvailabilityScreenState
             ),
             AppointmentBottomButton(
               label: 'Book Now',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => AppointmentSummaryScreen(
-                    pet: widget.pet,
-                    procedure: widget.procedure,
-                    veterinarian: _vet == 'Any available vet'
-                        ? 'Dr. Rachel Carter'
-                        : _vet,
-                    time: _time,
-                    date:
-                        '${_dates[_dateIndex].$1}, Nov ${_dates[_dateIndex].$2}',
-                  ),
-                ),
-              ),
+              onTap: _time == null
+                  ? null
+                  : () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => AppointmentSummaryScreen(
+                          pet: widget.pet,
+                          procedure: widget.procedure,
+                          veterinarian: _vet == 'Any available vet'
+                              ? 'Dr. Rachel Carter'
+                              : _vet,
+                          time: _time!,
+                          date:
+                              '${_dates[_dateIndex].$1}, Nov ${_dates[_dateIndex].$2}',
+                        ),
+                      ),
+                    ),
               margin: 20,
             ),
           ],

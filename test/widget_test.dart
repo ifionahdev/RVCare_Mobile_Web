@@ -3,7 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 
 import 'package:rvcare/app.dart';
-import 'package:rvcare/core/api_client.dart';
+import 'package:rvcare/core/network/api_client.dart';
 import 'package:rvcare/features/auth/providers/auth_provider.dart';
 import 'package:rvcare/features/auth/services/auth_service.dart';
 

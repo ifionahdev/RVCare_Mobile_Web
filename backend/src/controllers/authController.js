@@ -17,6 +17,11 @@ const allowedPlatforms = {
   web: ["admin", "vet"],
   mobile: ["customer"],
 };
+const profiles = {
+  admin: { resultKey: "adminId" },
+  vet: { resultKey: "vetId" },
+  customer: { resultKey: "customerId" },
+};
 
 const publicUser = (account, role, profileId) => {
   const profile = profiles[role];

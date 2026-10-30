@@ -68,21 +68,19 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Frontend prototype login: valid sample credentials enter the app
-      // without making a request to the backend. Backend authentication can
-      // replace this local check when integration is enabled later.
-      final email = username.trim().toLowerCase();
-      if (!email.contains('@') || password.length < 6) {
-        _status = AuthStatus.unauthenticated;
-        _user = null;
-        _error =
-            'Enter a valid email and a password with at least 6 characters.';
-        return false;
-      }
-
-      _user = {'name': 'Sarah', 'email': email, 'role': 'customer'};
+      _user = await _service.login(username, password);
       _status = AuthStatus.authenticated;
       return true;
+    } on DioException catch (error) {
+      _status = AuthStatus.unauthenticated;
+      _user = null;
+      _error = AuthService.readableError(error);
+      return false;
+    } catch (error) {
+      _status = AuthStatus.unauthenticated;
+      _user = null;
+      _error = error.toString().replaceFirst('Exception: ', '');
+      return false;
     } finally {
       _isLoading = false;
       notifyListeners();

@@ -20,6 +20,6 @@ try {
     console.log(`RaphaCare API listening on port ${port}`);
   });
 } catch (error) {
-  console.error("Failed to start RaphaCare API:", error.message);
+  console.error("Failed to start RaphaCare API:", error, error.message);
   process.exit(1);
 }

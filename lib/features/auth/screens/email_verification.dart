@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/constants.dart';
+import '../../../core/network/constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/auth_text_field.dart';
 import 'verification_code_page.dart';
