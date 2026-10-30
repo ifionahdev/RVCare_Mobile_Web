@@ -1,5 +1,5 @@
-
 import 'package:flutter/material.dart';
+
 import 'app.dart';
 
 import 'package:provider/provider.dart';
@@ -16,10 +16,7 @@ void main() {
 
   final apiClient = ApiClient(storage);
 
-  final authService = AuthService(
-    apiClient: apiClient,
-    storage: storage,
-  );
+  final authService = AuthService(apiClient: apiClient, storage: storage);
 
   runApp(
     ChangeNotifierProvider(

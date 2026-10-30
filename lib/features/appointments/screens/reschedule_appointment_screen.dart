@@ -180,16 +180,18 @@ class _RescheduleAppointmentScreenState
         children: [
           Material(
             color: Colors.white,
-            shape: const CircleBorder(
-              side: BorderSide(color: AppTheme.border),
-            ),
+            shape: const CircleBorder(side: BorderSide(color: AppTheme.border)),
             child: InkWell(
               customBorder: const CircleBorder(),
               onTap: () => Navigator.maybePop(context),
               child: const SizedBox(
                 width: 40,
                 height: 40,
-                child: Icon(Icons.arrow_back, size: 20, color: AppTheme.heading),
+                child: Icon(
+                  Icons.arrow_back,
+                  size: 20,
+                  color: AppTheme.heading,
+                ),
               ),
             ),
           ),
@@ -386,7 +388,9 @@ class _RescheduleAppointmentScreenState
           height: 44,
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
-            onTap: unavailable ? null : () => setState(() => _selectedTime = time),
+            onTap: unavailable
+                ? null
+                : () => setState(() => _selectedTime = time),
             child: Container(
               alignment: Alignment.center,
               decoration: BoxDecoration(
@@ -407,8 +411,7 @@ class _RescheduleAppointmentScreenState
                   color: unavailable
                       ? _disabledText
                       : (selected ? AppTheme.primaryDark : AppTheme.heading),
-                  decoration:
-                      unavailable ? TextDecoration.lineThrough : null,
+                  decoration: unavailable ? TextDecoration.lineThrough : null,
                   decorationColor: _disabledText,
                 ),
               ),
@@ -474,13 +477,10 @@ class _RescheduleAppointmentScreenState
 }
 
 class _DashedRRectPainter extends CustomPainter {
-  const _DashedRRectPainter({
-    required this.color,
-    required this.radius,
-    this.dashLength = 4,
-    this.gapLength = 3,
-    this.strokeWidth = 1.2,
-  });
+  const _DashedRRectPainter({required this.color, required this.radius})
+    : dashLength = 4,
+      gapLength = 3,
+      strokeWidth = 1.2;
 
   final Color color;
   final double radius;

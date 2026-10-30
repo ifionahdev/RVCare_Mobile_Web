@@ -83,8 +83,8 @@ class _ManagePetProfileScreenState extends State<ManagePetProfileScreen> {
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  width: 120,
-                  height: 120,
+                  width: 96,
+                  height: 96,
                   decoration: BoxDecoration(
                     color: const Color(0xFFF0F6F7),
                     shape: BoxShape.circle,
@@ -123,7 +123,7 @@ class _ManagePetProfileScreenState extends State<ManagePetProfileScreen> {
             pet.name,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 24,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
               color: AppTheme.heading,
             ),

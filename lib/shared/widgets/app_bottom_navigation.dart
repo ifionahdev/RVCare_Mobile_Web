@@ -43,7 +43,19 @@ class AppBottomNavigation extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(item.icon, size: 20, color: color),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        width: 54,
+                        height: 34,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? const Color(0xFFE0F2F4)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Icon(item.icon, size: 20, color: color),
+                      ),
                       const SizedBox(height: 5),
                       Text(
                         item.label,

@@ -1,36 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../appointments/screens/book_appointment_flow.dart';
-import '../../appointments/screens/my_appointments_screen.dart';
 import '../../pets/screens/manage_pet_profile_screen.dart';
 import '../../pets/screens/my_pets_screen.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.onNavigate});
+
+  final ValueChanged<int>? onNavigate;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  int _selectedTab = 0;
-
   static const Color _teal = Color(0xFF068A98);
   void _openBooking() {
     Navigator.push<void>(
       context,
       MaterialPageRoute<void>(builder: (_) => const BookAppointmentFlow()),
-    );
-  }
-
-  void _openAppointments() {
-    Navigator.push<void>(
-      context,
-      MaterialPageRoute<void>(
-        builder: (_) => const MyAppointmentsScreen(),
-      ),
     );
   }
 
@@ -107,29 +96,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: _selectedTab == 0 ? _buildHome() : _buildPlaceholder(),
-      bottomNavigationBar: AppBottomNavigation(
-        selectedIndex: _selectedTab,
-        items: const [
-          AppBottomNavItem(icon: Icons.home_outlined, label: 'Home'),
-          AppBottomNavItem(
-            icon: Icons.calendar_today_outlined,
-            label: 'Appointments',
-          ),
-          AppBottomNavItem(icon: Icons.description_outlined, label: 'Records'),
-          AppBottomNavItem(icon: Icons.menu_book_outlined, label: 'Pet Care'),
-        ],
-        onSelected: (index) {
-          if (index == 1) {
-            _openAppointments();
-            return;
-          }
-          setState(() => _selectedTab = index);
-        },
-      ),
-    );
+    return Scaffold(backgroundColor: Colors.white, body: _buildHome());
   }
 
   Widget _buildHome() {
@@ -208,7 +175,7 @@ class _HomePageState extends State<HomePage> {
                   child: _ActionCard(
                     icon: Icons.description_outlined,
                     title: 'Medical Records',
-                    onTap: () => setState(() => _selectedTab = 2),
+                    onTap: () => widget.onNavigate?.call(2),
                   ),
                 ),
               ],
@@ -229,7 +196,7 @@ class _HomePageState extends State<HomePage> {
                   child: _ActionCard(
                     icon: Icons.menu_book_outlined,
                     title: 'Pet Care Info',
-                    onTap: () => setState(() => _selectedTab = 3),
+                    onTap: () => widget.onNavigate?.call(3),
                   ),
                 ),
               ],
@@ -276,135 +243,6 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
-  }
-
-  Widget _buildPlaceholder() {
-    final labels = ['', 'My Appointments', 'Medical Records', 'Pet Care'];
-    final descriptions = [
-      '',
-      'Manage your upcoming and previous appointments.',
-      'View Luna’s visit history, prescriptions, and reports.',
-      'Helpful articles and daily care reminders for Luna.',
-    ];
-
-    return SafeArea(
-      top: true,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-        children: [
-          Text(
-            labels[_selectedTab],
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.heading,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            descriptions[_selectedTab],
-            style: const TextStyle(fontSize: 13, color: AppTheme.muted),
-          ),
-          const SizedBox(height: 18),
-          if (_selectedTab == 1)
-            ElevatedButton.icon(
-              onPressed: _openBooking,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Book new appointment'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _teal,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          if (_selectedTab == 1) const SizedBox(height: 16),
-          ..._buildTabCards(),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildTabCards() {
-    final cards = switch (_selectedTab) {
-      1 => const [
-          ('Wed, Nov 4 • 10:00 AM', 'Checkup for Luna', 'Confirmed'),
-          ('Tue, Dec 8 • 9:30 AM', 'Vaccination for Luna', 'Upcoming'),
-        ],
-      2 => const [
-          ('Checkup report', 'Nov 4, 2026 • Dr. Rachel Carter', 'Available'),
-          ('Blood test results', 'Oct 12, 2026 • Laboratory', '2 new'),
-        ],
-      3 => const [
-          ('Dental care', 'How often should you brush your pet’s teeth?', ''),
-          ('Nutrition guide', 'A balanced diet for your pet’s life stage.', ''),
-        ],
-      _ => const <(String, String, String)>[],
-    };
-
-    return [
-      for (var index = 0; index < cards.length; index++) ...[
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE1E4E7)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDBF5F8),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(
-                  _selectedTab == 1
-                      ? Icons.calendar_month_outlined
-                      : _selectedTab == 2
-                      ? Icons.description_outlined
-                      : Icons.menu_book_outlined,
-                  color: _teal,
-                  size: 21,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      cards[index].$1,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.heading,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      cards[index].$2,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        height: 1.3,
-                        color: AppTheme.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, size: 20, color: AppTheme.muted),
-            ],
-          ),
-        ),
-        if (index != cards.length - 1) const SizedBox(height: 12),
-      ],
-    ];
   }
 }
 

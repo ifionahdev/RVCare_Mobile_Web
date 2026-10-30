@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_page.dart';
-import 'features/home/screens/home_page.dart';
+import 'shared/widgets/app_shell.dart';
 
 class RaphaCareApp extends StatelessWidget {
   const RaphaCareApp({super.key});
@@ -15,9 +15,7 @@ class RaphaCareApp extends StatelessWidget {
       title: 'RaphaCare',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: AuthGate(
-        authenticatedBuilder: (_) => const HomePage(),
-      ),
+      home: AuthGate(authenticatedBuilder: (_) => const AppShell()),
     );
   }
 }
@@ -33,9 +31,7 @@ class AuthGate extends StatelessWidget {
 
     switch (auth.status) {
       case AuthStatus.unknown:
-        return const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        );
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
       case AuthStatus.authenticated:
         return authenticatedBuilder(context);
       case AuthStatus.unauthenticated:

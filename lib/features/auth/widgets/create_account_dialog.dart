@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/theme/app_theme.dart';
 
 class CreateAccountDialog extends StatelessWidget {
@@ -9,9 +10,7 @@ class CreateAccountDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.white,
       insetPadding: const EdgeInsets.all(20),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -20,9 +19,7 @@ class CreateAccountDialog extends StatelessWidget {
               height: 7,
               decoration: const BoxDecoration(
                 color: AppTheme.primary,
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
             ),
             Padding(
@@ -81,18 +78,13 @@ class CreateAccountDialog extends StatelessWidget {
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: const Color(0xFFEAF8FC),
-                      border: Border.all(
-                        color: const Color(0xFFB9E8F2),
-                      ),
+                      border: Border.all(color: const Color(0xFFB9E8F2)),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.info_outline,
-                          color: AppTheme.primaryDark,
-                        ),
+                        Icon(Icons.info_outline, color: AppTheme.primaryDark),
                         SizedBox(width: 10),
                         Expanded(
                           child: Column(
@@ -127,8 +119,7 @@ class CreateAccountDialog extends StatelessWidget {
                     icon: Icons.calendar_month_outlined,
                     color: Color(0xFF10A879),
                     title: 'Visit Our Clinic',
-                    description:
-                        'Book and complete any veterinary service.',
+                    description: 'Book and complete any veterinary service.',
                   ),
                   const SizedBox(height: 11),
                   const _RequirementStep(
@@ -156,12 +147,8 @@ class CreateAccountDialog extends StatelessWidget {
                           onPressed: () => Navigator.pop(context),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.heading,
-                            side: const BorderSide(
-                              color: AppTheme.border,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 13,
-                            ),
+                            side: const BorderSide(color: AppTheme.border),
+                            padding: const EdgeInsets.symmetric(vertical: 13),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -186,9 +173,7 @@ class CreateAccountDialog extends StatelessWidget {
                             backgroundColor: AppTheme.primary,
                             foregroundColor: AppTheme.heading,
                             elevation: 0,
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 13,
-                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 13),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),

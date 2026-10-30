@@ -73,10 +73,7 @@ class AppointmentDetailsScreen extends StatelessWidget {
             _buildTopBar(context),
             const SizedBox(height: 20),
             _buildHeroCard(isPast),
-            if (!isPast) ...[
-              const SizedBox(height: 12),
-              _buildReminder(),
-            ],
+            if (!isPast) ...[const SizedBox(height: 12), _buildReminder()],
             const SizedBox(height: 12),
             _buildDetailsCard(),
             if (!isPast) ...[
@@ -173,7 +170,7 @@ class AppointmentDetailsScreen extends StatelessWidget {
           Text(
             '$date · $time',
             style: const TextStyle(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
               height: 1.15,
               color: Colors.white,
@@ -283,11 +280,7 @@ class AppointmentDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _detailRow(
-    String label, {
-    String? valueText,
-    Widget? valueWidget,
-  }) {
+  Widget _detailRow(String label, {String? valueText, Widget? valueWidget}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
@@ -299,7 +292,8 @@ class AppointmentDetailsScreen extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Flexible(
-            child: valueWidget ??
+            child:
+                valueWidget ??
                 Text(
                   valueText ?? '',
                   textAlign: TextAlign.right,
@@ -324,11 +318,7 @@ class AppointmentDetailsScreen extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: fg,
-        ),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: fg),
       ),
     );
   }

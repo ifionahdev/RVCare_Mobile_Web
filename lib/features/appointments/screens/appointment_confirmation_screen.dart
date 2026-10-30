@@ -57,7 +57,7 @@ class AppointmentConfirmationScreen extends StatelessWidget {
                         ),
                         child: const Icon(
                           Icons.check_rounded,
-                          size: 46,
+                          size: 38,
                           color: Colors.white,
                         ),
                       ),
@@ -67,7 +67,7 @@ class AppointmentConfirmationScreen extends StatelessWidget {
                       'Booking Confirmed!',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: 24,
                         height: 1.05,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -1,

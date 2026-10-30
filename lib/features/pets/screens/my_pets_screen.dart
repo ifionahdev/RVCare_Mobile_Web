@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../appointments/screens/my_appointments_screen.dart';
+import '../../appointments/screens/book_appointment_flow.dart';
 import '../models/pet.dart';
 import 'manage_pet_profile_screen.dart';
 
@@ -164,7 +165,7 @@ class _PetListCard extends StatelessWidget {
                       Text(
                         pet.name,
                         style: const TextStyle(
-                          fontSize: 22,
+                          fontSize: 20,
                           height: 1.1,
                           fontWeight: FontWeight.w800,
                           color: AppTheme.heading,
@@ -250,7 +251,15 @@ class _PetListCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      if (hasAppointment) return;
+                      Navigator.push<void>(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const BookAppointmentFlow(),
+                        ),
+                      );
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF068A98),
                       foregroundColor: Colors.white,

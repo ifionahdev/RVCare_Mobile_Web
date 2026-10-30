@@ -40,10 +40,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(13),
-          borderSide: const BorderSide(
-            color: primaryDark,
-            width: 1.4,
-          ),
+          borderSide: const BorderSide(color: primaryDark, width: 1.4),
         ),
       ),
     );

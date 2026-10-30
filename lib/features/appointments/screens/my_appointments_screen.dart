@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import 'appointment_details_screen.dart';
+import 'book_appointment_flow.dart';
 
 class MyAppointmentsScreen extends StatefulWidget {
-  const MyAppointmentsScreen({super.key});
+  const MyAppointmentsScreen({super.key, this.showBottomNavigation = true});
+
+  final bool showBottomNavigation;
 
   @override
   State<MyAppointmentsScreen> createState() => _MyAppointmentsScreenState();
@@ -32,7 +35,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
               'My Appointments',
               style: TextStyle(
                 color: AppTheme.heading,
-                fontSize: 22,
+                fontSize: 20,
                 fontWeight: FontWeight.w800,
                 height: 1.15,
               ),
@@ -119,19 +122,27 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: AppBottomNavigation(
-        selectedIndex: 1,
-        items: const [
-          AppBottomNavItem(icon: Icons.home_outlined, label: 'Home'),
-          AppBottomNavItem(
-            icon: Icons.calendar_today_outlined,
-            label: 'Bookings',
-          ),
-          AppBottomNavItem(icon: Icons.description_outlined, label: 'Records'),
-          AppBottomNavItem(icon: Icons.menu_book_outlined, label: 'Pet Care'),
-        ],
-        onSelected: (index) => Navigator.pop(context),
-      ),
+      bottomNavigationBar: widget.showBottomNavigation
+          ? AppBottomNavigation(
+              selectedIndex: 1,
+              items: const [
+                AppBottomNavItem(icon: Icons.home_outlined, label: 'Home'),
+                AppBottomNavItem(
+                  icon: Icons.calendar_today_outlined,
+                  label: 'Bookings',
+                ),
+                AppBottomNavItem(
+                  icon: Icons.description_outlined,
+                  label: 'Records',
+                ),
+                AppBottomNavItem(
+                  icon: Icons.menu_book_outlined,
+                  label: 'Pet Care',
+                ),
+              ],
+              onSelected: (index) => Navigator.pop(context),
+            )
+          : null,
     );
   }
 
@@ -270,10 +281,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                 Expanded(
                   child: Text(
                     footerText,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.muted,
-                    ),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.muted),
                   ),
                 ),
                 const Text(
@@ -323,7 +331,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
           Text(
             dayNumber,
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
               height: 1.1,
               color: fg,
@@ -358,11 +366,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
       ),
       child: Text(
         status,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: fg,
-        ),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: fg),
       ),
     );
   }
@@ -427,7 +431,12 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
               height: 44,
               child: ElevatedButton(
                 onPressed: () {
-                  // TODO: navigate to the booking flow.
+                  Navigator.push<void>(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const BookAppointmentFlow(),
+                    ),
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryDark,
@@ -452,13 +461,10 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
 }
 
 class _DashedRRectPainter extends CustomPainter {
-  const _DashedRRectPainter({
-    required this.color,
-    required this.radius,
-    this.dashLength = 5,
-    this.gapLength = 4,
-    this.strokeWidth = 1.2,
-  });
+  const _DashedRRectPainter({required this.color, required this.radius})
+    : dashLength = 5,
+      gapLength = 4,
+      strokeWidth = 1.2;
 
   final Color color;
   final double radius;
@@ -475,10 +481,7 @@ class _DashedRRectPainter extends CustomPainter {
 
     final path = Path()
       ..addRRect(
-        RRect.fromRectAndRadius(
-          Offset.zero & size,
-          Radius.circular(radius),
-        ),
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
       );
 
     for (final metric in path.computeMetrics()) {

@@ -42,7 +42,7 @@ class AppointmentSummaryScreen extends StatelessWidget {
                     const Text(
                       'Review your appointment',
                       style: TextStyle(
-                        fontSize: 22,
+                        fontSize: 20,
                         fontWeight: FontWeight.w800,
                         color: AppTheme.heading,
                       ),
