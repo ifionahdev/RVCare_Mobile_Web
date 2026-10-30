@@ -1,14 +1,9 @@
-
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../services/auth_service.dart';
 
-enum AuthStatus {
-  unknown,
-  authenticated,
-  unauthenticated,
-}
+enum AuthStatus { unknown, authenticated, unauthenticated }
 
 class AuthProvider extends ChangeNotifier {
   AuthProvider(this._service);
@@ -25,8 +20,7 @@ class AuthProvider extends ChangeNotifier {
   String? get error => _error;
   bool get isLoading => _isLoading;
 
-  bool get isAuthenticated =>
-      _status == AuthStatus.authenticated;
+  bool get isAuthenticated => _status == AuthStatus.authenticated;
 
   Future<void> bootstrap() async {
     _status = AuthStatus.unknown;
@@ -60,10 +54,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> login(
-    String username,
-    String password,
-  ) async {
+  Future<bool> login(String username, String password) async {
     if (_isLoading) return false;
 
     if (username.trim().isEmpty || password.isEmpty) {
@@ -77,14 +68,21 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _user = await _service.login(username, password);
+      // Frontend prototype login: valid sample credentials enter the app
+      // without making a request to the backend. Backend authentication can
+      // replace this local check when integration is enabled later.
+      final email = username.trim().toLowerCase();
+      if (!email.contains('@') || password.length < 6) {
+        _status = AuthStatus.unauthenticated;
+        _user = null;
+        _error =
+            'Enter a valid email and a password with at least 6 characters.';
+        return false;
+      }
+
+      _user = {'name': 'Sarah', 'email': email, 'role': 'customer'};
       _status = AuthStatus.authenticated;
       return true;
-    } catch (error) {
-      _user = null;
-      _status = AuthStatus.unauthenticated;
-      _error = error.toString().replaceFirst('Exception: ', '');
-      return false;
     } finally {
       _isLoading = false;
       notifyListeners();

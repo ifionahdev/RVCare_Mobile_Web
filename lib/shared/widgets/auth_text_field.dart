@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_theme.dart';
 
 class AuthTextField extends StatefulWidget {
@@ -11,6 +12,7 @@ class AuthTextField extends StatefulWidget {
     this.password = false,
     this.enabled = true,
     this.textInputAction,
+    this.onChanged,
   });
 
   final String label;
@@ -20,6 +22,7 @@ class AuthTextField extends StatefulWidget {
   final bool password;
   final bool enabled;
   final TextInputAction? textInputAction;
+  final ValueChanged<String>? onChanged;
 
   @override
   State<AuthTextField> createState() => _AuthTextFieldState();
@@ -52,26 +55,22 @@ class _AuthTextFieldState extends State<AuthTextField> {
           textInputAction: widget.textInputAction,
           autocorrect: !widget.password,
           enableSuggestions: !widget.password,
+          onChanged: widget.onChanged,
           decoration: InputDecoration(
             hintText: widget.hint,
-            hintStyle: const TextStyle(
-              color: AppTheme.muted,
-              fontSize: 14,
-            ),
+            hintStyle: const TextStyle(color: AppTheme.muted, fontSize: 14),
             prefixIcon: Icon(
               widget.email
                   ? Icons.mail_outline
                   : widget.password
-                      ? Icons.lock_outline
-                      : Icons.person_outline,
+                  ? Icons.lock_outline
+                  : Icons.person_outline,
               color: AppTheme.muted,
               size: 21,
             ),
             suffixIcon: widget.password
                 ? IconButton(
-                    tooltip: _obscureText
-                        ? 'Show password'
-                        : 'Hide password',
+                    tooltip: _obscureText ? 'Show password' : 'Hide password',
                     onPressed: () {
                       setState(() {
                         _obscureText = !_obscureText;

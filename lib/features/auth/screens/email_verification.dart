@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/auth_text_field.dart';
-import 'reset_password_page.dart';
+import 'verification_code_page.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -18,18 +18,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   bool _loading = false;
 
-  final Dio _dio = Dio(
-    BaseOptions(
-      baseUrl: ApiConstants.baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
-    ),
-  );
-
   @override
   void dispose() {
     _emailController.dispose();
-    _dio.close();
     super.dispose();
   }
 
@@ -55,57 +46,30 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       _loading = true;
     });
 
-    debugPrint(
-      '[forgot-password] Sending request to ${ApiConstants.baseUrl}/auth/forgot-password',
-    );
-
     try {
-      await _dio.post(
+      final dio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl));
+      await dio.post(
         '/auth/forgot-password',
         data: {'email': email, 'platform': 'mobile'},
       );
-
-      debugPrint('[forgot-password] Backend accepted the request.');
-
+      dio.close();
       if (!mounted) return;
-
-      final resetCompleted = await Navigator.push<bool>(
+      setState(() => _loading = false);
+      await Navigator.push<void>(
         context,
-        MaterialPageRoute<bool>(
-          builder: (_) => ResetPasswordPage(email: email),
+        MaterialPageRoute<void>(
+          builder: (_) => VerificationCodePage(email: email),
         ),
       );
-
-      if (!mounted) return;
-
-      if (resetCompleted == true) {
-        Navigator.pop(context);
-      }
     } on DioException catch (error) {
-      debugPrint(
-        '[forgot-password] Request failed: type=${error.type}, '
-        'message=${error.message}, uri=${error.requestOptions.uri}, '
-        'status=${error.response?.statusCode}',
-      );
       if (!mounted) return;
-
+      setState(() => _loading = false);
       final data = error.response?.data;
-
-      final message = data is Map && data['message'] is String
-          ? data['message'] as String
-          : 'Unable to request a code. Please try again.';
-
-      _showMessage(message);
-    } catch (_) {
-      debugPrint('[forgot-password] Unexpected request failure.');
-      if (!mounted) return;
-      _showMessage('Something went wrong. Please try again.');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
+      _showMessage(
+        data is Map && data['message'] is String
+            ? data['message'] as String
+            : 'Unable to send the verification code. Please try again.',
+      );
     }
   }
 
@@ -119,7 +83,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           icon: const Icon(Icons.arrow_back),
         ),
         title: const Text(
-          'Forgot Password',
+          'Verify Email',
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
@@ -141,7 +105,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         borderRadius: BorderRadius.circular(23),
                       ),
                       child: const Icon(
-                        Icons.lock_reset_outlined,
+                        Icons.email_outlined,
                         color: AppTheme.primaryDark,
                         size: 38,
                       ),
@@ -149,7 +113,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   ),
                   const SizedBox(height: 25),
                   const Text(
-                    'Reset your password',
+                    'Verify your email',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 25,
@@ -183,8 +147,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     child: ElevatedButton(
                       onPressed: _loading ? null : _submitRequest,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                        foregroundColor: AppTheme.heading,
+                        backgroundColor: AppTheme.primaryDark,
+                        foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(13),

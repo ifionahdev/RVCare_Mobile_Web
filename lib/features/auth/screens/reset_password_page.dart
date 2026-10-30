@@ -1,202 +1,113 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/auth_text_field.dart';
+import 'password_updated_page.dart';
 
 class ResetPasswordPage extends StatefulWidget {
-  const ResetPasswordPage({super.key, required this.email});
-
+  const ResetPasswordPage({
+    super.key,
+    required this.email,
+    required this.verificationToken,
+  });
   final String email;
+  final String verificationToken;
 
   @override
   State<ResetPasswordPage> createState() => _ResetPasswordPageState();
 }
 
 class _ResetPasswordPageState extends State<ResetPasswordPage> {
-  final _otpController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-
   bool _loading = false;
-  bool _resending = false;
-  bool _verifying = false;
-  String? _verificationToken;
-
-  final Dio _dio = Dio(
-    BaseOptions(
-      baseUrl: ApiConstants.baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
-    ),
-  );
 
   @override
   void dispose() {
-    _otpController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _dio.close();
     super.dispose();
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
-    );
-  }
-
-  String _messageFromError(Object error, {required String fallback}) {
-    if (error is DioException) {
-      final data = error.response?.data;
-      if (data is Map && data['message'] is String) {
-        return data['message'] as String;
-      }
-    }
-
-    return fallback;
-  }
-
-  Future<void> _resetPassword() async {
-    if (_loading) return;
-
+  Future<void> _updatePassword() async {
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
-
-    if (_verificationToken == null) {
-      _showMessage('Please verify the code before setting a new password.');
+    String? message;
+    if (password.length < 12) {
+      message = 'Password must contain at least 12 characters.';
+    } else if (password != confirmPassword) {
+      message = 'Passwords do not match.';
+    }
+    if (message != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
       return;
     }
-
-    if (password.length < 12 || password.length > 128) {
-      _showMessage('Password must contain 12 to 128 characters.');
-      return;
-    }
-
-    if (password != confirmPassword) {
-      _showMessage('Passwords do not match.');
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-    });
-
+    setState(() => _loading = true);
+    final dio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl));
     try {
-      await _dio.post(
+      await dio.post(
         '/auth/reset-password',
         data: {
           'email': widget.email,
           'platform': 'mobile',
-          'verificationToken': _verificationToken,
+          'verificationToken': widget.verificationToken,
           'password': password,
         },
       );
-
       if (!mounted) return;
-
-      _showMessage('Password updated successfully. Please log in.');
-      Navigator.pop(context, true);
-    } catch (error) {
-      if (!mounted) return;
-      _showMessage(
-        _messageFromError(
-          error,
-          fallback: 'Unable to reset your password. Please try again.',
-        ),
+      setState(() => _loading = false);
+      Navigator.pushReplacement<void, void>(
+        context,
+        MaterialPageRoute<void>(builder: (_) => const PasswordUpdatedPage()),
       );
-    } finally {
+    } on DioException catch (error) {
+      final data = error.response?.data;
       if (mounted) {
-        setState(() {
-          _loading = false;
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              data is Map && data['message'] is String
+                  ? data['message'] as String
+                  : 'Unable to update the password. Please try again.',
+            ),
+          ),
+        );
+        setState(() => _loading = false);
       }
+    } finally {
+      dio.close();
     }
   }
 
-  Future<void> _verifyCode() async {
-    if (_verifying) return;
-
-    final otp = _otpController.text.trim();
-    if (!RegExp(r'^\d{6}$').hasMatch(otp)) {
-      _showMessage('Please enter the 6-digit verification code.');
-      return;
-    }
-
-    setState(() {
-      _verifying = true;
-    });
-
-    try {
-      final response = await _dio.post(
-        '/auth/verify-reset-code',
-        data: {'email': widget.email, 'platform': 'mobile', 'otp': otp},
-      );
-
-      final data = response.data as Map;
-      final token = data['verificationToken'];
-      if (token is! String || token.isEmpty) {
-        throw StateError('Verification token was not returned.');
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _verificationToken = token;
-      });
-      _showMessage('Code verified. You can now set a new password.');
-    } catch (error) {
-      if (!mounted) return;
-      _showMessage(
-        _messageFromError(error, fallback: 'Unable to verify the code.'),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _verifying = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _resendCode() async {
-    if (_resending || widget.email.isEmpty) return;
-
-    setState(() {
-      _resending = true;
-    });
-
-    try {
-      await _dio.post(
-        '/auth/forgot-password',
-        data: {'email': widget.email, 'platform': 'mobile'},
-      );
-
-      if (!mounted) return;
-      _showMessage(
-        'If the account is registered, a code will be sent. '
-        'Please wait at least 60 seconds between requests.',
-      );
-    } catch (error) {
-      if (!mounted) return;
-      _showMessage(
-        _messageFromError(
-          error,
-          fallback: 'Unable to request another code. Please try again.',
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _resending = false;
-        });
-      }
-    }
+  Widget _requirement(String text, {required bool valid}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 5),
+      child: Row(
+        children: [
+          Icon(
+            valid ? Icons.check_circle : Icons.check_circle_outline,
+            size: 16,
+            color: valid ? AppTheme.primaryDark : AppTheme.muted,
+          ),
+          const SizedBox(width: 7),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 11,
+              color: valid ? AppTheme.heading : AppTheme.muted,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final password = _passwordController.text;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -205,154 +116,121 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           icon: const Icon(Icons.arrow_back),
         ),
         title: const Text(
-          'Reset Password',
+          'Change Password',
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(25),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 430),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 76,
-                      height: 76,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary.withValues(alpha: 0.22),
-                        borderRadius: BorderRadius.circular(23),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 24,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 5),
+                    Text(
+                      'Your email is verified. Create a new password for\nyour account:',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        height: 1.5,
+                        color: AppTheme.muted,
                       ),
-                      child: const Icon(
-                        Icons.verified_user_outlined,
-                        color: AppTheme.primaryDark,
-                        size: 38,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.email,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.heading,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 25),
-                  const Text(
-                    'Reset your password',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 25,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.heading,
+                    const SizedBox(height: 18),
+                    AuthTextField(
+                      label: 'New Password',
+                      hint: 'New Password',
+                      controller: _passwordController,
+                      password: true,
+                      textInputAction: TextInputAction.next,
+                      onChanged: (_) => setState(() {}),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Enter the 6-digit code sent to your email and '
-                    'create a new password.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppTheme.muted,
-                      fontSize: 14,
-                      height: 1.6,
+                    const SizedBox(height: 14),
+                    AuthTextField(
+                      label: 'Confirm Password',
+                      hint: 'Confirm Password',
+                      controller: _confirmPasswordController,
+                      password: true,
+                      textInputAction: TextInputAction.done,
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    widget.email.isEmpty
-                        ? 'No email address was provided.'
-                        : widget.email,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppTheme.heading,
-                      fontWeight: FontWeight.w600,
+                    const SizedBox(height: 18),
+                    const Text(
+                      'PASSWORD MUST HAVE',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: AppTheme.heading,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 28),
-                  TextField(
-                    controller: _otpController,
-                    keyboardType: TextInputType.number,
-                    textInputAction: TextInputAction.next,
-                    maxLength: 6,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(
-                      labelText: 'Verification Code',
-                      hintText: 'Enter 6-digit code',
-                      prefixIcon: Icon(Icons.shield_outlined),
-                      counterText: '',
+                    const SizedBox(height: 10),
+                    StatefulBuilder(
+                      builder: (context, setRequirements) {
+                        return Column(
+                          children: [
+                            _requirement(
+                              'At least 12 characters',
+                              valid: password.length >= 12,
+                            ),
+                            _requirement(
+                              'At least one number',
+                              valid: password.contains(RegExp(r'[0-9]')),
+                            ),
+                            _requirement(
+                              'Both uppercase and lowercase',
+                              valid:
+                                  password.contains(RegExp(r'[a-z]')) &&
+                                  password.contains(RegExp(r'[A-Z]')),
+                            ),
+                            _requirement(
+                              'At least one special character',
+                              valid: password.contains(RegExp(r'[^A-Za-z0-9]')),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextButton(
-                    onPressed: _verifying || _verificationToken != null
-                        ? null
-                        : _verifyCode,
-                    child: Text(
-                      _verificationToken != null
-                          ? 'Code verified'
-                          : _verifying
-                          ? 'Verifying...'
-                          : 'Verify code',
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  AuthTextField(
-                    label: 'New Password',
-                    hint: 'At least 12 characters',
-                    controller: _passwordController,
-                    password: true,
-                    enabled: _verificationToken != null,
-                    textInputAction: TextInputAction.next,
-                  ),
-                  const SizedBox(height: 20),
-                  AuthTextField(
-                    label: 'Confirm New Password',
-                    hint: 'Confirm your new password',
-                    controller: _confirmPasswordController,
-                    password: true,
-                    enabled: _verificationToken != null,
-                    textInputAction: TextInputAction.done,
-                  ),
-                  const SizedBox(height: 22),
-                  SizedBox(
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed:
-                          _loading ||
-                              widget.email.isEmpty ||
-                              _verificationToken == null
-                          ? null
-                          : _resetPassword,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                        foregroundColor: AppTheme.heading,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(13),
+                    const SizedBox(height: 80),
+                    SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: _loading ? null : _updatePassword,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryDark,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        _loading ? 'Updating...' : 'Reset Password',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                        child: Text(
+                          _loading ? 'Updating...' : 'Update Password',
+                          style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 15),
-                  TextButton(
-                    onPressed: _resending ? null : _resendCode,
-                    child: Text(
-                      _resending ? 'Requesting...' : 'Resend Code',
-                      style: const TextStyle(color: AppTheme.primaryDark),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Back to Login'),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                  ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,7 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/auth_text_field.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/create_account_dialog.dart';
-import 'forgot_password_page.dart';
+import 'email_verification.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -21,9 +20,7 @@ class _LoginPageState extends State<LoginPage> {
 
   // Checks whether the entered value is a valid email format.
   bool _isValidEmail(String email) {
-    final emailPattern = RegExp(
-      r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-    );
+    final emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
     return emailPattern.hasMatch(email);
   }
@@ -50,17 +47,12 @@ class _LoginPageState extends State<LoginPage> {
 
     final auth = context.read<AuthProvider>();
 
-    final success = await auth.login(
-      email,
-      password,
-    );
+    final success = await auth.login(email, password);
 
     if (!mounted) return;
 
     if (!success) {
-      _showFrontendMessage(
-        auth.error ?? 'Unable to log in. Please try again.',
-      );
+      _showFrontendMessage(auth.error ?? 'Unable to log in. Please try again.');
     }
 
     // A successful login updates AuthProvider.
@@ -84,10 +76,7 @@ class _LoginPageState extends State<LoginPage> {
 
   void _showFrontendMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -101,9 +90,7 @@ class _LoginPageState extends State<LoginPage> {
           builder: (context, constraints) {
             return SingleChildScrollView(
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                ),
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 430),
@@ -212,8 +199,8 @@ class _LoginPageState extends State<LoginPage> {
                             child: ElevatedButton(
                               onPressed: isLoading ? null : _login,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primary,
-                                foregroundColor: AppTheme.heading,
+                                backgroundColor: AppTheme.primaryDark,
+                                foregroundColor: Colors.white,
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(13),
