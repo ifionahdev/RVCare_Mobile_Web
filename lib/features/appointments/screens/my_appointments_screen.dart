@@ -1,11 +1,14 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import 'appointment_details_screen.dart';
 import 'book_appointment_flow.dart';
+import '../data/appointment_service.dart';
+import '../../../core/network/realtime_provider.dart';
 
 class MyAppointmentsScreen extends StatefulWidget {
   const MyAppointmentsScreen({super.key, this.showBottomNavigation = true});
@@ -18,6 +21,45 @@ class MyAppointmentsScreen extends StatefulWidget {
 
 class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
   int _selectedTab = 0;
+  List<Map<String, dynamic>> _appointments = [];
+  bool _isLoading = true;
+  int _realtimeRevision = -1;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final revision = context.watch<RealtimeProvider>().revision;
+    if (_realtimeRevision != revision) {
+      _realtimeRevision = revision;
+      if (revision >= 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _loadAppointments();
+        });
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAppointments());
+  }
+
+  Future<void> _loadAppointments() async {
+    try {
+      final appointments = await context
+          .read<AppointmentService>()
+          .fetchAppointments();
+      if (!mounted) return;
+      setState(() {
+        _appointments = appointments;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,56 +97,42 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
               ),
               child: Row(
                 children: [
-                  _tab('Upcoming · 2', 0),
+                  _tab(
+                    'Upcoming · ${_appointments.where((item) => item['status'] == 'Pending' || item['status'] == 'Incoming').length}',
+                    0,
+                  ),
                   _tab('Past', 1),
                   _tab('Cancelled', 2),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            if (upcoming) ...[
-              _appointmentCard(
-                weekday: 'Wed',
-                month: 'Nov',
-                dayNumber: '4',
-                title: 'Checkup',
-                pet: 'Luna',
-                startTime: '10:00 AM',
-                endTime: '11:00 AM',
-                veterinarian: 'Dr. Rachel Carter',
-                status: 'Confirmed',
-                footerText: 'APT-20261104-01',
-                reference: 'APT-20261104-01',
-              ),
-              const SizedBox(height: 12),
-              _appointmentCard(
-                weekday: 'Wed',
-                month: 'Dec',
-                dayNumber: '2',
-                title: 'Vaccination',
-                pet: 'Luna',
-                startTime: '3:00 PM',
-                endTime: '4:00 PM',
-                veterinarian: 'Dr. Alan Mercer',
-                status: 'Pending',
-                footerText: 'Awaiting clinic confirmation',
-              ),
+            if (_isLoading)
+              const Center(child: CircularProgressIndicator())
+            else if (upcoming) ...[
+              for (final appointment in _appointments.where(
+                (item) =>
+                    item['status'] == 'Pending' || item['status'] == 'Incoming',
+              )) ...[
+                _backendAppointmentCard(appointment),
+                const SizedBox(height: 12),
+              ],
               const SizedBox(height: 16),
               _bookBanner(),
             ] else if (past)
-              _appointmentCard(
-                weekday: 'Mon',
-                month: 'Oct',
-                dayNumber: '12',
-                title: 'Laboratory Tests',
-                pet: 'Luna',
-                startTime: '2:00 PM',
-                endTime: '3:00 PM',
-                veterinarian: 'Dr. Rachel Carter',
-                status: 'Completed',
-                footerText: 'APT-20261012-01',
-                reference: 'APT-20261012-01',
-              )
+              for (final appointment in _appointments.where(
+                (item) => item['status'] == 'Completed',
+              )) ...[
+                _backendAppointmentCard(appointment),
+                const SizedBox(height: 12),
+              ]
+            else if (_appointments.any((item) => item['status'] == 'Cancelled'))
+              for (final appointment in _appointments.where(
+                (item) => item['status'] == 'Cancelled',
+              )) ...[
+                _backendAppointmentCard(appointment),
+                const SizedBox(height: 12),
+              ]
             else
               Container(
                 height: 180,
@@ -184,6 +212,47 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
 
   // ------------------------------------------------------ appointment card
 
+  Widget _backendAppointmentCard(Map<String, dynamic> appointment) {
+    final date = DateTime.parse(appointment['scheduledDate'] as String);
+    final pet = appointment['pet'] as Map<String, dynamic>;
+    final service = appointment['service'] as Map<String, dynamic>;
+    final timeslot = appointment['timeslot'] as Map<String, dynamic>;
+    final veterinarian = appointment['veterinarian'] as Map<String, dynamic>;
+    final account = veterinarian['account'] as Map<String, dynamic>;
+    final rawStatus = appointment['status'] as String;
+    final status = rawStatus == 'Incoming' ? 'Confirmed' : rawStatus;
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return _appointmentCard(
+      weekday: weekdays[date.weekday - 1],
+      month: months[date.month - 1],
+      dayNumber: date.day.toString(),
+      title: service['serviceName'] as String,
+      pet: pet['petName'] as String,
+      startTime: timeslot['startTime'] as String,
+      endTime: timeslot['endTime'] as String,
+      veterinarian: 'Dr. ${account['firstName']} ${account['lastName']}',
+      status: status,
+      footerText: 'APT-${appointment['appointmentId']}',
+      reference: 'APT-${appointment['appointmentId']}',
+      appointmentId: appointment['appointmentId'] as int,
+    );
+  }
+
   Widget _appointmentCard({
     required String weekday,
     required String month,
@@ -196,6 +265,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
     required String status,
     required String footerText,
     String? reference,
+    int? appointmentId,
   }) {
     final confirmed = status == 'Confirmed';
 
@@ -207,10 +277,11 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
             date: '$weekday, $month $dayNumber',
             procedure: title,
             pet: pet,
-            time: startTime,
+            time: _formatTime(startTime),
             veterinarian: veterinarian,
             status: status,
             reference: reference,
+            appointmentId: appointmentId,
           ),
         ),
       ),
@@ -253,7 +324,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '$weekday · $startTime – $endTime',
+                        '$weekday · ${_formatTime(startTime)} – ${_formatTime(endTime)}',
                         style: const TextStyle(
                           fontSize: 13,
                           height: 1.35,
@@ -304,6 +375,20 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
         ),
       ),
     );
+  }
+
+  String _formatTime(String value) {
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(value.trim());
+    if (match == null) return value;
+    var hour = int.parse(match.group(1)!);
+    final minute = int.parse(match.group(2)!);
+    final period = hour >= 12 ? 'PM' : 'AM';
+    if (hour == 0) {
+      hour = 12;
+    } else if (hour > 12) {
+      hour -= 12;
+    }
+    return '$hour:${minute.toString().padLeft(2, '0')} $period';
   }
 
   Widget _dateBadge(String month, String dayNumber, {required bool filled}) {

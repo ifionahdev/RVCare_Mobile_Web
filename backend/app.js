@@ -9,6 +9,7 @@ import petRoutes from "./src/routes/petRoutes.js";
 import serviceRoutes from "./src/routes/serviceRoute.js";
 import availabilityRoutes from "./src/routes/availabilityRoute.js";
 import vetRoutes from "./src/routes/vetRoute.js";
+import appointmentRoutes from "./src/routes/appointmentRoutes.js";
 
 const app = express();
 
@@ -35,6 +36,27 @@ const allowedOrigins = (process.env.CORS_ORIGINS ?? "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+const isProduction = process.env.NODE_ENV === "production";
+
+function isAllowedOrigin(origin) {
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  if (isProduction) {
+    return false;
+  }
+
+  try {
+    const url = new URL(origin);
+    return (
+      url.protocol === "http:" &&
+      ["localhost", "127.0.0.1"].includes(url.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
 
 app.disable("x-powered-by");
 
@@ -43,7 +65,7 @@ app.use(helmet());
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || isAllowedOrigin(origin)) {
         return callback(null, true);
       }
 
@@ -72,6 +94,8 @@ app.use("/api/services", serviceRoutes);
 app.use("/api/availability", availabilityRoutes);
 
 app.use("/api/vets", vetRoutes);
+
+app.use("/api/appointments", appointmentRoutes);
 
 app.use((error, req, res, next) => {
   console.error(

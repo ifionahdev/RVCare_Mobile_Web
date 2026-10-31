@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../core/network/api_client.dart';
-import '../../../core/network/constants.dart';
 
 class AuthService {
   AuthService({required ApiClient apiClient, required this._storage})

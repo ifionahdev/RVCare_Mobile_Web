@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../appointments/screens/book_appointment_flow.dart';
+import '../../appointments/data/appointment_service.dart';
 import '../../pets/screens/manage_pet_profile_screen.dart';
 import '../../pets/screens/my_pets_screen.dart';
+import '../../appointments/screens/appointment_details_screen.dart';
+import '../../../core/network/realtime_provider.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, this.onNavigate});
@@ -15,7 +20,65 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  Map<String, dynamic>? _upcomingAppointment;
+  List<AppointmentPet> _pets = [];
   static const Color _teal = Color(0xFF068A98);
+  int _realtimeRevision = -1;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUpcoming();
+      _loadPets();
+    });
+  }
+
+  Future<void> _loadPets() async {
+    try {
+      final pets = await context.read<AppointmentService>().fetchUserPets();
+      if (!mounted) return;
+      setState(() => _pets = pets);
+    } catch (_) {}
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final revision = context.watch<RealtimeProvider>().revision;
+    if (_realtimeRevision != revision) {
+      _realtimeRevision = revision;
+      if (revision >= 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _loadUpcoming();
+        });
+      }
+    }
+  }
+
+  Future<void> _loadUpcoming() async {
+    try {
+      final appointments = await context
+          .read<AppointmentService>()
+          .fetchAppointments();
+      final upcoming =
+          appointments
+              .where(
+                (item) =>
+                    item['status'] == 'Pending' || item['status'] == 'Incoming',
+              )
+              .toList()
+            ..sort(
+              (a, b) => (a['scheduledDate'] as String).compareTo(
+                b['scheduledDate'] as String,
+              ),
+            );
+      if (!mounted) return;
+      setState(
+        () => _upcomingAppointment = upcoming.isEmpty ? null : upcoming.first,
+      );
+    } catch (_) {}
+  }
+
   void _openBooking() {
     Navigator.push<void>(
       context,
@@ -100,6 +163,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildHome() {
+    final auth = context.watch<AuthProvider>();
+    final userName = _userName(auth.user);
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Good morning'
+        : hour < 18
+        ? 'Good afternoon'
+        : 'Good evening';
+
     return SafeArea(
       top: true,
       child: SingleChildScrollView(
@@ -107,17 +179,17 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Good evening',
-              style: TextStyle(fontSize: 12, color: AppTheme.muted),
+            Text(
+              greeting,
+              style: const TextStyle(fontSize: 12, color: AppTheme.muted),
             ),
             const SizedBox(height: 2),
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Hello, Sarah',
-                    style: TextStyle(
+                    'Hello${userName.isEmpty ? '' : ', $userName'}',
+                    style: const TextStyle(
                       fontSize: 22,
                       height: 1.15,
                       fontWeight: FontWeight.w800,
@@ -134,9 +206,9 @@ class _HomePageState extends State<HomePage> {
                     shape: BoxShape.circle,
                     border: Border.all(color: const Color(0xFFD9DDE0)),
                   ),
-                  child: const Text(
-                    'SJ',
-                    style: TextStyle(
+                  child: Text(
+                    _userInitials(userName),
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: _teal,
@@ -147,10 +219,11 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 14),
             _AppointmentCard(
-              onDetails: () => _openDetails('Upcoming appointment'),
+              appointment: _upcomingAppointment,
+              onDetails: () => _openUpcomingDetails(),
             ),
             const SizedBox(height: 12),
-            _ReminderCard(),
+            _ReminderCard(appointment: _upcomingAppointment),
             const SizedBox(height: 16),
             const Text(
               'What would you like to do?',
@@ -230,6 +303,7 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 10),
             _PetCard(
+              pet: _pets.isEmpty ? null : _pets.first,
               onTap: () {
                 Navigator.push<void>(
                   context,
@@ -244,11 +318,87 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
+  String _userName(Map<String, dynamic>? user) {
+    if (user == null) return '';
+    final firstName = user['firstName']?.toString().trim() ?? '';
+    final lastName = user['lastName']?.toString().trim() ?? '';
+    final name = '$firstName $lastName'.trim();
+    if (name.isNotEmpty) return name;
+    return user['name']?.toString().trim() ??
+        user['username']?.toString().trim() ??
+        '';
+  }
+
+  String _userInitials(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty);
+    if (parts.isEmpty) return 'U';
+    return parts.take(2).map((part) => part[0].toUpperCase()).join();
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    return months[month - 1];
+  }
+
+  String _formatAppointmentTime(dynamic value) {
+    final raw = value?.toString().trim() ?? '';
+    if (raw.isEmpty) return '';
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(raw);
+    if (match == null) return raw;
+    var hour = int.parse(match.group(1)!);
+    final minute = int.parse(match.group(2)!);
+    final period = hour >= 12 ? 'PM' : 'AM';
+    if (hour == 0) {
+      hour = 12;
+    } else if (hour > 12) {
+      hour -= 12;
+    }
+    return '$hour:${minute.toString().padLeft(2, '0')} $period';
+  }
+
+  void _openUpcomingDetails() {
+    final appointment = _upcomingAppointment;
+    if (appointment == null) return;
+
+    final date = DateTime.parse(appointment['scheduledDate'] as String);
+    final pet = appointment['pet'] as Map<String, dynamic>;
+    final service = appointment['service'] as Map<String, dynamic>;
+    final timeslot = appointment['timeslot'] as Map<String, dynamic>;
+    final veterinarian = appointment['veterinarian'] as Map<String, dynamic>;
+    final account = veterinarian['account'] as Map<String, dynamic>;
+    final status = appointment['status'] == 'Incoming'
+        ? 'Confirmed'
+        : appointment['status'] as String;
+
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => AppointmentDetailsScreen(
+          date: '${_monthName(date.month)} ${date.day}',
+          procedure: service['serviceName'] as String,
+          pet: pet['petName'] as String,
+          time: _formatAppointmentTime(timeslot['startTime']),
+          veterinarian: 'Dr. ${account['firstName']} ${account['lastName']}',
+          status: status,
+          reference: 'APT-${appointment['appointmentId']}',
+          appointmentId: appointment['appointmentId'] as int,
+        ),
+      ),
+    );
+  }
 }
 
 class _AppointmentCard extends StatelessWidget {
-  const _AppointmentCard({required this.onDetails});
+  const _AppointmentCard({required this.onDetails, this.appointment});
   final VoidCallback onDetails;
+  final Map<String, dynamic>? appointment;
 
   @override
   Widget build(BuildContext context) {
@@ -283,9 +433,9 @@ class _AppointmentCard extends StatelessWidget {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Text(
-                  'Confirmed',
-                  style: TextStyle(
+                child: Text(
+                  _appointmentStatusLabel(appointment),
+                  style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF068A98),
@@ -295,8 +445,10 @@ class _AppointmentCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          const Text(
-            'Wed, Nov 4 • 10:00 AM',
+          Text(
+            appointment == null
+                ? 'No upcoming appointment'
+                : '${_formatAppointmentDate(appointment!['scheduledDate'])} • ${_formatAppointmentTime(appointment!['timeslot']['startTime'])}',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -304,8 +456,10 @@ class _AppointmentCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 5),
-          const Text(
-            'Checkup for Luna • Dr. Rachel Carter',
+          Text(
+            appointment == null
+                ? 'Book an appointment to see it here'
+                : '${appointment!['service']['serviceName']} for ${appointment!['pet']['petName']} • Dr. ${appointment!['veterinarian']['account']['firstName']} ${appointment!['veterinarian']['account']['lastName']}',
             style: TextStyle(fontSize: 12, color: Color(0xFFD8F6F7)),
           ),
           const SizedBox(height: 14),
@@ -332,11 +486,93 @@ class _AppointmentCard extends StatelessWidget {
       ),
     );
   }
+
+  String _formatAppointmentTime(dynamic value) {
+    final raw = value?.toString().trim() ?? '';
+    if (raw.isEmpty) return '';
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(raw);
+    if (match == null) return raw;
+
+    var hour = int.parse(match.group(1)!);
+    final minute = int.parse(match.group(2)!);
+    final period = hour >= 12 ? 'PM' : 'AM';
+    if (hour == 0) hour = 12;
+    if (hour > 12) hour -= 12;
+    return '$hour:${minute.toString().padLeft(2, '0')} $period';
+  }
+
+  String _appointmentStatusLabel(Map<String, dynamic>? appointment) {
+    if (appointment == null) return 'No appointment';
+    final status = appointment['status']?.toString() ?? '';
+    if (status == 'Incoming') return 'Confirmed';
+    if (status == 'Pending') return 'Pending';
+    if (status.isEmpty) return 'Unknown';
+    return status;
+  }
+
+  String _formatAppointmentDate(dynamic value) {
+    final raw = value?.toString().trim() ?? '';
+    if (raw.isEmpty) return '';
+    try {
+      final date = DateTime.parse(raw);
+      return '${_monthName(date.month)} ${date.day}';
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return months[month - 1];
+  }
+
 }
 
 class _ReminderCard extends StatelessWidget {
+  const _ReminderCard({required this.appointment});
+
+  final Map<String, dynamic>? appointment;
+
+  String _reminderText(Map<String, dynamic>? appointment) {
+    if (appointment == null) {
+      return 'No upcoming appointment reminder yet. Book an appointment to stay on schedule.';
+    }
+
+    final pet = appointment['pet'] as Map<String, dynamic>;
+    final service = appointment['service'] as Map<String, dynamic>;
+    final appointmentDate = DateTime.parse(
+      appointment['scheduledDate'] as String,
+    );
+    final today = DateTime.now();
+    final difference = DateTime(
+      appointmentDate.year,
+      appointmentDate.month,
+      appointmentDate.day,
+    ).difference(DateTime(today.year, today.month, today.day)).inDays;
+    final when = difference <= 0
+        ? 'today'
+        : difference == 1
+        ? 'tomorrow'
+        : 'in $difference days';
+    return "Reminder: ${pet['petName']}'s ${service['serviceName']} is $when.";
+  }
+
   @override
   Widget build(BuildContext context) {
+    final text = _reminderText(appointment);
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
       decoration: BoxDecoration(
@@ -356,10 +592,10 @@ class _ReminderCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
-              "Reminder: Luna's checkup is in 7 days. We'll notify you again the day before.",
-              style: TextStyle(
+              text,
+              style: const TextStyle(
                 fontSize: 12,
                 height: 1.35,
                 color: AppTheme.heading,
@@ -370,6 +606,7 @@ class _ReminderCard extends StatelessWidget {
       ),
     );
   }
+
 }
 
 class _ActionCard extends StatelessWidget {
@@ -457,8 +694,9 @@ class _ActionCard extends StatelessWidget {
 }
 
 class _PetCard extends StatelessWidget {
-  const _PetCard({required this.onTap});
+  const _PetCard({required this.onTap, this.pet});
   final VoidCallback onTap;
+  final AppointmentPet? pet;
 
   @override
   Widget build(BuildContext context) {
@@ -484,13 +722,13 @@ class _PetCard extends StatelessWidget {
               child: const Icon(Icons.pets, color: Color(0xFF068A98)),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Luna',
-                    style: TextStyle(
+                    pet?.name ?? 'No pets yet',
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: AppTheme.heading,
@@ -498,8 +736,10 @@ class _PetCard extends StatelessWidget {
                   ),
                   SizedBox(height: 2),
                   Text(
-                    'Golden Retriever • Female • 2 yrs, 4\nmos',
-                    style: TextStyle(
+                    pet == null
+                        ? 'Add a pet to see it here'
+                        : '${pet!.breed} • ${pet!.gender}',
+                    style: const TextStyle(
                       fontSize: 12,
                       height: 1.25,
                       color: AppTheme.muted,

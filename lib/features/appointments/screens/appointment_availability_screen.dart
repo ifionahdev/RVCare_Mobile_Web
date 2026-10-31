@@ -11,10 +11,14 @@ class AppointmentAvailabilityScreen extends StatefulWidget {
     super.key,
     required this.pet,
     required this.procedure,
+    required this.petId,
+    required this.serviceId,
   });
 
   final String pet;
   final String procedure;
+  final int petId;
+  final int serviceId;
 
   @override
   State<AppointmentAvailabilityScreen> createState() =>
@@ -41,6 +45,12 @@ class _AppointmentAvailabilityScreenState
   ];
   List<AppointmentVeterinarian> _vets = const [];
   DateTime get _selectedDate => DateTime(2026, 11, _dateIndex + 2);
+  AppointmentTimeslot? get _selectedTimeslot {
+    for (final slot in _slots) {
+      if (slot.display == _time) return slot;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -473,6 +483,10 @@ class _AppointmentAvailabilityScreenState
                               ? 'Dr. Rachel Carter'
                               : _vet,
                           time: _time!,
+                          petId: widget.petId,
+                          serviceId: widget.serviceId,
+                          vetId: _vetId,
+                          timeslotId: _selectedTimeslot?.timeslotId,
                           date:
                               '${_dates[_dateIndex].$1}, Nov ${_dates[_dateIndex].$2}',
                         ),

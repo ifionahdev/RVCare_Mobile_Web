@@ -16,7 +16,7 @@ class AppointmentSelectionScreen extends StatefulWidget {
 
 class _AppointmentSelectionScreenState
     extends State<AppointmentSelectionScreen> {
-  String _pet = 'Luna';
+  String _pet = '';
   String _procedure = 'Checkup';
   List<AppointmentPet> _pets = const [];
   List<AppointmentServiceOption> _services = const [];
@@ -33,8 +33,14 @@ class _AppointmentSelectionScreenState
     try {
       final service = context.read<AppointmentService>();
       final results = await Future.wait([
-        service.fetchUserPets(),
-        service.fetchServices(),
+        service.fetchUserPets().then(
+          (value) => value,
+          onError: (_) => <AppointmentPet>[],
+        ),
+        service.fetchServices().then(
+          (value) => value,
+          onError: (_) => <AppointmentServiceOption>[],
+        ),
       ]);
       if (!mounted) return;
       setState(() {
@@ -371,6 +377,12 @@ class _AppointmentSelectionScreenState
                         builder: (_) => AppointmentAvailabilityScreen(
                           pet: _pet,
                           procedure: _procedure,
+                          petId: _selectedPet!.petId,
+                          serviceId: _services
+                              .firstWhere(
+                                (service) => service.name == _procedure,
+                              )
+                              .serviceId,
                         ),
                       ),
                     ),

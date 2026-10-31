@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import 'my_appointments_screen.dart';
 
 class AppointmentConfirmationScreen extends StatelessWidget {
   const AppointmentConfirmationScreen({
@@ -20,6 +21,16 @@ class AppointmentConfirmationScreen extends StatelessWidget {
 
   void _backToHome(BuildContext context) {
     Navigator.popUntil(context, (route) => route.isFirst);
+  }
+
+  void _viewAppointments(BuildContext context) {
+    Navigator.popUntil(context, (route) => route.isFirst);
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => const MyAppointmentsScreen(showBottomNavigation: false),
+      ),
+    );
   }
 
   @override
@@ -149,7 +160,7 @@ class AppointmentConfirmationScreen extends StatelessWidget {
                     SizedBox(
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: () => _backToHome(context),
+                        onPressed: () => _viewAppointments(context),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryDark,
                           foregroundColor: Colors.white,

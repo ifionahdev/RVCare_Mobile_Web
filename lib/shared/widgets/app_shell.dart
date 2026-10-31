@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../features/appointments/screens/my_appointments_screen.dart';
 import '../../features/home/screens/home_page.dart';
 import '../../features/pet_care/screens/pet_care_screen.dart';
 import '../../features/records/screens/medical_records_screen.dart';
+import '../../core/network/realtime_provider.dart';
 import 'app_bottom_navigation.dart';
 
 class AppShell extends StatefulWidget {
@@ -15,6 +17,20 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<RealtimeProvider>().connect();
+    });
+  }
+
+  @override
+  void dispose() {
+    context.read<RealtimeProvider>().disconnect();
+    super.dispose();
+  }
 
   void _selectTab(int index) {
     if (_selectedIndex != index) {

@@ -14,3 +14,31 @@ export const findBookedTimeslotIds = async ({ scheduledDate, vetId }) =>
       timeslotId: true,
     },
   });
+
+const appointmentInclude = {
+  pet: {
+    include: {
+      breed: true,
+      owner: true,
+    },
+  },
+  service: true,
+  timeslot: true,
+  veterinarian: { include: { account: true } },
+};
+
+export const findOwnerAppointments = (accountId) =>
+  prisma.appointment.findMany({
+    where: {
+      isDeleted: false,
+      pet: { owner: { accountId } },
+    },
+    include: appointmentInclude,
+    orderBy: [{ scheduledDate: "desc" }, { timeslotId: "asc" }],
+  });
+
+export const findAppointmentById = (appointmentId) =>
+  prisma.appointment.findFirst({
+    where: { appointmentId, isDeleted: false },
+    include: appointmentInclude,
+  });

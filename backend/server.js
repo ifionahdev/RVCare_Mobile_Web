@@ -2,6 +2,8 @@
 import "dotenv/config";
 import app from "./app.js";
 import pool from "./src/config/db.js";
+import http from "node:http";
+import { initializeRealtime } from "./src/realtime.js";
 
 const port = Number(process.env.PORT ?? 5000);
 
@@ -16,7 +18,10 @@ try {
 
   console.log("Database connection successful.");
 
-  app.listen(port, "0.0.0.0", () => {
+  const server = http.createServer(app);
+  initializeRealtime(server);
+
+  server.listen(port, "0.0.0.0", () => {
     console.log(`RaphaCare API listening on port ${port}`);
   });
 } catch (error) {

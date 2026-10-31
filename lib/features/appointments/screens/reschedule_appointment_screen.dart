@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../data/appointment_service.dart';
 
 class RescheduleAppointmentScreen extends StatefulWidget {
   const RescheduleAppointmentScreen({
@@ -13,6 +15,7 @@ class RescheduleAppointmentScreen extends StatefulWidget {
     required this.time,
     required this.veterinarian,
     this.reference,
+    this.appointmentId,
   });
 
   /// Current appointment date, e.g. "Wed, Nov 4".
@@ -24,6 +27,7 @@ class RescheduleAppointmentScreen extends StatefulWidget {
   final String time;
   final String veterinarian;
   final String? reference;
+  final int? appointmentId;
 
   @override
   State<RescheduleAppointmentScreen> createState() =>
@@ -47,60 +51,69 @@ class _RescheduleAppointmentScreenState
     ('Fri', '6'),
     ('Sat', '7'),
   ];
-  static const _times = [
-    '09:00 AM',
-    '10:00 AM',
-    '11:00 AM',
-    '02:00 PM',
-    '03:00 PM',
-  ];
-  static const _unavailableTimes = {'09:00 AM', '02:00 PM'};
-
   int _selectedDate = 4;
-  String _selectedTime = '11:00 AM';
-  String _preferredVet = _anyVet;
+  String? _selectedTime;
+  int? _selectedVetId;
+  List<AppointmentVeterinarian> _vets = const [];
+  List<AppointmentTimeslot> _slots = const [];
+  bool _isLoadingAvailability = false;
 
   String _dateLabel(int index) =>
       '${_dates[index].$1}, Nov ${_dates[index].$2}';
 
   bool _isCurrentDate(int index) => widget.date == _dateLabel(index);
 
-  Future<void> _pickVet() async {
-    final options = [_anyVet, widget.veterinarian];
-    final picked = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            for (final option in options)
-              ListTile(
-                title: Text(
-                  option,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: option == _preferredVet
-                        ? FontWeight.w800
-                        : FontWeight.w500,
-                    color: AppTheme.heading,
-                  ),
-                ),
-                trailing: option == _preferredVet
-                    ? const Icon(Icons.check, color: AppTheme.primaryDark)
-                    : null,
-                onTap: () => Navigator.pop(sheetContext, option),
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (picked != null) setState(() => _preferredVet = picked);
+  DateTime get _selectedDateTime =>
+      DateTime(2026, 11, int.parse(_dates[_selectedDate].$2));
+
+  AppointmentTimeslot? get _selectedSlot {
+    for (final slot in _slots) {
+      if (slot.display == _selectedTime) return slot;
+    }
+    return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadVets();
+      _loadAvailability();
+    });
+  }
+
+  Future<void> _loadVets() async {
+    try {
+      final vets = await context
+          .read<AppointmentService>()
+          .fetchVeterinarians();
+      if (!mounted) return;
+      setState(() => _vets = vets);
+    } catch (_) {}
+  }
+
+  Future<void> _loadAvailability() async {
+    setState(() {
+      _isLoadingAvailability = true;
+      _selectedTime = null;
+    });
+    try {
+      final slots = await context.read<AppointmentService>().fetchAvailability(
+        date: _selectedDateTime,
+        vetId: _selectedVetId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _slots = slots;
+        _isLoadingAvailability = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _slots = const [];
+        _isLoadingAvailability = false;
+      });
+    }
   }
 
   @override
@@ -148,8 +161,7 @@ class _RescheduleAppointmentScreenState
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: () =>
-                      Navigator.popUntil(context, (route) => route.isFirst),
+                  onPressed: () => _confirmReschedule(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryDark,
                     foregroundColor: Colors.white,
@@ -169,6 +181,31 @@ class _RescheduleAppointmentScreenState
         ),
       ),
     );
+  }
+
+  Future<void> _confirmReschedule(BuildContext context) async {
+    if (widget.appointmentId == null) {
+      Navigator.popUntil(context, (route) => route.isFirst);
+      return;
+    }
+
+    final selectedSlot = _selectedSlot;
+    if (selectedSlot == null) return;
+
+    try {
+      await context.read<AppointmentService>().rescheduleAppointment(
+        appointmentId: widget.appointmentId!,
+        scheduledDate: '2026-11-${_dates[_selectedDate].$2.padLeft(2, '0')}',
+        timeslotId: selectedSlot.timeslotId,
+        vetId: _selectedVetId,
+      );
+      if (!context.mounted) return;
+      Navigator.popUntil(context, (route) => route.isFirst);
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   // ---------------------------------------------------------------- top bar
@@ -334,7 +371,12 @@ class _RescheduleAppointmentScreenState
 
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: disabled ? null : () => setState(() => _selectedDate = index),
+      onTap: disabled
+          ? null
+          : () {
+              setState(() => _selectedDate = index);
+              _loadAvailability();
+            },
       child: disabled
           ? CustomPaint(
               foregroundPainter: const _DashedRRectPainter(
@@ -350,21 +392,120 @@ class _RescheduleAppointmentScreenState
   // -------------------------------------------------------------- vet field
 
   Widget _buildVetField() {
-    return InkWell(
-      onTap: _pickVet,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: double.infinity,
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        alignment: Alignment.centerLeft,
-        decoration: BoxDecoration(
-          color: _fieldBg,
-          borderRadius: BorderRadius.circular(12),
+    return Column(
+      children: [
+        _vetOption(
+          label: _anyVet,
+          subtitle: 'Fastest · we assign the first open vet',
+          initials: 'Any',
+          selected: _selectedVetId == null,
+          onTap: () => _selectVet(null),
         ),
-        child: Text(
-          _preferredVet,
-          style: const TextStyle(fontSize: 14, color: AppTheme.heading),
+        ..._vets.map(
+          (vet) => Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: _vetOption(
+              label: vet.name,
+              subtitle: 'Select a specific veterinarian',
+              initials: _vetInitials(vet.name),
+              selected: _selectedVetId == vet.vetId,
+              onTap: () => _selectVet(vet.vetId),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _selectVet(int? vetId) async {
+    setState(() {
+      _selectedVetId = vetId;
+    });
+    await _loadAvailability();
+  }
+
+  String _vetInitials(String name) {
+    final parts = name.split(' ').where((part) => part.isNotEmpty).toList();
+    final start = parts.length > 1 ? 1 : 0;
+    return parts.skip(start).take(2).map((part) => part[0]).join();
+  }
+
+  Widget _vetOption({
+    required String label,
+    required String subtitle,
+    required String initials,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        height: 72,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? const Color(0xFF55D6E5) : AppTheme.border,
+            width: selected ? 3 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 21,
+              backgroundColor: selected
+                  ? const Color(0xFFDBF5F8)
+                  : const Color(0xFFF0F1F2),
+              child: Text(
+                initials,
+                style: const TextStyle(
+                  color: AppTheme.primary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.heading,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 12, color: AppTheme.muted),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? AppTheme.primary : const Color(0xFF9CA9B5),
+                  width: 2,
+                ),
+              ),
+              child: selected
+                  ? const Center(
+                      child: CircleAvatar(
+                        radius: 6,
+                        backgroundColor: AppTheme.primary,
+                      ),
+                    )
+                  : null,
+            ),
+          ],
         ),
       ),
     );
@@ -376,12 +517,22 @@ class _RescheduleAppointmentScreenState
     const gap = 10.0;
     final itemWidth = (MediaQuery.sizeOf(context).width - 40 - gap * 2) / 3;
 
+    if (_isLoadingAvailability) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_slots.isEmpty) {
+      return const Text(
+        'No available time slots for this date and veterinarian.',
+        style: TextStyle(fontSize: 13, color: AppTheme.muted),
+      );
+    }
+
     return Wrap(
       spacing: gap,
       runSpacing: gap,
-      children: _times.map((time) {
-        final unavailable = _unavailableTimes.contains(time);
-        final selected = time == _selectedTime && !unavailable;
+      children: _slots.map((slot) {
+        final unavailable = slot.isBooked;
+        final selected = slot.display == _selectedTime && !unavailable;
 
         return SizedBox(
           width: itemWidth,
@@ -390,7 +541,7 @@ class _RescheduleAppointmentScreenState
             borderRadius: BorderRadius.circular(12),
             onTap: unavailable
                 ? null
-                : () => setState(() => _selectedTime = time),
+                : () => setState(() => _selectedTime = slot.display),
             child: Container(
               alignment: Alignment.center,
               decoration: BoxDecoration(
@@ -404,7 +555,7 @@ class _RescheduleAppointmentScreenState
                 ),
               ),
               child: Text(
-                time,
+                slot.display,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
@@ -449,7 +600,7 @@ class _RescheduleAppointmentScreenState
           ),
           const SizedBox(height: 4),
           Text(
-            '${_dateLabel(_selectedDate)} · $_selectedTime',
+            '${_dateLabel(_selectedDate)} · ${_selectedTime ?? 'Select a time'}',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -475,6 +626,7 @@ class _RescheduleAppointmentScreenState
     );
   }
 }
+
 
 class _DashedRRectPainter extends CustomPainter {
   const _DashedRRectPainter({required this.color, required this.radius})
