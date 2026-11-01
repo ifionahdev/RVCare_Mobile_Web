@@ -120,7 +120,7 @@ export default function AdminDashboard() {
           <StatCard title="Total customers" value={kpiLoading ? "..." : kpiError ? "—" : kpis.customers} icon={UsersRound} note="Registered customer accounts" accent="bg-sky-50 text-sky-700" />
           <StatCard title="Registered pets" value={kpiLoading ? "..." : kpiError ? "—" : kpis.pets} icon={PawPrint} note="Active pet profiles" accent="bg-violet-50 text-violet-700" />
           <StatCard title="Pending requests" value={kpiLoading ? "..." : kpiError ? "—" : kpis.pending} icon={Clock3} note="Awaiting clinic review" accent="bg-orange-50 text-orange-700" />
-          <StatCard title="Today's appointments" value={kpiLoading ? "..." : kpiError ? "—" : kpis.todayPending} icon={CalendarCheck2} note="Pending appointments today" accent="bg-emerald-50 text-emerald-700" />
+          <StatCard title="Today's appointments" value={kpiLoading ? "..." : kpiError ? "—" : kpis.todayPending} icon={CalendarCheck2} note="Total appointments today" accent="bg-emerald-50 text-emerald-700" />
         </div>
         {kpiError && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{kpiError}</p>}
         <section className="rounded-2xl border border-[#e1e8ee] bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h3 className="text-base font-extrabold">Upcoming schedule</h3><p className="mt-1 text-xs text-slate-500">Sample confirmed appointments</p></div><CalendarDays size={19} className="text-[#078c9d]" /></div>
