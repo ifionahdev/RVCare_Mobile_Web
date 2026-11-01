@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../../api/axios.js";
 import {
   LayoutDashboard, CalendarDays, UsersRound, PawPrint, FileText,
   Stethoscope, Settings, LogOut, Menu, X, ChevronLeft,
@@ -44,7 +45,51 @@ export default function AdminDashboard() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [kpis, setKpis] = useState({
+    customers: null,
+    pets: null,
+    pending: null,
+    todayPending: null,
+  });
+  const [kpiLoading, setKpiLoading] = useState(true);
+  const [kpiError, setKpiError] = useState("");
   const navigate = useNavigate();
+  useEffect(() => {
+    let active = true;
+
+    const loadKpis = async () => {
+      try {
+        const [customers, pets, pending, todayPending] = await Promise.all([
+          api.get("/customers/count"),
+          api.get("/pets/count"),
+          api.get("/appointments/count/pending"),
+          api.get("/appointments/count/today"),
+        ]);
+
+        if (!active) return;
+        setKpis({
+          customers: customers.data.count,
+          pets: pets.data.count,
+          pending: pending.data.count,
+          todayPending: todayPending.data.count,
+        });
+      } catch (error) {
+        if (!active) return;
+        setKpiError(
+          error.response?.data?.message ??
+            "Unable to load dashboard metrics.",
+        );
+      } finally {
+        if (active) setKpiLoading(false);
+      }
+    };
+
+    loadKpis();
+
+    return () => {
+      active = false;
+    };
+  }, []);
   const filtered = appointments.filter((a) => Object.values(a).join(" ").toLowerCase().includes(search.toLowerCase()));
   const logout = () => { sessionStorage.removeItem("raphacare_demo_admin"); navigate("/login", { replace: true }); };
   const sidebar = <div className="flex h-full flex-col bg-[#1e293b] text-white">
@@ -80,11 +125,12 @@ export default function AdminDashboard() {
       <main className="mx-auto max-w-[1550px] space-y-6 px-4 py-7 sm:px-7">
         <div><h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Clinic overview</h2><p className="mt-1 text-sm text-slate-500">A quick look at appointments and patient records.</p></div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard title="Total customers" value="128" icon={UsersRound} note="Sample registered accounts" accent="bg-sky-50 text-sky-700" />
-          <StatCard title="Registered pets" value="176" icon={PawPrint} note="Sample pet profiles" accent="bg-violet-50 text-violet-700" />
-          <StatCard title="Pending requests" value="12" icon={Clock3} note="Awaiting clinic review" accent="bg-orange-50 text-orange-700" />
-          <StatCard title="Today's appointments" value="8" icon={CalendarCheck2} note="Example daily schedule" accent="bg-emerald-50 text-emerald-700" />
+          <StatCard title="Total customers" value={kpiLoading ? "..." : kpiError ? "—" : kpis.customers} icon={UsersRound} note="Registered customer accounts" accent="bg-sky-50 text-sky-700" />
+          <StatCard title="Registered pets" value={kpiLoading ? "..." : kpiError ? "—" : kpis.pets} icon={PawPrint} note="Active pet profiles" accent="bg-violet-50 text-violet-700" />
+          <StatCard title="Pending requests" value={kpiLoading ? "..." : kpiError ? "—" : kpis.pending} icon={Clock3} note="Awaiting clinic review" accent="bg-orange-50 text-orange-700" />
+          <StatCard title="Today's appointments" value={kpiLoading ? "..." : kpiError ? "—" : kpis.todayPending} icon={CalendarCheck2} note="Pending appointments today" accent="bg-emerald-50 text-emerald-700" />
         </div>
+        {kpiError && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{kpiError}</p>}
         <div className="grid gap-5 xl:grid-cols-[1.45fr_1fr]">
           <section className="rounded-2xl border border-[#e1e8ee] bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="text-base font-extrabold">Appointment status</h3><p className="mt-1 text-xs text-slate-500">Example distribution of appointment requests</p></div><Activity size={19} className="text-[#078c9d]" /></div>
