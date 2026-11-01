@@ -7,7 +7,8 @@ import {
   getAppointment,
   getMyAppointments,
   getPendingAppointmentsCount,
-  getTodaysPendingAppointmentsCount,
+  getTodaysAppointmentsCount,
+  getAppointmentPerStatusCount,
   rescheduleAppointment,
 } from "../controllers/appointmentController.js";
 
@@ -21,7 +22,13 @@ router.get(
   "/count/today",
   authenticate,
   requireRole("admin"),
-  getTodaysPendingAppointmentsCount,
+  getTodaysAppointmentsCount,
+);
+router.get(
+  "/count/status",
+  authenticate,
+  requireRole("admin"),
+  getAppointmentPerStatusCount,
 );
 router.get(
   "/:appointmentId",

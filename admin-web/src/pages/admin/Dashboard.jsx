@@ -4,18 +4,10 @@ import api from "../../api/axios.js";
 import {
   LayoutDashboard, CalendarDays, UsersRound, PawPrint, FileText,
   Stethoscope, Settings, LogOut, Menu, X, ChevronLeft,
-  ChevronRight, Clock3, CheckCircle2, ClipboardList, Search,
+  ChevronRight, Clock3, CheckCircle2, ClipboardList,
   Bell, CalendarCheck2, AlertCircle, Activity, ArrowUpRight
 } from "lucide-react";
 
-// All values below are fictional examples for UI testing, NOT clinic records.
-const appointments = [
-  { id: "A-1001", pet: "Milo", owner: "Maria Santos", service: "General Checkup", date: "Oct 16, 2026", time: "9:00 AM", vet: "Dr. E. Reyes", status: "Pending" },
-  { id: "A-1002", pet: "Luna", owner: "Andrea Cruz", service: "Vaccination", date: "Oct 16, 2026", time: "10:30 AM", vet: "Dr. E. Reyes", status: "Confirmed" },
-  { id: "A-1003", pet: "Coco", owner: "Paolo Garcia", service: "Follow-up", date: "Oct 16, 2026", time: "1:00 PM", vet: "Dr. M. Santos", status: "Pending" },
-  { id: "A-1004", pet: "Bella", owner: "Janelle Lim", service: "Consultation", date: "Oct 17, 2026", time: "11:00 AM", vet: "Dr. E. Reyes", status: "Completed" },
-  { id: "A-1005", pet: "Rocky", owner: "Kevin Tan", service: "Vaccination", date: "Oct 17, 2026", time: "2:30 PM", vet: "Dr. M. Santos", status: "Cancelled" },
-];
 const navItems = [
   { name: "Dashboard", icon: LayoutDashboard, active: true },
   { name: "Appointments", icon: CalendarDays },
@@ -25,15 +17,14 @@ const navItems = [
   { name: "Veterinarians", icon: Stethoscope },
   { name: "Settings", icon: Settings },
 ];
-const statusStyles = {
-  Pending: "bg-amber-50 text-amber-700 border-amber-200",
-  Confirmed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  Completed: "bg-sky-50 text-sky-700 border-sky-200",
-  Cancelled: "bg-rose-50 text-rose-700 border-rose-200",
-};
-function Status({ value }) {
-  return <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusStyles[value]}`}>{value}</span>;
-}
+const appointmentStatuses = [
+  { label: "Pending", color: "bg-amber-400" },
+  { label: "Upcoming", color: "bg-[#078c9d]" },
+  { label: "Rejected", color: "bg-orange-400" },
+  { label: "Completed", color: "bg-emerald-400" },
+  { label: "Missed", color: "bg-slate-400" },
+  { label: "Cancelled", color: "bg-rose-400" },
+];
 function StatCard({ title, value, icon: Icon, note, accent }) {
   return <div className="rounded-2xl border border-[#e1e8ee] bg-white p-5 shadow-sm">
     <div className="flex items-start justify-between gap-3"><span className="text-sm font-semibold text-slate-500">{title}</span><span className={`rounded-xl p-3 ${accent}`}><Icon size={20}/></span></div>
@@ -44,7 +35,6 @@ function StatCard({ title, value, icon: Icon, note, accent }) {
 export default function AdminDashboard() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [search, setSearch] = useState("");
   const [kpis, setKpis] = useState({
     customers: null,
     pets: null,
@@ -53,17 +43,19 @@ export default function AdminDashboard() {
   });
   const [kpiLoading, setKpiLoading] = useState(true);
   const [kpiError, setKpiError] = useState("");
+  const [statusCounts, setStatusCounts] = useState({});
   const navigate = useNavigate();
   useEffect(() => {
     let active = true;
 
     const loadKpis = async () => {
       try {
-        const [customers, pets, pending, todayPending] = await Promise.all([
+        const [customers, pets, pending, today, statuses] = await Promise.all([
           api.get("/customers/count"),
           api.get("/pets/count"),
           api.get("/appointments/count/pending"),
           api.get("/appointments/count/today"),
+          api.get("/appointments/count/status"),
         ]);
 
         if (!active) return;
@@ -71,8 +63,9 @@ export default function AdminDashboard() {
           customers: customers.data.count,
           pets: pets.data.count,
           pending: pending.data.count,
-          todayPending: todayPending.data.count,
+          todayPending: today.data.count,
         });
+        setStatusCounts(statuses.data);
       } catch (error) {
         if (!active) return;
         setKpiError(
@@ -90,7 +83,6 @@ export default function AdminDashboard() {
       active = false;
     };
   }, []);
-  const filtered = appointments.filter((a) => Object.values(a).join(" ").toLowerCase().includes(search.toLowerCase()));
   const logout = () => { sessionStorage.removeItem("raphacare_demo_admin"); navigate("/login", { replace: true }); };
   const sidebar = <div className="flex h-full flex-col bg-[#1e293b] text-white">
     <div className="flex min-h-[88px] items-center justify-between gap-2 border-b border-white/10 px-4">
@@ -133,16 +125,16 @@ export default function AdminDashboard() {
         {kpiError && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{kpiError}</p>}
         <div className="grid gap-5 xl:grid-cols-[1.45fr_1fr]">
           <section className="rounded-2xl border border-[#e1e8ee] bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="text-base font-extrabold">Appointment status</h3><p className="mt-1 text-xs text-slate-500">Example distribution of appointment requests</p></div><Activity size={19} className="text-[#078c9d]" /></div>
-            <div className="mt-6 space-y-5">{[{label:"Pending",n:12,color:"bg-amber-400"},{label:"Confirmed",n:24,color:"bg-[#078c9d]"},{label:"Completed",n:41,color:"bg-emerald-400"},{label:"Cancelled",n:3,color:"bg-rose-400"}].map(s=><div key={s.label}><div className="mb-2 flex justify-between text-sm"><span className="font-semibold">{s.label}</span><span className="font-bold text-slate-600">{s.n}</span></div><div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${s.color}`} style={{width:`${s.n/80*100}%`}} /></div></div>)}</div>
-            <p className="mt-5 text-xs text-slate-400">Counts are fictional and do not reflect live clinic activity.</p>
+            <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="text-base font-extrabold">Appointment status</h3><p className="mt-1 text-xs text-slate-500">Current appointment distribution by status</p></div><Activity size={19} className="text-[#078c9d]" /></div>
+            <div className="mt-6 space-y-5">{appointmentStatuses.map(({ label, color }) => <div key={label}><div className="mb-2 flex justify-between text-sm"><span className="font-semibold">{label}</span><span className="font-bold text-slate-600">{kpiLoading ? "..." : kpiError ? "—" : statusCounts[label] ?? 0}</span></div><div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${color}`} style={{ width: `${(statusCounts[label] ?? 0) / Math.max(1, Object.values(statusCounts).reduce((sum, count) => sum + count, 0)) * 100}%` }} /></div></div>)}</div>
+            <p className="mt-5 text-xs text-slate-400">Live appointment status counts.</p>
           </section>
           <section className="rounded-2xl border border-[#e1e8ee] bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h3 className="text-base font-extrabold">Upcoming schedule</h3><p className="mt-1 text-xs text-slate-500">Sample confirmed appointments</p></div><CalendarDays size={19} className="text-[#078c9d]" /></div>
             <div className="mt-5 space-y-4">{[{time:"9:00 AM",pet:"Luna",service:"Vaccination",vet:"Dr. E. Reyes"},{time:"11:30 AM",pet:"Biscuit",service:"General Checkup",vet:"Dr. E. Reyes"},{time:"2:00 PM",pet:"Max",service:"Follow-up",vet:"Dr. M. Santos"}].map((a,i)=><div key={i} className="flex gap-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0"><div className="min-w-[78px] rounded-lg bg-[#eaf6f8] px-2 py-2 text-center text-xs font-bold text-[#078c9d]">{a.time}</div><div><p className="text-sm font-bold">{a.pet} <span className="font-normal text-slate-500">· {a.service}</span></p><p className="mt-1 text-xs text-slate-500">{a.vet}</p></div></div>)}</div>
           </section>
         </div>
-        <section className="overflow-hidden rounded-2xl border border-[#e1e8ee] bg-white shadow-sm"><div className="flex flex-col justify-between gap-4 border-b border-slate-100 p-5 md:flex-row md:items-center"><div><h3 className="text-base font-extrabold">Recent appointment requests</h3><p className="mt-1 text-xs text-slate-500">Preview of the clinic's appointment list</p></div><div className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-slate-400"><Search size={17}/><input aria-label="Search appointments" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search pet, owner, service..." className="w-full min-w-0 bg-transparent text-sm text-slate-700 outline-none md:w-56" /></div></div>
-          <div className="overflow-x-auto"><table className="w-full min-w-[820px] text-left text-sm"><thead className="bg-[#f7f9fb] text-xs uppercase tracking-wide text-slate-500"><tr>{["Pet", "Owner", "Service", "Date & time", "Veterinarian", "Status"].map(h=><th key={h} className="px-5 py-4 font-bold">{h}</th>)}</tr></thead><tbody>{filtered.map(a=><tr key={a.id} className="border-t border-slate-100"><td className="px-5 py-4 font-bold">{a.pet}<span className="block text-xs font-normal text-slate-400">{a.id}</span></td><td className="px-5 py-4">{a.owner}</td><td className="px-5 py-4">{a.service}</td><td className="px-5 py-4 font-semibold">{a.date}<span className="block text-xs font-normal text-slate-500">{a.time}</span></td><td className="px-5 py-4">{a.vet}</td><td className="px-5 py-4"><Status value={a.status}/></td></tr>)}{filtered.length===0&&<tr><td colSpan="6" className="px-5 py-10 text-center text-slate-500">No matching demo appointments.</td></tr>}</tbody></table></div>
+        <section className="overflow-hidden rounded-2xl border border-[#e1e8ee] bg-white shadow-sm"><div className="flex flex-col justify-between gap-4 border-b border-slate-100 p-5 md:flex-row md:items-center"><div><h3 className="text-base font-extrabold">Recent appointment requests</h3><p className="mt-1 text-xs text-slate-500">Preview of the clinic's appointment list</p></div></div>
+          <div className="px-5 py-10 text-center text-sm text-slate-500">Appointment list integration is not connected yet.</div>
         </section>
         <p className="pb-4 text-xs text-slate-400">RaphaCare admin dashboard preview · Light mode · Sample data only · No real appointments are changed.</p>
       </main>

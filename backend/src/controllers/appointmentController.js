@@ -1,24 +1,16 @@
 import {
   AppointmentServiceError,
   createAppointment as createAppointmentRecord,
-  getAllAppointments,
   getAppointment as getAppointmentRecord,
-  getOwnerAppointments,
-  getPendingAppointmentsCount as countPendingAppointments,
-  getTodaysPendingAppointmentsCount as countTodaysPendingAppointments,
   rescheduleOwnerAppointment,
 } from "../services/appointmentService.js";
-
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-const parseOptionalId = (value) => {
-  if (value === undefined || value === null || value === "") {
-    return undefined;
-  }
-
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-};
+import {
+  findAllAppointments,
+  findOwnerAppointments,
+  getPendingAppointmentsCount as countPendingAppointments,
+  getTodaysAppointmentsCount as countTodaysAppointments,
+  getAppointmentCountPerStatus as countAppointmentPerStatus,
+} from "../models/appointmentModel.js";
 
 const handleAppointmentError = (error, next, res) => {
   if (error instanceof AppointmentServiceError) {
@@ -35,31 +27,14 @@ const handleAppointmentError = (error, next, res) => {
 export const createAppointment = async (req, res, next) => {
   try {
     const { petId, serviceId, vetId, scheduledDate, timeslotId } = req.body ?? {};
-    const parsedPetId = Number(petId);
-    const parsedServiceId = Number(serviceId);
-    const parsedTimeslotId = Number(timeslotId);
-    const parsedVetId = parseOptionalId(vetId);
-
-    if (
-      !Number.isInteger(parsedPetId) ||
-      !Number.isInteger(parsedServiceId) ||
-      !Number.isInteger(parsedTimeslotId) ||
-      !DATE_PATTERN.test(scheduledDate) ||
-      parsedPetId <= 0 ||
-      parsedServiceId <= 0 ||
-      parsedTimeslotId <= 0 ||
-      parsedVetId === null
-    ) {
-      return res.status(400).json({ message: "Invalid appointment details." });
-    }
 
     const appointment = await createAppointmentRecord({
       accountId: req.user.accountId,
-      petId: parsedPetId,
-      serviceId: parsedServiceId,
-      vetId: parsedVetId,
+      petId,
+      serviceId,
+      vetId,
       scheduledDate,
-      timeslotId: parsedTimeslotId,
+      timeslotId,
     });
 
     return res.status(201).json({ appointmentId: appointment.appointmentId });
@@ -70,7 +45,7 @@ export const createAppointment = async (req, res, next) => {
 
 export const getMyAppointments = async (req, res, next) => {
   try {
-    const appointments = await getOwnerAppointments(req.user.accountId);
+    const appointments = await findOwnerAppointments(req.user.accountId);
     return res.json(appointments);
   } catch (error) {
     return next(error);
@@ -79,7 +54,7 @@ export const getMyAppointments = async (req, res, next) => {
 
 export const getAppointments = async (req, res, next) => {
   try {
-    const appointments = await getAllAppointments();
+    const appointments = await findAllAppointments();
     return res.json(appointments);
   } catch (error) {
     return next(error);
@@ -89,7 +64,7 @@ export const getAppointments = async (req, res, next) => {
 export const getAppointment = async (req, res, next) => {
   try {
     const appointment = await getAppointmentRecord(
-      Number(req.params.appointmentId),
+      req.params.appointmentId,
       { accountId: req.user.accountId, role: req.user.role },
     );
     if (!appointment) {
@@ -97,34 +72,21 @@ export const getAppointment = async (req, res, next) => {
     }
     return res.json(appointment);
   } catch (error) {
-    return next(error);
+    return handleAppointmentError(error, next, res);
   }
 };
 
 export const rescheduleAppointment = async (req, res, next) => {
   try {
-    const appointmentId = Number(req.params.appointmentId);
     const { scheduledDate } = req.body ?? {};
-    const timeslotId = Number(req.body?.timeslotId);
-    const vetId = parseOptionalId(req.body?.vetId);
-
-    if (!DATE_PATTERN.test(scheduledDate)) {
-      return res.status(400).json({ message: "Invalid scheduled date." });
-    }
-    if (!Number.isInteger(timeslotId) || timeslotId <= 0) {
-      return res.status(400).json({ message: "Invalid time slot." });
-    }
-    if (vetId === null) {
-      return res.status(400).json({ message: "Invalid veterinarian." });
-    }
 
     const appointment = await rescheduleOwnerAppointment({
-      appointmentId,
+      appointmentId: req.params.appointmentId,
       accountId: req.user.accountId,
       role: req.user.role,
       scheduledDate,
-      timeslotId,
-      vetId,
+      timeslotId: req.body?.timeslotId,
+      vetId: req.body?.vetId,
     });
     if (!appointment) {
       return res.status(404).json({ message: "Appointment not found." });
@@ -136,20 +98,17 @@ export const rescheduleAppointment = async (req, res, next) => {
   }
 };
 
-export const getPendingAppointmentsCount = async (req, res, next) => {
-  try {
-    const count = await countPendingAppointments();
-    return res.json({ count });
-  } catch (error) {
-    return next(error);
-  }
+export const getPendingAppointmentsCount = async (req, res) => {
+  const count = await countPendingAppointments();
+  return res.json({ count });
 };
 
-export const getTodaysPendingAppointmentsCount = async (req, res, next) => {
-  try {
-    const count = await countTodaysPendingAppointments();
-    return res.json({ count });
-  } catch (error) {
-    return next(error);
-  }
+export const getTodaysAppointmentsCount = async (req, res) => {
+  const count = await countTodaysAppointments();
+  return res.json({ count });
+};
+
+export const getAppointmentPerStatusCount = async (req, res) => {
+  const countPerStatus = await countAppointmentPerStatus();
+  return res.json(countPerStatus);
 };

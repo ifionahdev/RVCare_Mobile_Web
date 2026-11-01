@@ -107,7 +107,7 @@ export const getPendingAppointmentsCount = async () =>
     },
   });
 
-export const getTodaysPendingAppointmentsCount = () => {
+export const getTodaysAppointmentsCount = () => {
   const todayManila = new Date().toLocaleDateString("en-CA", {
     timeZone: "Asia/Manila",
   });
@@ -116,7 +116,24 @@ export const getTodaysPendingAppointmentsCount = () => {
     where: {
       isDeleted: false,
       scheduledDate: new Date(`${todayManila}T00:00:00.000Z`),
-      status: "Pending",
+      status: {
+        not: "Cancelled",
+        not: "Pending",
+        not: "Rejected",
+      }
     },
   });
+};
+
+export const getAppointmentCountPerStatus = async () => {
+  const STATUSES = ["Pending", "Upcoming", "Rejected", "Completed", "Missed", "Cancelled"];
+  const rows = await prisma.appointment.groupBy({
+    by: ["status"],
+    where: { isDeleted: false },
+    _count: { _all: true },
+  });
+
+  const counts = Object.fromEntries(STATUSES.map((s) => [s, 0]));
+  for (const row of rows) counts[row.status] = row._count._all;
+  return counts;
 };
