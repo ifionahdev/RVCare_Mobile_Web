@@ -33,11 +33,13 @@ class AppointmentPet {
     required this.petId,
     required this.name,
     required this.breed,
+    required this.gender,
   });
 
   final int petId;
   final String name;
   final String breed;
+  final String gender;
 
   factory AppointmentPet.fromJson(Map<String, dynamic> json) {
     final breedData = json['breed'];
@@ -47,6 +49,7 @@ class AppointmentPet {
       breed: breedData is Map<String, dynamic>
           ? breedData['breedName'] as String
           : 'Unknown breed',
+      gender: json['gender'] as String? ?? 'Not set',
     );
   }
 }
@@ -172,17 +175,54 @@ class AppointmentService {
 
   // Calls POST /api/appointments
   Future<Map<String, dynamic>> createAppointment({
-    required String petName,
-    required String procedure,
+    required int petId,
+    required int serviceId,
+    required String scheduledDate,
+    required int timeslotId,
+    int? vetId,
   }) async {
     try {
       final response = await _apiClient.dio.post(
         '/appointments',
-        data: {'pet': petName, 'procedure': procedure},
+        data: {
+          'petId': petId,
+          'serviceId': serviceId,
+          'scheduledDate': scheduledDate,
+          'timeslotId': timeslotId,
+          'vetId': ?vetId,
+        },
       );
       return Map<String, dynamic>.from(response.data);
     } on DioException catch (e) {
       throw Exception(_message(e, 'Failed to create appointment'));
     }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAppointments() async {
+    final response = await _apiClient.dio.get('/appointments');
+    return (response.data as List)
+        .map((item) => Map<String, dynamic>.from(item as Map))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> fetchAppointment(int appointmentId) async {
+    final response = await _apiClient.dio.get('/appointments/$appointmentId');
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<void> rescheduleAppointment({
+    required int appointmentId,
+    required String scheduledDate,
+    required int timeslotId,
+    int? vetId,
+  }) async {
+    await _apiClient.dio.patch(
+      '/appointments/$appointmentId/reschedule',
+      data: {
+        'scheduledDate': scheduledDate,
+        'timeslotId': timeslotId,
+        ...?vetId == null ? null : {'vetId': vetId},
+      },
+    );
   }
 }

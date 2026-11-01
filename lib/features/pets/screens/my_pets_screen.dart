@@ -1,14 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_bottom_navigation.dart';
 import '../../appointments/screens/my_appointments_screen.dart';
 import '../../appointments/screens/book_appointment_flow.dart';
 import '../models/pet.dart';
+import '../../appointments/data/appointment_service.dart';
 import 'manage_pet_profile_screen.dart';
 
-class MyPetsScreen extends StatelessWidget {
+class MyPetsScreen extends StatefulWidget {
   const MyPetsScreen({super.key});
+
+  @override
+  State<MyPetsScreen> createState() => _MyPetsScreenState();
+}
+
+class _MyPetsScreenState extends State<MyPetsScreen> {
+  List<Pet> _pets = [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPets());
+  }
+
+  Future<void> _loadPets() async {
+    final pets = await context.read<AppointmentService>().fetchUserPets();
+    if (!mounted) return;
+    setState(() {
+      _pets = pets
+          .map(
+            (pet) => Pet(
+              petId: pet.petId,
+              name: pet.name,
+              breed: pet.breed,
+              gender: pet.gender,
+              age: 'Not set',
+              weight: 'Not set',
+            ),
+          )
+          .toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +89,7 @@ class MyPetsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          for (final pet in samplePets) ...[
+          for (final pet in _pets) ...[
             _PetListCard(pet: pet),
             const SizedBox(height: 14),
           ],

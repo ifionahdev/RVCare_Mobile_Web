@@ -17,9 +17,6 @@ class _ManagePetProfileScreenState extends State<ManagePetProfileScreen> {
   late final TextEditingController _breedController;
   late final TextEditingController _ageController;
   late final TextEditingController _weightController;
-  final TextEditingController _ownerController = TextEditingController(
-    text: 'Sarah Jenkins',
-  );
 
   @override
   void initState() {
@@ -37,7 +34,6 @@ class _ManagePetProfileScreenState extends State<ManagePetProfileScreen> {
     _breedController.dispose();
     _ageController.dispose();
     _weightController.dispose();
-    _ownerController.dispose();
     super.dispose();
   }
 
@@ -155,16 +151,6 @@ class _ManagePetProfileScreenState extends State<ManagePetProfileScreen> {
                     ),
                   ),
                 ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _FormCard(
-            title: 'OWNER DETAILS',
-            children: [
-              _FormField(
-                label: 'Primary Owner Name',
-                controller: _ownerController,
               ),
             ],
           ),

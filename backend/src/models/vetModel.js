@@ -4,9 +4,6 @@ export const findAllVeterinarians = async () =>
   prisma.veterinarian.findMany({
     where: {
       isDeleted: false,
-      account: {
-        isDeleted: false,
-      },
     },
     include: { account: true },
     orderBy: [

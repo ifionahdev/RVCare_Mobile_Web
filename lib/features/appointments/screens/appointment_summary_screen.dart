@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../widgets/appointment_widgets.dart';
 import 'appointment_confirmation_screen.dart';
+import '../data/appointment_service.dart';
 
 class AppointmentSummaryScreen extends StatelessWidget {
   const AppointmentSummaryScreen({
@@ -12,6 +14,10 @@ class AppointmentSummaryScreen extends StatelessWidget {
     required this.veterinarian,
     required this.time,
     required this.date,
+    required this.petId,
+    required this.serviceId,
+    this.vetId,
+    this.timeslotId,
   });
 
   final String pet;
@@ -19,6 +25,10 @@ class AppointmentSummaryScreen extends StatelessWidget {
   final String veterinarian;
   final String time;
   final String date;
+  final int petId;
+  final int serviceId;
+  final int? vetId;
+  final int? timeslotId;
 
   @override
   Widget build(BuildContext context) {
@@ -94,18 +104,36 @@ class AppointmentSummaryScreen extends StatelessWidget {
             AppointmentBottomButton(
               label: 'Confirm Booking',
               margin: 20,
-              onTap: () => Navigator.pushReplacement(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => AppointmentConfirmationScreen(
-                    pet: pet,
-                    procedure: procedure,
-                    veterinarian: veterinarian,
-                    time: time,
-                    date: date,
-                  ),
-                ),
-              ),
+              onTap: () async {
+                final match = RegExp(r'Nov (\d+)').firstMatch(date);
+                if (match == null || timeslotId == null) return;
+                try {
+                  await context.read<AppointmentService>().createAppointment(
+                    petId: petId,
+                    serviceId: serviceId,
+                    vetId: vetId,
+                    scheduledDate: '2026-11-${match.group(1)!.padLeft(2, '0')}',
+                    timeslotId: timeslotId!,
+                  );
+                  if (!context.mounted) return;
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => AppointmentConfirmationScreen(
+                        pet: pet,
+                        procedure: procedure,
+                        veterinarian: veterinarian,
+                        time: time,
+                        date: date,
+                      ),
+                    ),
+                  );
+                } catch (error) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(error.toString())));
+                }
+              },
             ),
           ],
         ),

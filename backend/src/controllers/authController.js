@@ -20,7 +20,7 @@ const allowedPlatforms = {
 const profiles = {
   admin: { resultKey: "adminId" },
   vet: { resultKey: "vetId" },
-  customer: { resultKey: "customerId" },
+  customer: { resultKey: "ownerId" },
 };
 
 const publicUser = (account, role, profileId) => {

@@ -1,5 +1,6 @@
 class Pet {
   const Pet({
+    this.petId,
     required this.name,
     required this.breed,
     required this.gender,
@@ -7,6 +8,8 @@ class Pet {
     required this.weight,
     this.nextAppointment,
   });
+
+  final int? petId;
 
   final String name;
   final String breed;

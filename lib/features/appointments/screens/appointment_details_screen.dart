@@ -13,6 +13,7 @@ class AppointmentDetailsScreen extends StatelessWidget {
     required this.veterinarian,
     required this.status,
     this.reference,
+    this.appointmentId,
   });
 
   final String date;
@@ -24,6 +25,7 @@ class AppointmentDetailsScreen extends StatelessWidget {
 
   /// Optional booking reference, e.g. APT-20261104-01.
   final String? reference;
+  final int? appointmentId;
 
   // Shared with MyAppointmentsScreen so both screens look consistent.
   static const Color _pageBg = Color(0xFFF4F9FC);
@@ -355,6 +357,7 @@ class AppointmentDetailsScreen extends StatelessWidget {
                     pet: pet,
                     time: time,
                     veterinarian: veterinarian,
+                    appointmentId: appointmentId,
                   ),
                 ),
               );
