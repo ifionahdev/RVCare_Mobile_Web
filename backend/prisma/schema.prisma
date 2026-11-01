@@ -25,6 +25,7 @@ model Account {
   uploadedFiles  MedicalRecordFile[]
   passwordResets PasswordReset[]
   activityLogs   ActivityLog[]
+  auditLogs     AuditLog[]
 
   @@index([roleId], map: "tbl_account_tbl_role_FK")
   @@map("tbl_account")
@@ -88,6 +89,8 @@ model AuditLog {
   newValue    String?        @map("new_value") @db.LongText
   createdAt   DateTime       @default(now()) @map("created_at") @db.DateTime(0)
 
+  account Account? @relation(fields: [accountId], references: [accountId], onUpdate: Restrict, map: "tbl_audit_log_tbl_account_FK")
+  
   @@map("tbl_audit_log")
 }
 

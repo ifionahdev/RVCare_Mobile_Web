@@ -1,7 +1,7 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
-import { PrismaClient } from "../src/generated/prisma/client.ts";
+import { PrismaClient } from "../src/generated/prisma/client.js";
 
 const adapter = new PrismaMariaDb({
   host: process.env.DB_HOST,
@@ -39,22 +39,22 @@ const TEST_ACCOUNTS = [
   {
     username: "vet2@gmail.com",
     password: "VetPass123!",
-    firstName: "Test",
-    lastName: "Veterinarian Two",
+    firstName: "Allan",
+    lastName: "Mercer",
     role: "vet",
   },
   {
     username: "vet3@gmail.com",
     password: "VetPass123!",
-    firstName: "Test",
-    lastName: "Veterinarian Three",
+    firstName: "Sabine",
+    lastName: "Callas",
     role: "vet",
   },
   {
     username: "vet4@gmail.com",
     password: "VetPass123!",
-    firstName: "Test",
-    lastName: "Veterinarian Four",
+    firstName: "Selena",
+    lastName: "Woods",
     role: "vet",
   },
   {
