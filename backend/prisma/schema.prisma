@@ -21,6 +21,7 @@ model Account {
   admin          Admin?
   veterinarian   Veterinarian?
   petOwner       PetOwner?
+  uploadedTips   PetCareTip[]
   uploadedFiles  MedicalRecordFile[]
   passwordResets PasswordReset[]
   activityLogs   ActivityLog[]
@@ -65,15 +66,15 @@ model Appointment {
   lastUpdated   DateTime          @default(now()) @updatedAt @map("last_updated") @db.DateTime(0)
   isDeleted     Boolean           @default(false) @map("is_deleted")
 
-  timeslot    Timeslot     @relation(fields: [timeslotId], references: [timeslotId], onUpdate: Restrict, map: "tbl_appointment_tbl_timeslot_FK")
+  timeslot     Timeslot     @relation(fields: [timeslotId], references: [timeslotId], onUpdate: Restrict, map: "tbl_appointment_tbl_timeslot_FK")
   veterinarian Veterinarian @relation(fields: [vetId], references: [vetId], onUpdate: Restrict, map: "tbl_appointment_tbl_veterinarian_FK")
   pet          Pet          @relation(fields: [petId], references: [petId], onUpdate: Restrict, map: "tbl_appointment_tbl_pet_FK")
   service      Service      @relation(fields: [serviceId], references: [serviceId], onUpdate: Restrict, map: "tbl_appointment_tbl_service_FK")
   visits       Visit[]
 
+  @@unique([vetId, scheduledDate, timeslotId], map: "tbl_appointment_unique")
   @@index([petId], map: "tbl_appointment_tbl_pet_FK")
   @@index([serviceId], map: "tbl_appointment_tbl_service_FK")
-  @@unique([vetId, scheduledDate, timeslotId], map: "tbl_appointment_unique")
   @@map("tbl_appointment")
 }
 
@@ -195,6 +196,24 @@ model PetOwner {
   @@map("tbl_pet_owner")
 }
 
+model PetCareTip {
+  tipId             Int                 @id @default(autoincrement()) @map("tip_id")
+  type              PetCareTipType
+  category          PetCareTipCategory
+  title             String              @db.VarChar(100)
+  description       String              @db.VarChar(1000)
+  imageUrl          String?             @map("image_url") @db.VarChar(255)
+  linkUrl           String              @map("link_url") @db.VarChar(255)
+  uploaderAccountId Int                 @map("uploader_account_id")
+  createdAt         DateTime            @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt         DateTime            @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
+  isDeleted         Boolean             @default(false) @map("is_deleted")
+
+  uploader Account @relation(fields: [uploaderAccountId], references: [accountId], onUpdate: Restrict, map: "tbl_pet_care_tips_tbl_account_FK")
+
+  @@map("tbl_pet_care_tip")
+}
+
 model Role {
   roleId   Int    @id @default(autoincrement()) @map("role_id")
   roleSlug String @unique(map: "tbl_role_slug") @map("role_slug") @db.VarChar(50)
@@ -301,4 +320,25 @@ enum VisitStatus {
   Completed
 
   @@map("tbl_visit_status")
+}
+
+enum PetCareTipType {
+  Article
+  Video
+
+  @@map("tbl_pet_care_tips_type")
+}
+
+enum PetCareTipCategory {
+  Health
+  Nutrition
+  Grooming
+  Training
+  Behavior
+  Safety
+  Travel
+  Adoption
+  Miscellaneous
+
+  @@map("tbl_pet_care_tips_category")
 }
