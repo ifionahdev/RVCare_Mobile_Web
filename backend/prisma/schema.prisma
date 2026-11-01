@@ -309,7 +309,8 @@ enum PetGender {
 
 enum AppointmentStatus {
   Pending
-  Incoming
+  Upcoming
+  Rejected
   Completed
   Missed
   Cancelled
