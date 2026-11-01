@@ -1,85 +1,85 @@
-import { prisma } from "../config/prisma.js";
 import {
-  findOwnerAppointments,
-  findAppointmentById,
-} from "../models/appointmentModel.js";
-import { emitAppointmentChanged } from "../realtime.js";
+  AppointmentServiceError,
+  createAppointment as createAppointmentRecord,
+  getAllAppointments,
+  getAppointment as getAppointmentRecord,
+  getOwnerAppointments,
+  getPendingAppointmentsCount as countPendingAppointments,
+  getTodaysPendingAppointmentsCount as countTodaysPendingAppointments,
+  rescheduleOwnerAppointment,
+} from "../services/appointmentService.js";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-const requireOwner = async (appointmentId, accountId) => {
-  const appointment = await findAppointmentById(appointmentId);
-  if (!appointment) return null;
+const parseOptionalId = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
 
-  return appointment.pet.owner.accountId === accountId ? appointment : null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+const handleAppointmentError = (error, next, res) => {
+  if (error instanceof AppointmentServiceError) {
+    return res.status(error.statusCode).json({ message: error.message });
+  }
+
+  if (error?.code === "P2002") {
+    return res.status(409).json({ message: "That time slot is already booked." });
+  }
+
+  return next(error);
 };
 
 export const createAppointment = async (req, res, next) => {
   try {
     const { petId, serviceId, vetId, scheduledDate, timeslotId } = req.body ?? {};
+    const parsedPetId = Number(petId);
+    const parsedServiceId = Number(serviceId);
+    const parsedTimeslotId = Number(timeslotId);
+    const parsedVetId = parseOptionalId(vetId);
+
     if (
-      !Number.isInteger(Number(petId)) ||
-      !Number.isInteger(Number(serviceId)) ||
-      !Number.isInteger(Number(timeslotId)) ||
-      !DATE_PATTERN.test(scheduledDate)
+      !Number.isInteger(parsedPetId) ||
+      !Number.isInteger(parsedServiceId) ||
+      !Number.isInteger(parsedTimeslotId) ||
+      !DATE_PATTERN.test(scheduledDate) ||
+      parsedPetId <= 0 ||
+      parsedServiceId <= 0 ||
+      parsedTimeslotId <= 0 ||
+      parsedVetId === null
     ) {
       return res.status(400).json({ message: "Invalid appointment details." });
     }
 
-    const owner = await prisma.petOwner.findFirst({
-      where: { accountId: req.user.accountId, isDeleted: false },
-      select: { ownerId: true },
-    });
-    const pet = await prisma.pet.findFirst({
-      where: { petId: Number(petId), ownerId: owner?.ownerId, isDeleted: false },
-    });
-    if (!pet) {
-      return res.status(403).json({ message: "You can only book for your own pets." });
-    }
-
-    const parsedVetId = vetId === undefined || vetId === null || vetId === ""
-      ? undefined
-      : Number(vetId);
-    const selectedVetId =
-      parsedVetId ??
-      (await prisma.veterinarian.findFirst({
-        where: { isDeleted: false },
-        select: { vetId: true },
-        orderBy: { vetId: "asc" },
-      }))?.vetId;
-
-    if (!selectedVetId) {
-      return res.status(400).json({ message: "No veterinarian is available." });
-    }
-
-    const appointment = await prisma.appointment.create({
-      data: {
-        petId: Number(petId),
-        serviceId: Number(serviceId),
-        vetId: selectedVetId,
-        scheduledDate: new Date(`${scheduledDate}T00:00:00.000Z`),
-        timeslotId: Number(timeslotId),
-        status: "Pending",
-      },
-    });
-
-    emitAppointmentChanged(req.user.accountId, {
-      type: "created",
-      appointmentId: appointment.appointmentId,
+    const appointment = await createAppointmentRecord({
+      accountId: req.user.accountId,
+      petId: parsedPetId,
+      serviceId: parsedServiceId,
+      vetId: parsedVetId,
+      scheduledDate,
+      timeslotId: parsedTimeslotId,
     });
 
     return res.status(201).json({ appointmentId: appointment.appointmentId });
   } catch (error) {
-    if (error?.code === "P2002") {
-      return res.status(409).json({ message: "That time slot is already booked." });
-    }
+    return handleAppointmentError(error, next, res);
+  }
+};
+
+export const getMyAppointments = async (req, res, next) => {
+  try {
+    const appointments = await getOwnerAppointments(req.user.accountId);
+    return res.json(appointments);
+  } catch (error) {
     return next(error);
   }
 };
 
 export const getAppointments = async (req, res, next) => {
   try {
-    const appointments = await findOwnerAppointments(req.user.accountId);
+    const appointments = await getAllAppointments();
     return res.json(appointments);
   } catch (error) {
     return next(error);
@@ -88,7 +88,10 @@ export const getAppointments = async (req, res, next) => {
 
 export const getAppointment = async (req, res, next) => {
   try {
-    const appointment = await requireOwner(Number(req.params.appointmentId), req.user.accountId);
+    const appointment = await getAppointmentRecord(
+      Number(req.params.appointmentId),
+      { accountId: req.user.accountId, role: req.user.role },
+    );
     if (!appointment) {
       return res.status(404).json({ message: "Appointment not found." });
     }
@@ -101,43 +104,52 @@ export const getAppointment = async (req, res, next) => {
 export const rescheduleAppointment = async (req, res, next) => {
   try {
     const appointmentId = Number(req.params.appointmentId);
-    const appointment = await requireOwner(appointmentId, req.user.accountId);
-    if (!appointment) {
-      return res.status(404).json({ message: "Appointment not found." });
-    }
-    if (!DATE_PATTERN.test(req.body?.scheduledDate)) {
+    const { scheduledDate } = req.body ?? {};
+    const timeslotId = Number(req.body?.timeslotId);
+    const vetId = parseOptionalId(req.body?.vetId);
+
+    if (!DATE_PATTERN.test(scheduledDate)) {
       return res.status(400).json({ message: "Invalid scheduled date." });
     }
-
-    const timeslotId = Number(req.body.timeslotId);
-    if (!Number.isInteger(timeslotId)) {
+    if (!Number.isInteger(timeslotId) || timeslotId <= 0) {
       return res.status(400).json({ message: "Invalid time slot." });
     }
-    const vetId =
-      req.body.vetId === undefined || req.body.vetId === null || req.body.vetId === ""
-        ? undefined
-        : Number(req.body.vetId);
-    if (vetId !== undefined && (!Number.isInteger(vetId) || vetId <= 0)) {
+    if (vetId === null) {
       return res.status(400).json({ message: "Invalid veterinarian." });
     }
 
-    await prisma.appointment.update({
-      where: { appointmentId },
-      data: {
-        scheduledDate: new Date(`${req.body.scheduledDate}T00:00:00.000Z`),
-        timeslotId,
-        ...(vetId === undefined ? {} : { vetId }),
-      },
-    });
-    emitAppointmentChanged(req.user.accountId, {
-      type: "rescheduled",
+    const appointment = await rescheduleOwnerAppointment({
       appointmentId,
+      accountId: req.user.accountId,
+      role: req.user.role,
+      scheduledDate,
+      timeslotId,
+      vetId,
     });
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found." });
+    }
+
     return res.json({ message: "Appointment rescheduled." });
   } catch (error) {
-    if (error?.code === "P2002") {
-      return res.status(409).json({ message: "That time slot is already booked." });
-    }
+    return handleAppointmentError(error, next, res);
+  }
+};
+
+export const getPendingAppointmentsCount = async (req, res, next) => {
+  try {
+    const count = await countPendingAppointments();
+    return res.json({ count });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getTodaysPendingAppointmentsCount = async (req, res, next) => {
+  try {
+    const count = await countTodaysPendingAppointments();
+    return res.json({ count });
+  } catch (error) {
     return next(error);
   }
 };

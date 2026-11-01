@@ -9,13 +9,5 @@ export const findPetByOwner = async (id) =>
         include: { breed: true },
     });
 
-export const findOwnerByAccount = async (accountId) =>
-    prisma.petOwner.findFirst({
-        where: {
-            accountId,
-            isDeleted: false,
-        },
-        select: {
-            ownerId: true,
-        },
-    });
+export const getPetCount = async () =>
+    prisma.pet.count({ where: { isDeleted: false } });

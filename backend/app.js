@@ -10,6 +10,8 @@ import serviceRoutes from "./src/routes/serviceRoute.js";
 import availabilityRoutes from "./src/routes/availabilityRoute.js";
 import vetRoutes from "./src/routes/vetRoute.js";
 import appointmentRoutes from "./src/routes/appointmentRoutes.js";
+import customerRoutes from "./src/routes/customerRoute.js";
+import { errorHandler } from "./src/middleware/errorHandler.js";
 
 const app = express();
 
@@ -97,29 +99,8 @@ app.use("/api/vets", vetRoutes);
 
 app.use("/api/appointments", appointmentRoutes);
 
-app.use((error, req, res, next) => {
-  console.error(
-    `[http] ${req.requestId ?? "unknown"} ${req.method} ${req.originalUrl} failed:`,
-    error.message
-  );
+app.use("/api/customers", customerRoutes);
 
-  if (error.message === "CORS origin not allowed") {
-    return res.status(403).json({
-      message: "Origin not allowed.",
-    });
-  }
-
-  if (error instanceof SyntaxError && "body" in error) {
-    return res.status(400).json({
-      message: "Invalid JSON request.",
-    });
-  }
-
-  console.error(error);
-
-  return res.status(500).json({
-    message: "An unexpected server error occurred.",
-  });
-});
+app.use(errorHandler);
 
 export default app;

@@ -1,9 +1,9 @@
 import { prisma } from "../config/prisma.js";
 
 export const profiles = {
-  admin: { model: "admin", idField: "adminId", resultKey: "adminId" },
-  vet: { model: "veterinarian", idField: "vetId", resultKey: "vetId" },
-  customer: { model: "petOwner", idField: "ownerId", resultKey: "ownerId" },
+  admin: { model: "admin", idField: "adminId"},
+  vet: { model: "veterinarian", idField: "vetId"},
+  customer: { model: "petOwner", idField: "ownerId"},
 };
 
 export const findProfileId = async (accountId, role) => {

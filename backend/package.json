@@ -26,7 +26,8 @@
     "mysql2": "^3.24.6",
     "nodemailer": "^10.1.7",
     "prisma": "^7.10.1",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "socket.io": "^4.8.4"
   },
   "devDependencies": {
     "@types/node": "^26.6.6"
