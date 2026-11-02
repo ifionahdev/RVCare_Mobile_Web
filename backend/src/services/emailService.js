@@ -84,3 +84,26 @@ export async function sendResetOtp(email, otp) {
     throw error;
   }
 }
+
+export async function sendOwnerCredentials(email, password) {
+  const info = await transporter.sendMail({
+    from: `"RaphaCare" <${process.env.SMTP_USER}>`,
+    to: email,
+    subject: "Your RaphaCare account",
+    text: [
+      "Your RaphaCare account has been created.",
+      "",
+      `Email: ${email}`,
+      `Temporary password: ${password}`,
+      "",
+      "Please sign in and change your password.",
+    ].join("\n"),
+  });
+
+  const accepted = Array.isArray(info.accepted) && info.accepted.includes(email);
+  if (!accepted) {
+    throw new Error("SMTP server did not accept the account credentials email.");
+  }
+
+  return info;
+}

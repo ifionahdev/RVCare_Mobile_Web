@@ -123,6 +123,7 @@ async function seedFakeData() {
       update: {},
       create: {
         username: `fakeowner${i}@example.com`,
+        email: `fakeowner${i}@example.com`,
         password: passwordHash,
         firstName: faker.person.firstName(),
         lastName: faker.person.lastName(),
@@ -146,6 +147,7 @@ async function seedFakeData() {
             petName: faker.person.firstName(),
             gender: faker.helpers.arrayElement(["Male", "Female"] as const),
             breedId: faker.helpers.arrayElement(breeds).breedId,
+            dateOfBirth: new Date("2020-01-01"),
           },
         }),
       );
@@ -226,6 +228,7 @@ async function main() {
       update: {},
       create: {
         username: a.username,
+        email: a.username,
         password: await bcrypt.hash(a.password, 10),
         firstName: a.firstName,
         lastName: a.lastName,

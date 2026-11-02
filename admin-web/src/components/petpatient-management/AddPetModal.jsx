@@ -210,7 +210,7 @@ const AddPetModal = ({ isOpen, onClose, onSave, owners, initialData, refreshPets
       const ownerId = owners.find((o) => o.name === initialData.owner)?.id || "";
       
       setPetData({
-        ownerId,
+        ownerId: initialData.accID || ownerId,
         type: initialData.petType || "",
         breed: initialData.breed || "",
         name: initialData.name || "",
@@ -236,7 +236,11 @@ const AddPetModal = ({ isOpen, onClose, onSave, owners, initialData, refreshPets
     const fetchBreeds = async () => {
       try {
         const res = await api.get(`/admin/breeds?species=${petData.type}`);
-        setBreeds(res.data);
+        setBreeds(
+          (Array.isArray(res.data) ? res.data : [])
+            .map((breed) => breed?.breedName ?? breed)
+            .filter(Boolean)
+        );
       } catch (error) {
         console.error("Failed to fetch breeds:", error);
         setBreeds([]);

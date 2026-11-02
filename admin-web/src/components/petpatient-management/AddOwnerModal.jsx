@@ -420,7 +420,9 @@ const AddOwnerModal = ({ isOpen, onClose, onSave, initialData }) => {
 
   if (!isOpen) return null;
 
-  const breedOptions = petData.type === "Dog" ? dogBreeds : petData.type === "Cat" ? catBreeds : [];
+  const breedOptions = (petData.type === "Dog" ? dogBreeds : petData.type === "Cat" ? catBreeds : [])
+    .map((breed) => breed?.breedName ?? breed)
+    .filter(Boolean);
   const isEditing = !!initialData;
 
   return (

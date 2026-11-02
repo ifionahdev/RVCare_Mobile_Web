@@ -11,6 +11,7 @@ import availabilityRoutes from "./src/routes/availabilityRoute.js";
 import vetRoutes from "./src/routes/vetRoute.js";
 import appointmentRoutes from "./src/routes/appointmentRoutes.js";
 import customerRoutes from "./src/routes/customerRoute.js";
+import adminRoutes from "./src/routes/adminRoute.js";
 import { errorHandler } from "./src/middleware/errorHandler.js";
 
 const app = express();
@@ -100,6 +101,8 @@ app.use("/api/vets", vetRoutes);
 app.use("/api/appointments", appointmentRoutes);
 
 app.use("/api/customers", customerRoutes);
+
+app.use("/api/admin", adminRoutes);
 
 app.use(errorHandler);
 

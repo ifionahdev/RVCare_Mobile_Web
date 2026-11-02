@@ -12,6 +12,10 @@ model Account {
   accountId      Int      @id @default(autoincrement()) @map("account_id")
   roleId         Int      @map("role_id")
   username       String   @unique(map: "tbl_account_username") @db.VarChar(50)
+  email          String   @unique(map: "tbl_account_email") @db.VarChar(255)
+  isDeleted      Boolean  @default(false) @map("is_deleted")
+  gender         PetGender?
+  dateOfBirth    DateTime? @map("date_of_birth") @db.Date
   password       String   @db.VarChar(255)
   firstName      String   @map("first_name") @db.VarChar(100)
   lastName       String   @map("last_name") @db.VarChar(100)
@@ -160,6 +164,10 @@ model Pet {
   petName        String    @map("pet_name") @db.VarChar(100)
   breedId        Int       @map("breed_id")
   gender         PetGender
+  dateOfBirth    DateTime  @map("date_of_birth") @db.Date
+  weightKg       Decimal?  @map("weight_kg") @db.Decimal(5, 2)
+  color          String?   @db.VarChar(100)
+  note           String?   @db.VarChar(500)
   dateRegistered DateTime  @default(now()) @map("date_registered") @db.DateTime(0)
   isDeleted      Boolean   @default(false) @map("is_deleted")
 

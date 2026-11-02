@@ -10,3 +10,20 @@ export const findCustomerByAccount = async (accountId) =>
             isDeleted: false,
         },
     });
+
+export const findActiveCustomersWithPets = () =>
+    prisma.petOwner.findMany({
+        where: {
+            isDeleted: false,
+            account: { isDeleted: false },
+        },
+        orderBy: { ownerId: "desc" },
+        include: {
+            account: true,
+            pets: {
+                where: { isDeleted: false },
+                include: { breed: true },
+                orderBy: { petId: "desc" },
+            },
+        },
+    });
