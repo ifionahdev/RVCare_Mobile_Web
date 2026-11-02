@@ -10,8 +10,16 @@ import {
 
 import Login from "./pages/auth/Login.jsx";
 import ForgotPassword from "./pages/auth/ForgotPassword.jsx";
-import AdminDashboard from "./pages/admin/Dashboard.jsx";
 import ResetPassword from "./pages/auth/ResetPassword.jsx";
+import AdminLayout from "./components/AdminLayout.jsx";
+import AdminDashboard from "./pages/Dashboard.jsx";
+import PetPatientManagement from "./pages/PetPatientManagement.jsx";
+import AppointmentsVisits from "./pages/AppointmentsVisits.jsx";
+import AddAppointment from "./pages/AddAppointment.jsx";
+import AddVisit from "./pages/AddVisit.jsx";
+import ContentManagement from "./pages/ContentManagement.jsx";
+import Reports from "./pages/Reports.jsx";
+import AdminSetting from "./pages/AdminSetting.jsx";
 
 import { AuthProvider } from "./context/authContext.jsx";
 import ProtectedRoute from "./components/auth/ProtectedRoute.jsx";
@@ -33,15 +41,25 @@ createRoot(document.getElementById("root")).render(
           
           <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Admin-only route */}
+          {/* Admin-only routes */}
           <Route
-            path="/admin/dashboard"
+            path="/admin"
             element={
               <ProtectedRoute allowedRoles={["admin"]}>
-                <AdminDashboard />
+                <AdminLayout />
               </ProtectedRoute>
             }
-          />
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="pet-management" element={<PetPatientManagement />} />
+            <Route path="appointments" element={<AppointmentsVisits />} />
+            <Route path="appointments/add" element={<AddAppointment />} />
+            <Route path="visits/add" element={<AddVisit />} />
+            <Route path="content-manager" element={<ContentManagement />} />
+            <Route path="reports" element={<Reports />} />
+            <Route path="settings" element={<AdminSetting />} />
+          </Route>
 
           {/* Fallback */}
           <Route

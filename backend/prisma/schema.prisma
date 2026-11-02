@@ -71,9 +71,9 @@ model Appointment {
   veterinarian Veterinarian @relation(fields: [vetId], references: [vetId], onUpdate: Restrict, map: "tbl_appointment_tbl_veterinarian_FK")
   pet          Pet          @relation(fields: [petId], references: [petId], onUpdate: Restrict, map: "tbl_appointment_tbl_pet_FK")
   service      Service      @relation(fields: [serviceId], references: [serviceId], onUpdate: Restrict, map: "tbl_appointment_tbl_service_FK")
-  visits       Visit[]
+  visits       Visit?
 
-  @@unique([vetId, scheduledDate, timeslotId], map: "tbl_appointment_unique")
+  @@index([vetId, scheduledDate, timeslotId], map: "tbl_appointment_index_booked")
   @@index([petId], map: "tbl_appointment_tbl_pet_FK")
   @@index([serviceId], map: "tbl_appointment_tbl_service_FK")
   @@map("tbl_appointment")

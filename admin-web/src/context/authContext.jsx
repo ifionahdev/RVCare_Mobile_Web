@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 
-import api, { TOKEN_KEY } from "../api/axios.js";
+import api, { TOKEN_KEY } from "../api/authAxios.js";
 
 const AuthContext = createContext(null);
 
@@ -74,10 +74,10 @@ export function AuthProvider({ children }) {
             setUser(restoredUser);
           }
         }
-      } catch {
-        // Only invalidate a session when the API rejects it.
-        // Temporary network errors should not erase the token.
-        if (active) setUser(null);
+      } catch (err) {
+        if (active && err.response?.status === 401) {
+          logout();
+        }
       } finally {
         if (active) setLoading(false);
       }

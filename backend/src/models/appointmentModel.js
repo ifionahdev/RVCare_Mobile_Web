@@ -6,8 +6,7 @@ export const findBookedTimeslotIds = async ({ scheduledDate, vetId }) =>
       scheduledDate,
       isDeleted: false,
       status: {
-        not: "Cancelled",
-        not: "Pending",
+        notIn: ["Cancelled", "Pending"],
       },
       ...(vetId === undefined ? {} : { vetId }),
     },
@@ -38,13 +37,30 @@ export const findOwnerAppointments = (accountId) =>
     orderBy: [{ scheduledDate: "desc" }, { timeslotId: "asc" }],
   });
 
+const appointmentListSelect = {
+  appointmentId: true,
+  scheduledDate: true,
+  status: true,
+  timeslot: { select: { display: true } },
+  service: { select: { serviceName: true } },
+  pet: {
+    select: {
+      petName: true,
+      owner: { select: { account: { select: { firstName: true, lastName: true } } } },
+    },
+  },
+  veterinarian: {
+    select: { account: { select: { firstName: true, lastName: true } } },
+  },
+};
+
 export const findAllAppointments = () =>
   prisma.appointment.findMany({
     where: {
       isDeleted: false,
       status: { not: "Pending" },
     },
-    include: appointmentInclude,
+    select: appointmentListSelect,
     orderBy: [{ scheduledDate: "desc" }, { timeslotId: "asc" }],
   });
 
@@ -52,18 +68,6 @@ export const findAppointmentById = (appointmentId) =>
   prisma.appointment.findFirst({
     where: { appointmentId, isDeleted: false },
     include: appointmentInclude,
-  });
-
-export const findOwnerPet = (petId, ownerId) =>
-  prisma.pet.findFirst({
-    where: { petId, ownerId, isDeleted: false },
-  });
-
-export const findFirstAvailableVeterinarian = () =>
-  prisma.veterinarian.findFirst({
-    where: { isDeleted: false },
-    select: { vetId: true },
-    orderBy: { vetId: "asc" },
   });
 
 export const createPendingAppointment = ({
@@ -107,21 +111,45 @@ export const getPendingAppointmentsCount = async () =>
     },
   });
 
-export const getTodaysAppointmentsCount = () => {
+const getTodayManilaDate = () => {
   const todayManila = new Date().toLocaleDateString("en-CA", {
     timeZone: "Asia/Manila",
   });
+  return new Date(`${todayManila}T00:00:00.000Z`);
+};
+
+export const getTodaysAppointmentsCount = () => {
 
   return prisma.appointment.count({
     where: {
       isDeleted: false,
-      scheduledDate: new Date(`${todayManila}T00:00:00.000Z`),
+      scheduledDate: getTodayManilaDate(),
       status: {
-        not: "Cancelled",
-        not: "Pending",
-        not: "Rejected",
+        notIn: ["Cancelled", "Pending", "Rejected"],
       }
     },
+  });
+};
+
+const todaysUpcomingSelect = {
+  appointmentId: true,
+  timeslot: { select: { display: true } },
+  pet: { select: { petName: true } },
+  service: { select: { serviceName: true } },
+  veterinarian: {
+    select: { account: { select: { firstName: true, lastName: true } } },
+  },
+};
+
+export const findTodaysUpcomingAppointments = () => {
+  return prisma.appointment.findMany({
+    where: {
+      isDeleted: false,
+      scheduledDate: getTodayManilaDate(),
+      status: "Upcoming",
+    },
+    select: todaysUpcomingSelect,
+    orderBy: { timeslot: {startTime: "asc"} },
   });
 };
 
@@ -137,3 +165,13 @@ export const getAppointmentCountPerStatus = async () => {
   for (const row of rows) counts[row.status] = row._count._all;
   return counts;
 };
+
+export const findRecentPendingAppointments = () =>
+  prisma.appointment.findMany({
+    where: {
+      isDeleted: false,
+      status: "Pending",
+    },
+    include: appointmentInclude,
+    orderBy: [{ scheduledDate: "desc" }, { timeslotId: "asc" }],
+  });
