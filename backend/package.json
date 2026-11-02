@@ -26,10 +26,11 @@
     "mysql2": "^3.24.6",
     "nodemailer": "^10.1.7",
     "prisma": "^7.10.1",
-    "tsx": "^4.23.15",
-    "socket.io": "^4.8.4"
+    "socket.io": "^4.8.4",
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.6.0",
     "@types/node": "^26.6.6"
   }
 }

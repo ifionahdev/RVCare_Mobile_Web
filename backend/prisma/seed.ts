@@ -2,6 +2,7 @@ import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "../src/generated/prisma/client.js";
+import { faker } from "@faker-js/faker";
 
 const adapter = new PrismaMariaDb({
   host: process.env.DB_HOST,
@@ -97,6 +98,111 @@ const TEST_PETS = [
   { petName: "Buddy", gender: "Male", species: "Dog", breedName: "Aspin" },
 ] as const;
 
+//FAKER SEEDING FUNCTIONS
+const FAKE_OWNERS = 15;
+const FAKE_APPOINTMENTS = 60;
+
+const toDateOnly = (d: Date) =>
+  new Date(`${d.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" })}T00:00:00.000Z`);
+
+async function seedFakeData() {
+  faker.seed(42); // same data every run; remove for random data
+
+  const customerRole = await prisma.role.findUniqueOrThrow({ where: { roleSlug: "customer" } });
+  const breeds = await prisma.petBreed.findMany();
+  const services = await prisma.service.findMany();
+  const timeslots = await prisma.timeslot.findMany();
+  const vets = await prisma.veterinarian.findMany();
+  const passwordHash = await bcrypt.hash("CustomerPass123!", 10); // hash once, not per user
+
+  // Owners + pets
+  const pets: { petId: number }[] = [];
+  for (let i = 1; i <= FAKE_OWNERS; i++) {
+    const account = await prisma.account.upsert({
+      where: { username: `fakeowner${i}@example.com` },
+      update: {},
+      create: {
+        username: `fakeowner${i}@example.com`,
+        password: passwordHash,
+        firstName: faker.person.firstName(),
+        lastName: faker.person.lastName(),
+        roleId: customerRole.roleId,
+      },
+    });
+    const owner = await prisma.petOwner.upsert({
+      where: { accountId: account.accountId },
+      update: {},
+      create: {
+        accountId: account.accountId,
+        address: faker.location.streetAddress().slice(0, 100),
+        contactNumber: `09${faker.string.numeric(9)}`, // 11 chars max
+      },
+    });
+    for (let p = 0; p < faker.number.int({ min: 1, max: 3 }); p++) {
+      pets.push(
+        await prisma.pet.create({
+          data: {
+            ownerId: owner.ownerId,
+            petName: faker.person.firstName(),
+            gender: faker.helpers.arrayElement(["Male", "Female"] as const),
+            breedId: faker.helpers.arrayElement(breeds).breedId,
+          },
+        }),
+      );
+    }
+  }
+
+  // Appointments (+ visits for completed ones), never reusing a vet/date/slot
+  const taken = new Set<string>();
+  for (let i = 0; i < FAKE_APPOINTMENTS; i++) {
+    const offset = faker.number.int({ min: -14, max: 14 });
+    const when = new Date(Date.now() + offset * 86_400_000);
+    const scheduledDate = toDateOnly(when);
+    const vet = faker.helpers.arrayElement(vets);
+    const slot = faker.helpers.arrayElement(timeslots);
+    const key = `${vet.vetId}-${scheduledDate.toISOString()}-${slot.timeslotId}`;
+    if (taken.has(key)) continue;
+    taken.add(key);
+
+    const status =
+      offset < 0
+        ? faker.helpers.arrayElement(["Completed", "Completed", "Missed", "Cancelled"] as const)
+        : faker.helpers.arrayElement(["Pending", "Upcoming", "Upcoming", "Rejected"] as const);
+
+    const petId = faker.helpers.arrayElement(pets).petId;
+    const serviceId = faker.helpers.arrayElement(services).serviceId;
+
+    const appt = await prisma.appointment.create({
+      data: { vetId: vet.vetId, petId, serviceId, scheduledDate, timeslotId: slot.timeslotId, status },
+    });
+
+    if (status === "Completed") {
+      await prisma.visit.create({
+        data: {
+          appointmentId: appt.appointmentId,
+          vetId: vet.vetId,
+          petId,
+          serviceId,
+          visitDate: scheduledDate,
+          status: "Completed",
+        },
+      });
+    }
+  }
+
+  // A few walk-in visits (no appointment)
+  for (let i = 0; i < 5; i++) {
+    await prisma.visit.create({
+      data: {
+        vetId: faker.helpers.arrayElement(vets).vetId,
+        petId: faker.helpers.arrayElement(pets).petId,
+        serviceId: faker.helpers.arrayElement(services).serviceId,
+        status: faker.helpers.arrayElement(["Checked_in", "Ongoing"] as const),
+      },
+    });
+  }
+}
+
 async function main() {
   // Roles first (accounts need them). upsert = skip if it already exists.
   for (const r of ROLES) {
@@ -187,10 +293,16 @@ async function main() {
     }
   }
 
+  if (process.env.SEED_FAKE === "true") {
+    console.log("Seeding fake data...");
+    await seedFakeData();
+  }
+
   console.log(
     "Seed complete: roles, accounts, timeslots, services, breeds, pets",
   );
 }
+
 
 main()
   .catch((e) => {

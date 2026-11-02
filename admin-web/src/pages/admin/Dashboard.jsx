@@ -8,55 +8,78 @@ import {
   MessageSquarePlus,
   ClipboardPlus,
 } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import api from "../../api/axios";
-import ErrorToast from "../../components/admin/template/ErrorToast.jsx";
-import socket from "../../socket";
 
-const Dashboard = () => {
-  const navigate = useNavigate();
-  const [errorToast, setErrorToast] = useState(null);
-  const [stats, setStats] = useState({
-    adminName: "Admin",
-    totalOwners: 0,
-    totalPets: 0,
-    totalUpComingAppointments: 0,
-    totalMissingPets: 0,
+const navItems = [
+  { name: "Dashboard", icon: LayoutDashboard, active: true },
+  { name: "Appointments", icon: CalendarDays },
+  { name: "Customers & Pets", icon: UsersRound },
+  { name: "Medical Records", icon: FileText },
+  { name: "Lab Reports", icon: ClipboardList },
+  { name: "Veterinarians", icon: Stethoscope },
+  { name: "Settings", icon: Settings },
+];
+const appointmentStatuses = [
+  { label: "Pending", color: "bg-amber-400" },
+  { label: "Upcoming", color: "bg-[#078c9d]" },
+  { label: "Rejected", color: "bg-orange-400" },
+  { label: "Completed", color: "bg-emerald-400" },
+  { label: "Missed", color: "bg-slate-400" },
+  { label: "Cancelled", color: "bg-rose-400" },
+];
+function StatCard({ title, value, icon: Icon, note, accent }) {
+  return <div className="rounded-2xl border border-[#e1e8ee] bg-white p-5 shadow-sm">
+    <div className="flex items-start justify-between gap-3"><span className="text-sm font-semibold text-slate-500">{title}</span><span className={`rounded-xl p-3 ${accent}`}><Icon size={20}/></span></div>
+    <div className="mt-3 text-3xl font-extrabold tracking-tight text-[#1d293b]">{value}</div>
+    <p className="mt-2 text-xs text-slate-500">{note}</p>
+  </div>;
+}
+export default function AdminDashboard() {
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [kpis, setKpis] = useState({
+    customers: null,
+    pets: null,
+    pending: null,
+    todayPending: null,
   });
-  const [appointmentsData, setAppointmentsData] = useState([]);
-  const [recentActivity, setRecentActivity] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchDashboardData = async () => {
-    try {
-      const [statsRes, graphRes, activityRes] = await Promise.all([
-        api.get('/admin/dashboard/stats'),
-        api.get('/admin/dashboard/appointments-graph'),
-        api.get('/admin/dashboard/recent-activities')
-      ]);
-
-      setStats(statsRes.data);
-      setAppointmentsData(graphRes.data);
-      setRecentActivity(activityRes.data);
-    } catch (err) {
-      console.error("❌ Failed to fetch dashboard data:", err);
-      setErrorToast("Failed to load dashboard data. Please refresh.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const [kpiLoading, setKpiLoading] = useState(true);
+  const [kpiError, setKpiError] = useState("");
+  const [statusCounts, setStatusCounts] = useState({});
+  const [todayAppointments, setTodayAppointments] = useState([]);
+  const navigate = useNavigate();
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    let active = true;
+
+    const loadKpis = async () => {
+      try {
+        const [customers, pets, pending, today, statuses, todayAppointmentsResponse] = await Promise.all([
+          api.get("/customers/count"),
+          api.get("/pets/count"),
+          api.get("/appointments/count/pending"),
+          api.get("/appointments/count/today"),
+          api.get("/appointments/count/status"),
+          api.get("/appointments/today/upcoming"),
+        ]);
+
+        if (!active) return;
+        setKpis({
+          customers: customers.data.count,
+          pets: pets.data.count,
+          pending: pending.data.count,
+          todayPending: today.data.count,
+        });
+        setStatusCounts(statuses.data);
+        setTodayAppointments(todayAppointmentsResponse.data);
+      } catch (error) {
+        if (!active) return;
+        setKpiError(
+          error.response?.data?.message ??
+            "Unable to load dashboard metrics.",
+        );
+      } finally {
+        if (active) setKpiLoading(false);
+      }
+    };
 
   useEffect(() => {
     const refreshDashboard = () => fetchDashboardData();
@@ -269,6 +292,19 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+        {kpiError && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{kpiError}</p>}
+        <section className="rounded-2xl border border-[#e1e8ee] bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h3 className="text-base font-extrabold">Upcoming schedule</h3><p className="mt-1 text-xs text-slate-500">Today's upcoming appointments</p></div><CalendarDays size={19} className="text-[#078c9d]" /></div>
+          <div className="mt-5 space-y-4">{kpiLoading ? <p className="text-sm text-slate-500">Loading today's schedule...</p> : todayAppointments.length === 0 ? <p className="text-sm text-slate-500">No upcoming appointments today.</p> : todayAppointments.map((appointment) => <div key={appointment.id} className="flex gap-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0"><div className="min-w-[78px] rounded-lg bg-[#eaf6f8] px-2 py-2 text-center text-xs font-bold text-[#078c9d]">{appointment.timeslot}</div><div><p className="text-sm font-bold">{appointment.petName} <span className="font-normal text-slate-500">· {appointment.service}</span></p><p className="mt-1 text-xs text-slate-500">{appointment.vetName}</p></div></div>)}</div>
+        </section>
+        <section className="overflow-hidden rounded-2xl border border-[#e1e8ee] bg-white shadow-sm"><div className="flex flex-col justify-between gap-4 border-b border-slate-100 p-5 md:flex-row md:items-center"><div><h3 className="text-base font-extrabold">Recent appointment requests</h3><p className="mt-1 text-xs text-slate-500">Preview of the clinic's appointment list</p></div></div>
+          <div className="px-5 py-10 text-center text-sm text-slate-500">Appointment list integration is not connected yet.</div>
+        </section>
+        <section className="rounded-2xl border border-[#e1e8ee] bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="text-base font-extrabold">Appointment status</h3><p className="mt-1 text-xs text-slate-500">Current appointment distribution by status</p></div><Activity size={19} className="text-[#078c9d]" /></div>
+          <div className="mt-6 space-y-5">{appointmentStatuses.map(({ label, color }) => <div key={label}><div className="mb-2 flex justify-between text-sm"><span className="font-semibold">{label}</span><span className="font-bold text-slate-600">{kpiLoading ? "..." : kpiError ? "—" : statusCounts[label] ?? 0}</span></div><div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${color}`} style={{ width: `${(statusCounts[label] ?? 0) / Math.max(1, Object.values(statusCounts).reduce((sum, count) => sum + count, 0)) * 100}%` }} /></div></div>)}</div>
+          <p className="mt-5 text-xs text-slate-400">Live appointment status counts.</p>
+        </section>
+        <p className="pb-4 text-xs text-slate-400">RaphaCare admin dashboard preview · Light mode · Sample data only · No real appointments are changed.</p>
       </main>
     </div>
   );

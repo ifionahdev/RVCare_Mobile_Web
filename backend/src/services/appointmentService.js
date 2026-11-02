@@ -1,10 +1,12 @@
 import {
   createPendingAppointment,
   findAppointmentById,
-  findFirstAvailableVeterinarian,
-  findOwnerPet,
+  findRecentPendingAppointments,
   updateAppointmentSchedule,
+  findTodaysUpcomingAppointments,
 } from "../models/appointmentModel.js";
+import { findOwnerPet } from "../models/petModel.js";
+import { findFirstAvailableVeterinarian } from "../models/vetModel.js";
 import { findCustomerByAccount } from "../models/customerModel.js";
 import { emitAppointmentChanged } from "../realtime.js";
 
@@ -173,3 +175,30 @@ export const rescheduleOwnerAppointment = async ({
 
   return appointment;
 };
+
+const toTodayAppointmentDto = (a) => ({
+  id: a.appointmentId,
+  timeslot: a.timeslot.display,
+  petName: a.pet.petName,
+  service: a.service.serviceName,
+  vetName: `Dr. ${a.veterinarian.account.firstName} ${a.veterinarian.account.lastName}`,
+});
+
+export const getTodaysUpcomingAppointments = async () => {
+  const appointments = await findTodaysUpcomingAppointments();
+  return appointments.map(toTodayAppointmentDto);
+}
+
+const toPendingAppointmentDto = (a) => ({
+  id: a.appointmentId,
+  scheduledDate: a.scheduledDate.toISOString().slice(0, 10),
+    timeslot: a.timeslot.display,
+    petName: a.pet.petName,
+    service: a.service.serviceName,
+    vetName: `Dr. ${a.veterinarian.account.firstName} ${a.veterinarian.account.lastName}`,
+});
+
+export const getRecentPendingAppointments = async () => {
+  const appointments = await findRecentPendingAppointments();
+  return appointments.map(toTodayAppointmentDto);
+}
