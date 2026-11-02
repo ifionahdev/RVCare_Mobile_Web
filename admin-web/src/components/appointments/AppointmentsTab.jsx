@@ -153,6 +153,7 @@ const AppointmentsTab = ({
               <th className="p-2 text-sm text-gray-600 dark:text-gray-300">ID</th>
               <th className="p-2 text-sm text-gray-600 dark:text-gray-300">Pet</th>
               <th className="p-2 text-sm text-gray-600 dark:text-gray-300">Owner</th>
+              <th className="p-2 text-sm text-gray-600 dark:text-gray-300">Veterinarian</th>
               <th className="p-2 text-sm text-gray-600 dark:text-gray-300">Date</th>
               <th className="p-2 text-sm text-gray-600 dark:text-gray-300">Scheduled Time</th>
               <th className="p-2 text-sm text-gray-600 dark:text-gray-300">Status</th>
@@ -162,7 +163,7 @@ const AppointmentsTab = ({
           <tbody>
             {appointments.length === 0 ? (
               <tr>
-                <td colSpan={!isReadOnly && isSelectMode ? 8 : 7} className="text-center p-4 text-gray-400">
+                <td colSpan={!isReadOnly && isSelectMode ? 9 : 8} className="text-center p-4 text-gray-400">
                   No appointments found.
                 </td>
               </tr>
@@ -188,6 +189,7 @@ const AppointmentsTab = ({
                     <td className="p-2 text-sm">{item.id}</td>
                     <td className="p-2 text-sm">{item.petName}</td>
                     <td className="p-2 text-sm">{item.owner}</td>
+                    <td className="p-2 text-sm">{item.veterinarian || "-"}</td>
                     <td className="p-2 text-sm">{formatDate(item.date)}</td>
                     <td className="p-2 text-sm">{item.time}</td>
                     <td className="p-2 text-sm">

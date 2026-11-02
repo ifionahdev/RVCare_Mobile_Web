@@ -1,5 +1,14 @@
 import { Search, Plus, Eye, Trash2 } from "lucide-react";
 
+const formatVisitDate = (date) => {
+  if (!date) return "";
+  return new Date(date).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  });
+};
+
 const VisitsTab = ({
   visits,
   searchQuery,
@@ -117,6 +126,7 @@ const VisitsTab = ({
             <th className="p-2 text-sm text-gray-600 dark:text-gray-300">ID</th>
             <th className="p-2 text-sm text-gray-600 dark:text-gray-300">Pet</th>
             <th className="p-2 text-sm text-gray-600 dark:text-gray-300">Owner</th>
+            <th className="p-2 text-sm text-gray-600 dark:text-gray-300">Veterinarian</th>
             <th className="p-2 text-sm text-gray-600 dark:text-gray-300">Date</th>
             <th className="p-2 text-sm text-gray-600 dark:text-gray-300">Visit Time</th>
             <th className="p-2 text-sm text-gray-600 dark:text-gray-300">Visit Type</th>
@@ -126,7 +136,7 @@ const VisitsTab = ({
         <tbody>
           {visits.length === 0 ? (
             <tr>
-              <td colSpan={!isReadOnly && isSelectMode ? 8 : 7} className="text-center p-4 text-gray-400">
+              <td colSpan={!isReadOnly && isSelectMode ? 9 : 8} className="text-center p-4 text-gray-400">
                 No visits found.
               </td>
             </tr>
@@ -149,7 +159,8 @@ const VisitsTab = ({
                 <td className="p-2 text-sm">{item.id}</td>
                 <td className="p-2 text-sm">{item.petName}</td>
                 <td className="p-2 text-sm">{item.owner}</td>
-                <td className="p-2 text-sm">{item.date}</td>
+                <td className="p-2 text-sm">{item.veterinarian || "-"}</td>
+                <td className="p-2 text-sm">{formatVisitDate(item.date)}</td>
                 <td className="p-2 text-sm">{item.time}</td>
                 <td className="p-2 text-sm">
                   <span

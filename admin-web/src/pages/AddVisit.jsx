@@ -97,7 +97,11 @@ const AddVisit = () => {
       const res = await api.get("/admin/appointments/owners");
 
       setOwners(res.data.owners || []);
-      setPets(res.data.pets || []);
+      setPets((res.data.pets || []).map((pet) => ({
+        ...pet,
+        id: pet.id ?? pet.petID,
+        userId: pet.userId ?? pet.accID,
+      })));
       setAppointments(res.data.appointments || []);
     } catch (err) {
       console.error("Error fetching owner details: ", err.message);

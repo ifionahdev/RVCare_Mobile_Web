@@ -230,7 +230,7 @@ const AddAppointment = () => {
         data.flatMap(owner =>
           (owner.pets || []).map(p => ({
             id: p.petID,
-            userId: p.accID,
+            userId: p.accID ?? owner.accId ?? owner.id,
             name: p.petName,
             type: p.petType,
             gender: p.petGender,
@@ -545,7 +545,9 @@ const AddAppointment = () => {
     setCurrentStep(5); // Go to success page
   };
 
-  const userPets = pets.filter(pet => pet.userId === appointmentData.user?.id);
+  const userPets = pets.filter(
+    (pet) => Number(pet.userId) === Number(appointmentData.user?.id)
+  );
   const ownerOptionsForModal = appointmentData.user
     ? [{
         id: appointmentData.user.id,
@@ -647,7 +649,9 @@ const AddAppointment = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {filteredUsers.map(user => {
-                      const userPetCount = pets.filter(pet => pet.userId === user.id).length;
+                      const userPetCount = pets.filter(
+                        (pet) => Number(pet.userId) === Number(user.id)
+                      ).length;
                       return (
                         <tr 
                           key={user.id}

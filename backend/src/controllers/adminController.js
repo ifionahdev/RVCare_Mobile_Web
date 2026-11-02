@@ -36,6 +36,7 @@ const serializeOwner = (owner) => ({
   createdAt: owner.account.dateRegistered,
   pets: owner.pets.map((pet) => ({
     petID: pet.petId,
+    accID: owner.account.accountId,
     petName: pet.petName,
     petType: pet.breed.species,
     breedName: pet.breed.breedName,
@@ -333,6 +334,288 @@ export const softDeletePet = async (req, res, next) => {
       data: { isDeleted: true },
     });
     return res.json({ message: "Pet deleted successfully." });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const formatTime = (value) => {
+  if (!value) return "";
+  if (value instanceof Date) {
+    return value.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  }
+  const match = String(value).match(/^(\d{1,2}):(\d{2})/);
+  const timeMatch = String(value).match(/T(\d{1,2}):(\d{2})/);
+  if (timeMatch) {
+    let hour = Number(timeMatch[1]);
+    const minute = timeMatch[2];
+    const meridiem = hour >= 12 ? "PM" : "AM";
+    hour %= 12;
+    if (hour === 0) hour = 12;
+    return `${hour}:${minute} ${meridiem}`;
+  }
+  if (!match) return String(value);
+  let hour = Number(match[1]);
+  const minute = match[2];
+  const meridiem = hour >= 12 ? "PM" : "AM";
+  hour %= 12;
+  if (hour === 0) hour = 12;
+  return `${hour}:${minute} ${meridiem}`;
+};
+
+const veterinarianName = (veterinarian) => {
+  const account = veterinarian?.account;
+  if (!account) return "";
+  return `${account.firstName ?? ""} ${account.lastName ?? ""}`.trim();
+};
+
+const appointmentDto = (appointment) => ({
+  id: appointment.appointmentId,
+  petName: appointment.pet.petName,
+  petId: appointment.petId,
+  owner: `${appointment.pet.owner.account.firstName} ${appointment.pet.owner.account.lastName}`,
+  ownerId: appointment.pet.owner.accountId,
+  email: appointment.pet.owner.account.email,
+  phone: appointment.pet.owner.contactNumber,
+  veterinarian: veterinarianName(appointment.veterinarian),
+  vetId: appointment.vetId,
+  breedName: appointment.pet.breed?.breedName,
+  petSex: appointment.pet.gender,
+  weight: appointment.pet.weightKg == null ? null : Number(appointment.pet.weightKg),
+  petAge: appointment.pet.dateOfBirth
+    ? String(Math.max(0, new Date().getFullYear() - appointment.pet.dateOfBirth.getFullYear()))
+    : null,
+  serviceType: appointment.service.serviceName,
+  serviceID: appointment.serviceId,
+  description: appointment.service.description,
+  date: appointment.scheduledDate.toISOString().slice(0, 10),
+  time: formatTime(appointment.timeslot.startTime),
+  status: appointment.status,
+});
+
+const visitDto = (visit) => ({
+  id: visit.visitId,
+  appointmentId: visit.appointmentId,
+  petName: visit.pet.petName,
+  petId: visit.petId,
+  owner: `${visit.pet.owner.account.firstName} ${visit.pet.owner.account.lastName}`,
+  ownerId: visit.pet.owner.accountId,
+  email: visit.pet.owner.account.email,
+  phone: visit.pet.owner.contactNumber,
+  veterinarian: veterinarianName(visit.veterinarian),
+  vetId: visit.vetId,
+  breedName: visit.pet.breed?.breedName,
+  petSex: visit.pet.gender,
+  weight: visit.pet.weightKg == null ? null : Number(visit.pet.weightKg),
+  serviceType: visit.service.serviceName,
+  serviceID: visit.serviceId,
+  description: visit.service.description,
+  date: visit.visitDate.toISOString().slice(0, 10),
+  time: formatTime(visit.visitTime),
+  status: visit.status,
+  visitType: visit.appointmentId ? "Scheduled" : "Walk-in",
+});
+
+export const getAdminAppointments = async (req, res, next) => {
+  try {
+    const [appointments, visits] = await Promise.all([
+      prisma.appointment.findMany({
+        where: { isDeleted: false },
+        include: {
+          pet: { include: { owner: { include: { account: true } }, breed: true } },
+          service: true,
+          timeslot: true,
+          veterinarian: { include: { account: true } },
+        },
+        orderBy: [{ scheduledDate: "desc" }, { appointmentId: "desc" }],
+      }),
+      prisma.visit.findMany({
+        where: { isDeleted: false },
+        include: {
+          pet: { include: { owner: { include: { account: true } }, breed: true } },
+          service: true,
+          veterinarian: { include: { account: true } },
+        },
+        orderBy: [{ visitDate: "desc" }, { visitId: "desc" }],
+      }),
+    ]);
+    return res.json({ cleanedAppointments: appointments.map(appointmentDto), cleanedVisits: visits.map(visitDto) });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getAppointmentOwners = async (req, res, next) => {
+  try {
+    const owners = await findActiveCustomersWithPets();
+    const pets = owners.flatMap((owner) => owner.pets.map((pet) => ({
+      id: pet.petId,
+      userId: owner.accountId,
+      accID: owner.accountId,
+      petID: pet.petId,
+      petName: pet.petName,
+      petType: pet.breed.species,
+      breedName: pet.breed.breedName,
+      petGender: pet.gender,
+      name: pet.petName,
+      breed: pet.breed.breedName,
+    })));
+    const appointments = await prisma.appointment.findMany({
+      where: { isDeleted: false, status: { in: ["Pending", "Upcoming"] }, visits: null },
+      include: {
+        pet: { include: { owner: { include: { account: true } }, breed: true } },
+        service: true,
+        timeslot: true,
+        veterinarian: { include: { account: true } },
+      },
+      orderBy: { scheduledDate: "asc" },
+    });
+    return res.json({
+      owners: owners.map((owner) => ({
+        id: owner.accountId,
+        ownerId: owner.ownerId,
+        firstName: owner.account.firstName,
+        lastName: owner.account.lastName,
+        email: owner.account.email,
+        phone: owner.contactNumber,
+      })),
+      pets,
+      appointments: appointments.map(appointmentDto),
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getAppointmentTimes = async (req, res, next) => {
+  try {
+    const timeslots = await prisma.timeslot.findMany({ orderBy: { startTime: "asc" } });
+    return res.json(timeslots.map((slot) => ({ ...slot, scheduleTime: slot.startTime })));
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getBookedSlots = async (req, res, next) => {
+  try {
+    const date = parseDate(req.query.date, true);
+    const appointments = await prisma.appointment.findMany({
+      where: { scheduledDate: date, isDeleted: false },
+      include: { timeslot: true },
+    });
+    return res.json({ bookedSlots: appointments.map((appointment) => appointment.timeslot.startTime) });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const getAppointmentServices = async (req, res, next) => {
+  try {
+    const services = await prisma.service.findMany({ orderBy: { serviceName: "asc" } });
+    return res.json(services.map((service) => ({
+      serviceID: service.serviceId, service: service.serviceName, shortDescription: service.description ?? "",
+    })));
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const parseAppointmentTime = async (time) => {
+  const match = String(time).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!match) throw new Error("Invalid appointment time.");
+  let hour = Number(match[1]);
+  const minute = match[2];
+  const meridiem = match[3]?.toUpperCase();
+  if (meridiem) {
+    if (meridiem === "PM" && hour !== 12) hour += 12;
+    if (meridiem === "AM" && hour === 12) hour = 0;
+  }
+  const clock = `${String(hour).padStart(2, "0")}:${minute}`;
+  const slot = await prisma.timeslot.findFirst({
+    where: { OR: [{ startTime: clock }, { display: String(time).trim() }] },
+  });
+  if (!slot) throw new Error(`Timeslot ${time} was not found.`);
+  return slot;
+};
+
+export const assignAppointment = async (req, res, next) => {
+  try {
+    const petId = Number(req.body.petID ?? req.body.petId);
+    const serviceId = Number(req.body.serviceID ?? req.body.serviceId);
+    const timeslot = await parseAppointmentTime(req.body.time ?? req.body.scheduledTime);
+    const scheduledDate = parseDate(req.body.date, true);
+    const pet = await prisma.pet.findFirst({ where: { petId, isDeleted: false } });
+    if (!pet) return res.status(404).json({ message: "Pet not found." });
+    const veterinarian = await prisma.veterinarian.findFirst({ where: { isDeleted: false } });
+    if (!veterinarian) return res.status(400).json({ message: "No active veterinarian is available." });
+    if (await prisma.appointment.findFirst({ where: { scheduledDate, timeslotId: timeslot.timeslotId, isDeleted: false } })) {
+      return res.status(409).json({ message: "That time slot is already booked." });
+    }
+    const appointment = await prisma.appointment.create({
+      data: { petId, serviceId, timeslotId: timeslot.timeslotId, scheduledDate, vetId: veterinarian.vetId },
+    });
+    return res.status(201).json({ appointmentId: appointment.appointmentId });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const makeVisit = async (req, res, next) => {
+  try {
+    const appointmentId = req.body.appointmentId ? Number(req.body.appointmentId) : null;
+    const petId = Number(req.body.petID ?? req.body.petId);
+    const service = await prisma.service.findFirst({
+      where: {
+        OR: [
+          { serviceId: Number(req.body.serviceID ?? req.body.serviceId) || undefined },
+          { serviceName: req.body.serviceType },
+        ],
+      },
+    });
+    const veterinarian = await prisma.veterinarian.findFirst({ where: { isDeleted: false } });
+    if (!petId || !service || !veterinarian) {
+      return res.status(400).json({ message: "Pet, service, and veterinarian are required." });
+    }
+    if (appointmentId) {
+      const linked = await prisma.visit.findUnique({ where: { appointmentId } });
+      if (linked && !linked.isDeleted) return res.status(409).json({ message: "A visit already exists for this appointment." });
+    }
+    const now = new Date();
+    const visit = await prisma.visit.create({
+      data: { appointmentId, petId, serviceId: service.serviceId, vetId: veterinarian.vetId,
+        visitDate: now, visitTime: now },
+    });
+    return res.status(201).json({ visitId: visit.visitId });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const updateAppointmentStatuses = async (req, res, next) => {
+  try {
+    const ids = req.body.idsToUpdate ?? req.body.appointmentIds ?? [];
+    if (!Array.isArray(ids) || ids.length === 0 || !req.body.status) {
+      return res.status(400).json({ message: "Appointment IDs and status are required." });
+    }
+    const result = await prisma.appointment.updateMany({
+      where: { appointmentId: { in: ids.map(Number).filter(Boolean) }, isDeleted: false },
+      data: { status: req.body.status },
+    });
+    return res.json({ updatedCount: result.count });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const softDeleteAppointments = async (req, res, next) => {
+  try {
+    const ids = (req.body.idsToDelete ?? []).map(Number).filter(Boolean);
+    if (ids.length === 0) return res.status(400).json({ message: "IDs are required." });
+    const [appointments, visits] = await Promise.all([
+      prisma.appointment.updateMany({ where: { appointmentId: { in: ids } }, data: { isDeleted: true } }),
+      prisma.visit.updateMany({ where: { visitId: { in: ids } }, data: { isDeleted: true } }),
+    ]);
+    return res.json({ deletedAppointmentCount: appointments.count, deletedVisitCount: visits.count });
   } catch (error) {
     return next(error);
   }

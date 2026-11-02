@@ -9,6 +9,15 @@ import {
   addPet,
   updatePet,
   updateOwner,
+  getAdminAppointments,
+  getAppointmentOwners,
+  getAppointmentTimes,
+  getBookedSlots,
+  getAppointmentServices,
+  assignAppointment,
+  makeVisit,
+  updateAppointmentStatuses,
+  softDeleteAppointments,
 } from "../controllers/adminController.js";
 import { authenticate } from "../middleware/auth.js";
 import { requireRole } from "../middleware/role.js";
@@ -25,5 +34,14 @@ router.post("/add-pets", addPet);
 router.put("/update-pet/:petId", updatePet);
 router.put("/soft-delete-owner/:accountId", softDeleteOwner);
 router.put("/soft-delete-pet/:petId", softDeletePet);
+router.get("/appointments", getAdminAppointments);
+router.get("/appointments/owners", getAppointmentOwners);
+router.get("/appointments/time", getAppointmentTimes);
+router.get("/appointments/booked-slots", getBookedSlots);
+router.get("/appointments/services", getAppointmentServices);
+router.post("/appointments/assign", assignAppointment);
+router.post("/appointments/make-visit", makeVisit);
+router.patch("/appointments/status", updateAppointmentStatuses);
+router.delete("/appointments", softDeleteAppointments);
 
 export default router;
