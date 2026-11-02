@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import Header from "../components/template/Header";
-import { Video, FileText, MessageSquare, Archive, ChevronDown, ChevronUp } from "lucide-react";
+import { Video, FileText, Archive, ChevronDown, ChevronUp } from "lucide-react";
 import api from "../api/axios";
 import { useAlert } from "../hooks/useAlert.jsx";
-import socket from "../socket";
 
 // Import components from organized structure
 import {
@@ -12,11 +11,10 @@ import {
   VideosSection,
   VideoModal,
 } from "../components/content-management";
-import ForumPostsSection from "../components/content-management/ForumPostsSection";
 
 const ContentManagement = () => {
   const { showSuccess, showError, showConfirm, showToast, AlertComponent } = useAlert();
-  const [activeTab, setActiveTab] = useState("pet-tips");
+  const [activeTab, setActiveTab] = useState("articles");
   const [showPetTipModal, setShowPetTipModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -35,14 +33,12 @@ const ContentManagement = () => {
   const currentAdminId = localStorage.getItem('userId') || 'unknown';
   const currentAdminName = localStorage.getItem('userName') || 'Admin';
 
-  const [forumPosts, setForumPosts] = useState([]);
 
   // Stats state
   const [stats, setStats] = useState({
     publishedTips: 0,
     publishedVideos: 0,
-    archives: 0,
-    forumPosts: 0
+    archives: 0
   });
 
   // Handle new video category creation
@@ -129,19 +125,6 @@ const ContentManagement = () => {
     }
   };
 
-  // Fetch forum posts (admin content management)
-  const fetchForumPosts = async () => {
-    try {
-      const response = await api.get('/admin/content/forum-posts');
-      setForumPosts(response.data?.data || []);
-    } catch (error) {
-      console.error('Error fetching forum posts:', error);
-      showError(error.response?.data?.message || 'Failed to fetch forum posts', {
-        title: 'Data Notice'
-      });
-    }
-  };
-
   // Fetch all data on component mount
   useEffect(() => {
     fetchPetCareTips();
@@ -150,37 +133,12 @@ const ContentManagement = () => {
     fetchVideoCategories(); 
     fetchIcons();
     fetchPublicationStatuses();
-    fetchForumPosts();
-  }, []);
-
-  useEffect(() => {
-    const onForumPostDeleted = ({ postId }) => {
-      const id = Number(postId);
-      if (!id) return;
-      setForumPosts((prev) => prev.filter((post) => post.id !== id));
-    };
-
-    const onForumPostStatusUpdated = ({ postId, status }) => {
-      const id = Number(postId);
-      if (!id || !status) return;
-      setForumPosts((prev) =>
-        prev.map((post) => (post.id === id ? { ...post, status } : post))
-      );
-    };
-
-    socket.on('delete_forum_post', onForumPostDeleted);
-    socket.on('forum_post_status_updated', onForumPostStatusUpdated);
-
-    return () => {
-      socket.off('delete_forum_post', onForumPostDeleted);
-      socket.off('forum_post_status_updated', onForumPostStatusUpdated);
-    };
   }, []);
 
   // Update stats when data changes
   useEffect(() => {
     updateStats();
-  }, [petTips, videos, forumPosts]);
+  }, [petTips, videos]);
 
   // Update stats
   const updateStats = () => {
@@ -189,12 +147,7 @@ const ContentManagement = () => {
     const archives = petTips.filter(tip => tip.status === "Archived").length + 
                     videos.filter(video => video.status === "Archived").length;
     
-    setStats({
-      publishedTips,
-      publishedVideos,
-      archives,
-      forumPosts: forumPosts.length
-    });
+    setStats({ publishedTips, publishedVideos, archives });
   };
 
   const getApiErrorMessage = (error, fallbackMessage) => {
@@ -232,17 +185,17 @@ const ContentManagement = () => {
         await fetchPetCareTips();
         setShowPetTipModal(false);
         setEditingItem(null);
-        showSuccess(response.data.message || 'Pet tip saved successfully!', {
+        showSuccess(response.data.message || 'Article saved successfully!', {
           title: 'Success'
         });
       } else {
-        showError(response.data.message || 'Failed to save pet tip', {
+        showError(response.data.message || 'Failed to save article', {
           title: 'Save Failed'
         });
       }
     } catch (error) {
-      console.error('Error saving pet tip:', error);
-      showError(getApiErrorMessage(error, 'Failed to save pet tip'), {
+      console.error('Error saving article:', error);
+      showError(getApiErrorMessage(error, 'Failed to save article'), {
         title: 'Action Needed'
       });
     } finally {
@@ -259,17 +212,17 @@ const ContentManagement = () => {
 
         if (response.data.success) {
           await fetchPetCareTips();
-          showSuccess('Pet tip deleted successfully!', {
+          showSuccess('Article deleted successfully!', {
             title: 'Deleted'
           });
         } else {
-          showError(response.data.message || 'Failed to delete pet tip', {
+          showError(response.data.message || 'Failed to delete article', {
             title: 'Delete Failed'
           });
         }
       } catch (error) {
-        console.error('Error deleting pet tip:', error);
-        showError(error.response?.data?.message || 'Failed to delete pet tip', {
+        console.error('Error deleting article:', error);
+        showError(error.response?.data?.message || 'Failed to delete article', {
           title: 'Action Needed'
         });
       } finally {
@@ -360,90 +313,6 @@ const ContentManagement = () => {
     setShowVideoModal(true);
   };
 
-  // Forum post handlers
-  const handleDeleteForumPost = async (id) => {
-    showConfirm(
-      'Are you sure you want to delete this forum post? This action cannot be undone.',
-      async () => {
-        try {
-          setLoading(true);
-          const response = await api.delete(`/admin/content/forum-posts/${id}`);
-          if (response.data?.success) {
-            setForumPosts(prevPosts => prevPosts.filter(post => post.id !== id));
-            showSuccess('Forum post deleted successfully!', {
-              title: 'Deleted'
-            });
-          } else {
-            showError(response.data?.message || 'Failed to delete forum post', {
-              title: 'Delete Failed'
-            });
-          }
-        } catch (error) {
-          console.error('Error deleting forum post:', error);
-          showError(error.response?.data?.message || 'Failed to delete forum post', {
-            title: 'Action Needed'
-          });
-        } finally {
-          setLoading(false);
-        }
-      },
-      {
-        title: 'Delete Forum Post',
-        confirmText: 'Delete',
-        cancelText: 'Cancel'
-      }
-    );
-  };
-
-  const handleArchiveForumPost = async (id, newStatus) => {
-    const confirmText = newStatus === 'active'
-      ? 'Are you sure you want to restore this forum post?'
-      : 'Are you sure you want to archive this forum post?';
-
-    showConfirm(
-      confirmText,
-      async () => {
-        try {
-          const response = await api.patch(`/admin/content/forum-posts/${id}/status`, {
-            status: newStatus,
-          });
-
-          if (response.data?.success) {
-            setForumPosts(prevPosts =>
-              prevPosts.map(post =>
-                post.id === id ? { ...post, status: newStatus } : post
-              )
-            );
-            showSuccess(
-              newStatus === 'active'
-                ? 'The forum post has been restored and is now active.'
-                : 'The forum post has been archived successfully.',
-              {
-                title: newStatus === 'active' ? 'Post Restored' : 'Post Archived',
-                confirmText: 'Done',
-                showCancel: false,
-              }
-            );
-          } else {
-            showError(response.data?.message || 'Failed to update forum post status', {
-              title: 'Update Failed'
-            });
-          }
-        } catch (error) {
-          console.error('Error updating forum post status:', error);
-          showError(error.response?.data?.message || 'Failed to update forum post status', {
-            title: 'Action Needed'
-          });
-        }
-      },
-      {
-        title: newStatus === 'active' ? 'Restore Forum Post' : 'Archive Forum Post',
-        confirmText: newStatus === 'active' ? 'Restore' : 'Archive',
-        cancelText: 'Cancel'
-      }
-    );
-  };
-
   return (
     <div className="flex flex-col h-screen bg-[#FBFBFB] p-6 gap-1 font-sans">
       <Header title=" Content Management" />
@@ -491,7 +360,7 @@ const ContentManagement = () => {
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 border border-blue-200 transform transition-transform duration-300 hover:scale-[1.02]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-600 text-sm font-semibold">Published Tips</p>
+                <p className="text-blue-600 text-sm font-semibold">Published Articles</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">{stats.publishedTips}</p>
               </div>
               <div className="p-3 bg-white rounded-xl shadow-sm">
@@ -524,26 +393,14 @@ const ContentManagement = () => {
             </div>
           </div>
           
-          <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl p-6 border border-orange-200 transform transition-transform duration-300 hover:scale-[1.02]">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-orange-600 text-sm font-semibold">Forum Posts</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.forumPosts}</p>
-              </div>
-              <div className="p-3 bg-white rounded-xl shadow-sm">
-                <MessageSquare className="h-6 w-6 text-orange-500" />
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-2 relative">
         {[
-          { id: "pet-tips", name: "Pet Tips", icon: FileText },
-          { id: "videos", name: "Videos", icon: Video },
-          { id: "forum-posts", name: "Forum Posts", icon: MessageSquare }
+          { id: "articles", name: "Articles", icon: FileText },
+          { id: "videos", name: "Videos", icon: Video }
         ].map((tab) => (
           <button
             key={tab.id}
@@ -567,8 +424,8 @@ const ContentManagement = () => {
 
       {/* Tab Content */}
       <div className="flex-1 overflow-auto">
-        {/* Pet Tips Tab */}
-        {activeTab === "pet-tips" && (
+        {/* Articles Tab */}
+        {activeTab === "articles" && (
           <PetTipsSection
             petTips={petTips}
             onAdd={() => setShowPetTipModal(true)}
@@ -605,16 +462,6 @@ const ContentManagement = () => {
           />
         )}
 
-        {/* Forum Posts Tab */}
-        {activeTab === "forum-posts" && (
-          <ForumPostsSection
-            posts={forumPosts}
-            onDelete={handleDeleteForumPost}
-            onArchive={handleArchiveForumPost}
-            showConfirm={showConfirm}
-            showSuccess={showSuccess}
-          />
-        )}
       </div>
 
       {/* Modals */}

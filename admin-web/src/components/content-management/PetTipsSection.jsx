@@ -167,13 +167,13 @@ const PetTipsSection = ({
 
   const handleDeleteClick = (tip) => {
     showConfirm(
-      'Are you sure you want to delete this pet tip? This action cannot be undone.',
+      'Are you sure you want to delete this article? This action cannot be undone.',
       () => {
         setTipToDelete(tip);
         setDeleteModalOpen(true);
       },
       {
-        title: 'Delete Pet Tip',
+        title: 'Delete Article',
         confirmText: 'Delete',
         cancelText: 'Cancel'
       }
@@ -291,7 +291,7 @@ const PetTipsSection = ({
       {/* Loading State */}
       {loading && petTips.length === 0 && (
         <div className="text-center p-8 text-gray-500">
-          Loading pet tips...
+          Loading articles...
         </div>
       )}
 
@@ -312,7 +312,7 @@ const PetTipsSection = ({
             {!loading && filteredTips.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center p-6 text-gray-400">
-                  {petTips.length === 0 ? "No pet tips found. Click 'Add New' to create one." : "No tips match your search criteria."}
+                  {petTips.length === 0 ? "No articles found. Click 'Add New' to create one." : "No articles match your search criteria."}
                 </td>
               </tr>
             ) : (

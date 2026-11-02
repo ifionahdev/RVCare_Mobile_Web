@@ -181,7 +181,9 @@ const toTodayAppointmentDto = (a) => ({
   timeslot: a.timeslot.display,
   petName: a.pet.petName,
   service: a.service.serviceName,
-  vetName: `Dr. ${a.veterinarian.account.firstName} ${a.veterinarian.account.lastName}`,
+  vetName: a.veterinarian?.account
+    ? `Dr. ${a.veterinarian.account.firstName} ${a.veterinarian.account.lastName}`
+    : "Veterinarian not assigned",
 });
 
 export const getTodaysUpcomingAppointments = async () => {

@@ -40,6 +40,8 @@ export default function AdminDashboard() {
     today: null,
   });
   const [statusCounts, setStatusCounts] = useState({});
+  const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+  const [recentAppointments, setRecentAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -47,12 +49,14 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
       setError("");
-      const [customers, pets, pending, today, statuses] = await Promise.all([
+      const [customers, pets, pending, today, statuses, upcoming, appointments] = await Promise.all([
         api.get("/customers/count"),
         api.get("/pets/count"),
         api.get("/appointments/count/pending"),
         api.get("/appointments/count/today"),
         api.get("/appointments/count/status"),
+        api.get("/appointments/today/upcoming"),
+        api.get("/appointments"),
       ]);
 
       setKpis({
@@ -62,6 +66,8 @@ export default function AdminDashboard() {
         today: today.data.count,
       });
       setStatusCounts(statuses.data ?? {});
+      setUpcomingAppointments(upcoming.data ?? []);
+      setRecentAppointments((appointments.data ?? []).slice(0, 6));
     } catch (requestError) {
       setError(requestError.response?.data?.message ?? "Unable to load dashboard metrics.");
     } finally {
@@ -123,20 +129,92 @@ export default function AdminDashboard() {
             <CalendarDays size={19} className="text-[#078c9d]" />
           </div>
           <div className="mt-5 space-y-4">
-            {[
-              { time: "9:00 AM", pet: "Luna", service: "Vaccination", vet: "Dr. E. Reyes" },
-              { time: "11:30 AM", pet: "Biscuit", service: "General Checkup", vet: "Dr. E. Reyes" },
-              { time: "2:00 PM", pet: "Max", service: "Follow-up", vet: "Dr. M. Santos" },
-            ].map((appointment, index) => (
-              <div key={index} className="flex gap-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0">
-                <div className="min-w-[78px] rounded-lg bg-[#eaf6f8] px-2 py-2 text-center text-xs font-bold text-[#078c9d]">{appointment.time}</div>
-                <div>
-                  <p className="text-sm font-bold">{appointment.pet} <span className="font-normal text-slate-500">- {appointment.service}</span></p>
-                  <p className="mt-1 text-xs text-slate-500">{appointment.vet}</p>
+            {upcomingAppointments.map((appointment) => {
+              const veterinarian = appointment.veterinarian?.account;
+              const vetName = veterinarian
+                ? `Dr. ${veterinarian.firstName} ${veterinarian.lastName}`
+                : appointment.vetName ?? "Veterinarian not assigned";
+
+              return (
+                <div key={appointment.appointmentId ?? appointment.id} className="flex gap-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0">
+                  <div className="min-w-[78px] rounded-lg bg-[#eaf6f8] px-2 py-2 text-center text-xs font-bold text-[#078c9d]">
+                    {appointment.timeslot?.display ?? appointment.timeslot ?? "--"}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">
+                      {appointment.pet?.petName ?? appointment.petName ?? "Unknown pet"}
+                      <span className="font-normal text-slate-500"> - {appointment.service?.serviceName ?? appointment.service ?? "Service"}</span>
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">{vetName}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
+            {!loading && !error && upcomingAppointments.length === 0 && (
+              <p className="py-4 text-center text-sm text-slate-500">No upcoming appointments today.</p>
+            )}
           </div>
+        </section>
+
+        <section className="overflow-hidden rounded-2xl border border-[#e1e8ee] bg-white shadow-sm">
+          <div className="border-b border-slate-100 p-5">
+            <h2 className="text-base font-extrabold">Recent appointment requests</h2>
+            <p className="mt-1 text-xs text-slate-500">Latest appointments managed by the clinic</p>
+          </div>
+          {loading ? (
+            <div className="px-5 py-10 text-center text-sm text-slate-500">Loading appointments...</div>
+          ) : recentAppointments.length === 0 ? (
+            <div className="px-5 py-10 text-center text-sm text-slate-500">No recent appointments.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="px-5 py-3 font-semibold">Pet</th>
+                    <th className="px-5 py-3 font-semibold">Service</th>
+                    <th className="px-5 py-3 font-semibold">Veterinarian</th>
+                    <th className="px-5 py-3 font-semibold">Schedule</th>
+                    <th className="px-5 py-3 font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentAppointments.map((appointment) => {
+                    const veterinarian = appointment.veterinarian?.account;
+                    const owner = appointment.pet?.owner?.account;
+                    return (
+                      <tr key={appointment.appointmentId} className="border-t border-slate-100 text-slate-700">
+                        <td className="px-5 py-4">
+                          <p className="font-bold">{appointment.pet?.petName ?? "Unknown pet"}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {[owner?.firstName, owner?.lastName].filter(Boolean).join(" ") || "Unknown owner"}
+                          </p>
+                        </td>
+                        <td className="px-5 py-4">{appointment.service?.serviceName ?? "--"}</td>
+                        <td className="px-5 py-4">
+                          {[veterinarian?.firstName, veterinarian?.lastName].filter(Boolean).join(" ")
+                            ? `Dr. ${[veterinarian?.firstName, veterinarian?.lastName].filter(Boolean).join(" ")}`
+                            : "Not assigned"}
+                        </td>
+                        <td className="px-5 py-4">
+                          <p>{appointment.timeslot?.display ?? "--"}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {appointment.scheduledDate
+                              ? new Date(appointment.scheduledDate).toLocaleDateString()
+                              : "--"}
+                          </p>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="rounded-full bg-[#eaf6f8] px-3 py-1 text-xs font-bold text-[#078c9d]">
+                            {appointment.status ?? "--"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         <section className="rounded-2xl border border-[#e1e8ee] bg-white p-5 shadow-sm">
