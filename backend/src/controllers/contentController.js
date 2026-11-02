@@ -62,6 +62,8 @@ const tipDto = (tip) => ({
   category: tip.contentCategory?.categoryName ?? tip.category,
   pubStatusID: tip.publicationStatusId,
   status: tip.publicationStatus?.statusName ?? "Draft",
+  createdAt: tip.createdAt,
+  updatedAt: tip.updatedAt,
 });
 
 export const getPetCareTips = async (req, res, next) => {
@@ -171,6 +173,8 @@ const videoDto = (video) => ({
   videoCategoryID: video.categoryId,
   pubStatusID: video.publicationStatusId,
   status: video.publicationStatus.statusName,
+  createdAt: video.createdAt,
+  updatedAt: video.updatedAt,
 });
 
 export const getVideos = async (req, res, next) => {
