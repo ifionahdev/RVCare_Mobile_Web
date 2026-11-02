@@ -296,13 +296,147 @@ async function main() {
     }
   }
 
+  const adminAccount = await prisma.account.findUniqueOrThrow({
+    where: { username: "markmapili29@gmail.com" },
+  });
+
+  const publicationStatuses = ["Draft", "Published", "Archived"] as const;
+  for (const statusName of publicationStatuses) {
+    await prisma.publicationStatus.upsert({
+      where: { statusName },
+      update: {},
+      create: { statusName },
+    });
+  }
+
+  const petCareCategories = ["Health", "Nutrition", "Grooming", "Training", "Behavior"];
+  for (const categoryName of petCareCategories) {
+    await prisma.petCareCategory.upsert({
+      where: { categoryName },
+      update: { isDeleted: false },
+      create: { categoryName },
+    });
+  }
+
+  const icons = [
+    ["Health", "heart"],
+    ["Nutrition", "utensils"],
+    ["Grooming", "scissors"],
+    ["Exercise", "activity"],
+    ["Training", "puzzle"],
+    ["Bath", "bath"],
+  ] as const;
+  for (const [iconName, iconKey] of icons) {
+    await prisma.petCareIcon.upsert({
+      where: { iconName },
+      update: { iconKey },
+      create: { iconName, iconKey },
+    });
+  }
+
+  const videoCategories = ["Education", "Health", "Grooming", "Nutrition"];
+  for (const categoryName of videoCategories) {
+    await prisma.videoCategory.upsert({
+      where: { categoryName },
+      update: { isDeleted: false },
+      create: { categoryName },
+    });
+  }
+
+  const publishedStatus = await prisma.publicationStatus.findUniqueOrThrow({
+    where: { statusName: "Published" },
+  });
+  const draftStatus = await prisma.publicationStatus.findUniqueOrThrow({
+    where: { statusName: "Draft" },
+  });
+  const healthCategory = await prisma.petCareCategory.findUniqueOrThrow({
+    where: { categoryName: "Health" },
+  });
+  const groomingCategory = await prisma.petCareCategory.findUniqueOrThrow({
+    where: { categoryName: "Grooming" },
+  });
+  const healthIcon = await prisma.petCareIcon.findUniqueOrThrow({
+    where: { iconName: "Health" },
+  });
+  const groomingIcon = await prisma.petCareIcon.findUniqueOrThrow({
+    where: { iconName: "Grooming" },
+  });
+
+  const articleSeeds = [
+    {
+      title: "Keep Your Pet Hydrated",
+      category: "Health",
+      description: "Fresh water supports digestion, circulation, and healthy energy.",
+      shortDescription: "Make sure your pet always has access to clean, fresh water.",
+      detailedContent: "Refresh your pet's water daily and clean bowls regularly to encourage healthy hydration.",
+      iconId: healthIcon.iconId,
+      contentCategoryId: healthCategory.categoryId,
+      publicationStatusId: publishedStatus.statusId,
+    },
+    {
+      title: "A Simple Grooming Routine",
+      category: "Grooming",
+      description: "Regular brushing helps keep your pet comfortable and clean.",
+      shortDescription: "Create a gentle brushing routine suited to your pet's coat.",
+      detailedContent: "Brush regularly, check the ears and paws, and use pet-safe grooming products.",
+      iconId: groomingIcon.iconId,
+      contentCategoryId: groomingCategory.categoryId,
+      publicationStatusId: draftStatus.statusId,
+    },
+  ] as const;
+
+  for (const article of articleSeeds) {
+    const exists = await prisma.petCareTip.findFirst({
+      where: { title: article.title, type: "Article" },
+    });
+    if (!exists) {
+      await prisma.petCareTip.create({
+        data: {
+          type: "Article",
+          category: article.category,
+          title: article.title,
+          description: article.description,
+          linkUrl: "",
+          uploaderAccountId: adminAccount.accountId,
+          shortDescription: article.shortDescription,
+          detailedContent: article.detailedContent,
+          iconId: article.iconId,
+          contentCategoryId: article.contentCategoryId,
+          publicationStatusId: article.publicationStatusId,
+        },
+      });
+    }
+  }
+
+  const educationCategory = await prisma.videoCategory.findUniqueOrThrow({
+    where: { categoryName: "Education" },
+  });
+  const videoSeeds = [
+    ["Understanding Your Pet's Body Language", "https://www.youtube.com/watch?v=example-pet-body-language"],
+    ["At-Home Pet Grooming Basics", "https://www.youtube.com/watch?v=example-pet-grooming"],
+  ];
+  for (const [title, videoUrl] of videoSeeds) {
+    const exists = await prisma.contentVideo.findFirst({ where: { title } });
+    if (!exists) {
+      await prisma.contentVideo.create({
+        data: {
+          title,
+          videoUrl,
+          categoryId: educationCategory.videoCategoryId,
+          publicationStatusId: publishedStatus.statusId,
+          uploaderAccountId: adminAccount.accountId,
+        },
+      });
+    }
+  }
+
   if (process.env.SEED_FAKE === "true") {
     console.log("Seeding fake data...");
     await seedFakeData();
   }
 
   console.log(
-    "Seed complete: roles, accounts, timeslots, services, breeds, pets",
+    "Seed complete: roles, accounts, timeslots, services, breeds, pets, content",
   );
 }
 

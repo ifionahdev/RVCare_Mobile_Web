@@ -17,9 +17,21 @@ const parseDate = (value, required = false) => {
     return null;
   }
 
-  const date = new Date(`${value}T00:00:00`);
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) throw new Error("Invalid date format.");
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
   if (Number.isNaN(date.getTime())) throw new Error("Invalid date format.");
   return date;
+};
+
+const formatDateOnly = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return [
+    date.getUTCFullYear(),
+    String(date.getUTCMonth() + 1).padStart(2, "0"),
+    String(date.getUTCDate()).padStart(2, "0"),
+  ].join("-");
 };
 
 const serializeOwner = (owner) => ({
@@ -342,7 +354,12 @@ export const softDeletePet = async (req, res, next) => {
 const formatTime = (value) => {
   if (!value) return "";
   if (value instanceof Date) {
-    return value.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    let hour = value.getUTCHours();
+    const minute = String(value.getUTCMinutes()).padStart(2, "0");
+    const meridiem = hour >= 12 ? "PM" : "AM";
+    hour %= 12;
+    if (hour === 0) hour = 12;
+    return `${hour}:${minute} ${meridiem}`;
   }
   const match = String(value).match(/^(\d{1,2}):(\d{2})/);
   const timeMatch = String(value).match(/T(\d{1,2}):(\d{2})/);
@@ -388,7 +405,7 @@ const appointmentDto = (appointment) => ({
   serviceType: appointment.service.serviceName,
   serviceID: appointment.serviceId,
   description: appointment.service.description,
-  date: appointment.scheduledDate.toISOString().slice(0, 10),
+  date: formatDateOnly(appointment.scheduledDate),
   time: formatTime(appointment.timeslot.startTime),
   status: appointment.status,
 });
@@ -410,7 +427,7 @@ const visitDto = (visit) => ({
   serviceType: visit.service.serviceName,
   serviceID: visit.serviceId,
   description: visit.service.description,
-  date: visit.visitDate.toISOString().slice(0, 10),
+  date: formatDateOnly(visit.visitDate),
   time: formatTime(visit.visitTime),
   status: visit.status,
   visitType: visit.appointmentId ? "Scheduled" : "Walk-in",
