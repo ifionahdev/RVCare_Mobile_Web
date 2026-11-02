@@ -44,18 +44,20 @@ export default function AdminDashboard() {
   const [kpiLoading, setKpiLoading] = useState(true);
   const [kpiError, setKpiError] = useState("");
   const [statusCounts, setStatusCounts] = useState({});
+  const [todayAppointments, setTodayAppointments] = useState([]);
   const navigate = useNavigate();
   useEffect(() => {
     let active = true;
 
     const loadKpis = async () => {
       try {
-        const [customers, pets, pending, today, statuses] = await Promise.all([
+        const [customers, pets, pending, today, statuses, todayAppointmentsResponse] = await Promise.all([
           api.get("/customers/count"),
           api.get("/pets/count"),
           api.get("/appointments/count/pending"),
           api.get("/appointments/count/today"),
           api.get("/appointments/count/status"),
+          api.get("/appointments/today/upcoming"),
         ]);
 
         if (!active) return;
@@ -66,6 +68,7 @@ export default function AdminDashboard() {
           todayPending: today.data.count,
         });
         setStatusCounts(statuses.data);
+        setTodayAppointments(todayAppointmentsResponse.data);
       } catch (error) {
         if (!active) return;
         setKpiError(
@@ -123,8 +126,8 @@ export default function AdminDashboard() {
           <StatCard title="Today's appointments" value={kpiLoading ? "..." : kpiError ? "—" : kpis.todayPending} icon={CalendarCheck2} note="Total appointments today" accent="bg-emerald-50 text-emerald-700" />
         </div>
         {kpiError && <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{kpiError}</p>}
-        <section className="rounded-2xl border border-[#e1e8ee] bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h3 className="text-base font-extrabold">Upcoming schedule</h3><p className="mt-1 text-xs text-slate-500">Sample confirmed appointments</p></div><CalendarDays size={19} className="text-[#078c9d]" /></div>
-          <div className="mt-5 space-y-4">{[{time:"9:00 AM",pet:"Luna",service:"Vaccination",vet:"Dr. E. Reyes"},{time:"11:30 AM",pet:"Biscuit",service:"General Checkup",vet:"Dr. E. Reyes"},{time:"2:00 PM",pet:"Max",service:"Follow-up",vet:"Dr. M. Santos"}].map((a,i)=><div key={i} className="flex gap-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0"><div className="min-w-[78px] rounded-lg bg-[#eaf6f8] px-2 py-2 text-center text-xs font-bold text-[#078c9d]">{a.time}</div><div><p className="text-sm font-bold">{a.pet} <span className="font-normal text-slate-500">· {a.service}</span></p><p className="mt-1 text-xs text-slate-500">{a.vet}</p></div></div>)}</div>
+        <section className="rounded-2xl border border-[#e1e8ee] bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><div><h3 className="text-base font-extrabold">Upcoming schedule</h3><p className="mt-1 text-xs text-slate-500">Today's upcoming appointments</p></div><CalendarDays size={19} className="text-[#078c9d]" /></div>
+          <div className="mt-5 space-y-4">{kpiLoading ? <p className="text-sm text-slate-500">Loading today's schedule...</p> : todayAppointments.length === 0 ? <p className="text-sm text-slate-500">No upcoming appointments today.</p> : todayAppointments.map((appointment) => <div key={appointment.id} className="flex gap-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0"><div className="min-w-[78px] rounded-lg bg-[#eaf6f8] px-2 py-2 text-center text-xs font-bold text-[#078c9d]">{appointment.timeslot}</div><div><p className="text-sm font-bold">{appointment.petName} <span className="font-normal text-slate-500">· {appointment.service}</span></p><p className="mt-1 text-xs text-slate-500">{appointment.vetName}</p></div></div>)}</div>
         </section>
         <section className="overflow-hidden rounded-2xl border border-[#e1e8ee] bg-white shadow-sm"><div className="flex flex-col justify-between gap-4 border-b border-slate-100 p-5 md:flex-row md:items-center"><div><h3 className="text-base font-extrabold">Recent appointment requests</h3><p className="mt-1 text-xs text-slate-500">Preview of the clinic's appointment list</p></div></div>
           <div className="px-5 py-10 text-center text-sm text-slate-500">Appointment list integration is not connected yet.</div>

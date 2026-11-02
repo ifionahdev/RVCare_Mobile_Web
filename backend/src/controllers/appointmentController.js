@@ -3,6 +3,7 @@ import {
   createAppointment as createAppointmentRecord,
   getAppointment as getAppointmentRecord,
   rescheduleOwnerAppointment,
+  getTodaysUpcomingAppointments,
 } from "../services/appointmentService.js";
 import {
   findAllAppointments,
@@ -111,4 +112,9 @@ export const getTodaysAppointmentsCount = async (req, res) => {
 export const getAppointmentPerStatusCount = async (req, res) => {
   const countPerStatus = await countAppointmentPerStatus();
   return res.json(countPerStatus);
+};
+
+export const getTodaysUpcoming = async (req, res) => {
+  const appointments = await getTodaysUpcomingAppointments();
+  return res.json(appointments);
 };

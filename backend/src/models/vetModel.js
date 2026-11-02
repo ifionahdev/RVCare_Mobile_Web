@@ -11,3 +11,10 @@ export const findAllVeterinarians = async () =>
       { account: { firstName: "asc" } },
     ],
   });
+
+export const findFirstAvailableVeterinarian = () =>
+  prisma.veterinarian.findFirst({
+    where: { isDeleted: false },
+    select: { vetId: true },
+    orderBy: { vetId: "asc" },
+  });
