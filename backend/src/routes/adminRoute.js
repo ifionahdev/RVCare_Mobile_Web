@@ -19,6 +19,7 @@ import {
   updateAppointmentStatuses,
   softDeleteAppointments,
 } from "../controllers/adminController.js";
+import { getReports, exportReportsPdf } from "../controllers/reportsController.js";
 import { authenticate } from "../middleware/auth.js";
 import { requireRole } from "../middleware/role.js";
 
@@ -43,5 +44,7 @@ router.post("/appointments/assign", assignAppointment);
 router.post("/appointments/make-visit", makeVisit);
 router.patch("/appointments/status", updateAppointmentStatuses);
 router.delete("/appointments", softDeleteAppointments);
+router.get("/reports", getReports);
+router.post("/reports/export-pdf", exportReportsPdf);
 
 export default router;
