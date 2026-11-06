@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../data/appointment_service.dart';
+import 'recommended_schedules_screen.dart';
 
 class RescheduleAppointmentScreen extends StatefulWidget {
   const RescheduleAppointmentScreen({
@@ -206,6 +207,29 @@ class _RescheduleAppointmentScreenState
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(error.toString())));
     }
+  }
+
+  void _openRecommendedSchedule(AppointmentTimeslot slot) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => RecommendedSchedulesScreen(
+          pet: widget.pet,
+          procedure: widget.procedure,
+          preferredDate: _dateLabel(_selectedDate),
+          preferredTime: slot.display,
+          veterinarian: _selectedVetId == null
+              ? 'Any available vet'
+              : _vets
+                        .where((vet) => vet.vetId == _selectedVetId)
+                        .map((vet) => vet.name)
+                        .firstOrNull ??
+                    'Preferred veterinarian',
+          petId: 0,
+          serviceId: 0,
+        ),
+      ),
+    );
   }
 
   // ---------------------------------------------------------------- top bar
@@ -540,7 +564,7 @@ class _RescheduleAppointmentScreenState
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
             onTap: unavailable
-                ? null
+                ? () => _openRecommendedSchedule(slot)
                 : () => setState(() => _selectedTime = slot.display),
             child: Container(
               alignment: Alignment.center,
@@ -626,7 +650,6 @@ class _RescheduleAppointmentScreenState
     );
   }
 }
-
 
 class _DashedRRectPainter extends CustomPainter {
   const _DashedRRectPainter({required this.color, required this.radius})

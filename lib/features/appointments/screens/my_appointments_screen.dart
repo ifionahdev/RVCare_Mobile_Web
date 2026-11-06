@@ -23,6 +23,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
   int _selectedTab = 0;
   List<Map<String, dynamic>> _appointments = [];
   bool _isLoading = true;
+  Object? _loadError;
   int _realtimeRevision = -1;
 
   @override
@@ -54,10 +55,14 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
       setState(() {
         _appointments = appointments;
         _isLoading = false;
+        _loadError = null;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
+      setState(() {
+        _loadError = error;
+        _isLoading = false;
+      });
     }
   }
 
@@ -80,9 +85,12 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
 
   bool _isPast(Map<String, dynamic> appointment) {
     if (_isCancelled(appointment) || _isPending(appointment)) return false;
-    return ['completed', 'missed', 'rejected', 'past'].contains(
-      _status(appointment),
-    );
+    return [
+      'completed',
+      'missed',
+      'rejected',
+      'past',
+    ].contains(_status(appointment));
   }
 
   @override
@@ -134,6 +142,10 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
             const SizedBox(height: 16),
             if (_isLoading)
               const Center(child: CircularProgressIndicator())
+            else if (_loadError != null)
+              _emptyAppointmentsCard(
+                'Unable to load appointments. Please try again.',
+              )
             else if (upcoming) ...[
               if (upcomingAppointments.isEmpty)
                 _emptyAppointmentsCard('No upcoming appointments'),
@@ -162,8 +174,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                 _backendAppointmentCard(appointment),
                 const SizedBox(height: 12),
               ],
-            ]
-            else
+            ] else
               Container(
                 height: 180,
                 alignment: Alignment.center,
@@ -249,10 +260,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.border),
       ),
-      child: Text(
-        message,
-        style: const TextStyle(color: AppTheme.muted),
-      ),
+      child: Text(message, style: const TextStyle(color: AppTheme.muted)),
     );
   }
 

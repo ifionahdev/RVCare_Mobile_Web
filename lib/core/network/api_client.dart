@@ -18,11 +18,9 @@ class ApiClient {
       InterceptorsWrapper(
         onRequest: (options, handler) async {
           final token = await storage.read(key: 'raphacare_token');
-
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
-
           handler.next(options);
         },
       ),
