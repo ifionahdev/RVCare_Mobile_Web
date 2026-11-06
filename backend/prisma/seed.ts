@@ -67,12 +67,12 @@ const TEST_ACCOUNTS = [
   },
 ];
 
-// 3) Timeslots: 08:00-09:00 up to 20:00-21:00 (13 hourly slots)
+// 3) Timeslots: 08:00-09:00 up to 19:00-20:00 (12 hourly slots)
 const pad = (h: number) => String(h).padStart(2, "0");
 const hourLabel = (h: number) =>
   `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "AM" : "PM"}`;
 
-const TIMESLOTS = Array.from({ length: 13 }, (_, i) => {
+const TIMESLOTS = Array.from({ length: 12 }, (_, i) => {
   const h = 8 + i;
   return {
     startTime: `${pad(h)}:00`,
