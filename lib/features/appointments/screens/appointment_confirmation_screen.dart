@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
-import 'my_appointments_screen.dart';
+import '../../../shared/widgets/app_shell.dart';
 
 class AppointmentConfirmationScreen extends StatelessWidget {
   const AppointmentConfirmationScreen({
@@ -27,9 +27,7 @@ class AppointmentConfirmationScreen extends StatelessWidget {
     Navigator.popUntil(context, (route) => route.isFirst);
     Navigator.push<void>(
       context,
-      MaterialPageRoute<void>(
-        builder: (_) => const MyAppointmentsScreen(showBottomNavigation: false),
-      ),
+      MaterialPageRoute<void>(builder: (_) => const AppShell(initialIndex: 1)),
     );
   }
 

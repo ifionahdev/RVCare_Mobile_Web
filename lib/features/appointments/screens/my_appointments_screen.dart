@@ -23,6 +23,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
   int _selectedTab = 0;
   List<Map<String, dynamic>> _appointments = [];
   bool _isLoading = true;
+  Object? _loadError;
   int _realtimeRevision = -1;
 
   @override
@@ -54,17 +55,51 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
       setState(() {
         _appointments = appointments;
         _isLoading = false;
+        _loadError = null;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
+      setState(() {
+        _loadError = error;
+        _isLoading = false;
+      });
     }
+  }
+
+  String _status(Map<String, dynamic> appointment) {
+    final status = appointment['status']?.toString() ?? '';
+    return status.toLowerCase();
+  }
+
+  bool _isPending(Map<String, dynamic> appointment) =>
+      _status(appointment) == 'pending';
+
+  bool _isCancelled(Map<String, dynamic> appointment) =>
+      _status(appointment) == 'cancelled';
+
+  bool _isUpcoming(Map<String, dynamic> appointment) {
+    if (_isPending(appointment) || _isCancelled(appointment)) return false;
+    final status = _status(appointment);
+    return ['incoming', 'confirmed', 'approved', 'upcoming'].contains(status);
+  }
+
+  bool _isPast(Map<String, dynamic> appointment) {
+    if (_isCancelled(appointment) || _isPending(appointment)) return false;
+    return [
+      'completed',
+      'missed',
+      'rejected',
+      'past',
+    ].contains(_status(appointment));
   }
 
   @override
   Widget build(BuildContext context) {
     final upcoming = _selectedTab == 0;
-    final past = _selectedTab == 1;
+    final pending = _selectedTab == 1;
+    final past = _selectedTab == 2;
+    final upcomingAppointments = _appointments.where(_isUpcoming);
+    final pendingAppointments = _appointments.where(_isPending);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F9FC),
@@ -97,43 +132,49 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
               ),
               child: Row(
                 children: [
-                  _tab(
-                    'Upcoming · ${_appointments.where((item) => item['status'] == 'Pending' || item['status'] == 'Incoming').length}',
-                    0,
-                  ),
-                  _tab('Past', 1),
-                  _tab('Cancelled', 2),
+                  _tab('Upcoming · ${upcomingAppointments.length}', 0),
+                  _tab('Pending · ${pendingAppointments.length}', 1),
+                  _tab('Past', 2),
+                  _tab('Cancelled', 3),
                 ],
               ),
             ),
             const SizedBox(height: 16),
             if (_isLoading)
               const Center(child: CircularProgressIndicator())
+            else if (_loadError != null)
+              _emptyAppointmentsCard(
+                'Unable to load appointments. Please try again.',
+              )
             else if (upcoming) ...[
-              for (final appointment in _appointments.where(
-                (item) =>
-                    item['status'] == 'Pending' || item['status'] == 'Incoming',
-              )) ...[
+              if (upcomingAppointments.isEmpty)
+                _emptyAppointmentsCard('No upcoming appointments'),
+              for (final appointment in upcomingAppointments) ...[
                 _backendAppointmentCard(appointment),
                 const SizedBox(height: 12),
               ],
               const SizedBox(height: 16),
               _bookBanner(),
-            ] else if (past)
-              for (final appointment in _appointments.where(
-                (item) => item['status'] == 'Completed',
-              )) ...[
+            ] else if (pending) ...[
+              if (pendingAppointments.isEmpty)
+                _emptyAppointmentsCard('No pending appointments'),
+              for (final appointment in pendingAppointments) ...[
                 _backendAppointmentCard(appointment),
                 const SizedBox(height: 12),
-              ]
-            else if (_appointments.any((item) => item['status'] == 'Cancelled'))
-              for (final appointment in _appointments.where(
-                (item) => item['status'] == 'Cancelled',
-              )) ...[
+              ],
+            ] else if (past) ...[
+              if (_appointments.where(_isPast).isEmpty)
+                _emptyAppointmentsCard('No past appointments'),
+              for (final appointment in _appointments.where(_isPast)) ...[
                 _backendAppointmentCard(appointment),
                 const SizedBox(height: 12),
-              ]
-            else
+              ],
+            ] else if (_appointments.any(_isCancelled)) ...[
+              for (final appointment in _appointments.where(_isCancelled)) ...[
+                _backendAppointmentCard(appointment),
+                const SizedBox(height: 12),
+              ],
+            ] else
               Container(
                 height: 180,
                 alignment: Alignment.center,
@@ -207,6 +248,19 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _emptyAppointmentsCard(String message) {
+    return Container(
+      height: 180,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Text(message, style: const TextStyle(color: AppTheme.muted)),
     );
   }
 

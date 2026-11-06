@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../data/appointment_service.dart';
 import '../widgets/appointment_widgets.dart';
 import 'appointment_summary_screen.dart';
+import 'recommended_schedules_screen.dart';
 
 class AppointmentAvailabilityScreen extends StatefulWidget {
   const AppointmentAvailabilityScreen({
@@ -30,21 +31,13 @@ class _AppointmentAvailabilityScreenState
   String _vet = 'Any available vet';
   int? _vetId;
   String? _time;
-  int _dateIndex = 2;
+  String? _unavailableTime;
+  late DateTime _selectedDate;
   List<AppointmentTimeslot> _slots = const [];
   Object? _availabilityError;
   bool _isLoadingAvailability = false;
 
-  static const _dates = [
-    ('Mon', '2'),
-    ('Tue', '3'),
-    ('Wed', '4'),
-    ('Thu', '5'),
-    ('Fri', '6'),
-    ('Sat', '7'),
-  ];
   List<AppointmentVeterinarian> _vets = const [];
-  DateTime get _selectedDate => DateTime(2026, 11, _dateIndex + 2);
   AppointmentTimeslot? get _selectedTimeslot {
     for (final slot in _slots) {
       if (slot.display == _time) return slot;
@@ -55,9 +48,76 @@ class _AppointmentAvailabilityScreenState
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _selectedDate = DateTime(now.year, now.month, now.day);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadVeterinarians();
     });
+  }
+
+  DateTime get _maximumDate {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month + 3, now.day);
+  }
+
+  List<DateTime> get _dateStrip {
+    final dates = <DateTime>[];
+    final maximum = _maximumDate;
+    var start = _selectedDate.isBefore(DateTime.now())
+        ? DateTime.now()
+        : _selectedDate;
+    start = DateTime(start.year, start.month, start.day);
+    for (var offset = 0; dates.length < 6; offset++) {
+      final date = start.add(Duration(days: offset));
+      if (date.isAfter(maximum)) break;
+      dates.add(date);
+    }
+    return dates;
+  }
+
+  String _weekday(DateTime date) {
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return weekdays[date.weekday - 1];
+  }
+
+  String _monthName(DateTime date) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return months[date.month - 1];
+  }
+
+  String _displayDate(DateTime date) =>
+      '${_weekday(date)}, ${_monthName(date).substring(0, 3)} ${date.day}, ${date.year}';
+
+  Future<void> _openCalendar() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate.isBefore(today) ? today : _selectedDate,
+      firstDate: today,
+      lastDate: _maximumDate,
+      helpText: 'SELECT APPOINTMENT DATE',
+    );
+    if (selected == null) return;
+    setState(() {
+      _selectedDate = selected;
+      _time = null;
+      _unavailableTime = null;
+    });
+    _loadAvailability();
   }
 
   Future<void> _loadVeterinarians() async {
@@ -80,6 +140,7 @@ class _AppointmentAvailabilityScreenState
       _isLoadingAvailability = true;
       _availabilityError = null;
       _time = null;
+      _unavailableTime = null;
     });
 
     try {
@@ -219,10 +280,10 @@ class _AppointmentAvailabilityScreenState
                       ),
                       child: Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'November 2026',
-                              style: TextStyle(
+                              '${_monthName(_selectedDate)} ${_selectedDate.year}',
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
                                 color: AppTheme.heading,
@@ -236,6 +297,14 @@ class _AppointmentAvailabilityScreenState
                               color: AppTheme.muted,
                             ),
                           ),
+                          IconButton(
+                            onPressed: _openCalendar,
+                            tooltip: 'Open calendar',
+                            icon: const Icon(
+                              Icons.calendar_month_outlined,
+                              color: AppTheme.primaryDark,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -247,19 +316,26 @@ class _AppointmentAvailabilityScreenState
                         border: Border.all(color: AppTheme.border),
                       ),
                       child: Row(
-                        children: List.generate(_dates.length, (index) {
-                          final selected = index == _dateIndex;
+                        children: _dateStrip.map((date) {
+                          final selected =
+                              date.year == _selectedDate.year &&
+                              date.month == _selectedDate.month &&
+                              date.day == _selectedDate.day;
                           return Expanded(
                             child: InkWell(
                               onTap: () {
-                                setState(() => _dateIndex = index);
+                                setState(() {
+                                  _selectedDate = date;
+                                  _time = null;
+                                  _unavailableTime = null;
+                                });
                                 _loadAvailability();
                               },
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    _dates[index].$1,
+                                    _weekday(date),
                                     style: const TextStyle(
                                       fontSize: 13,
                                       color: AppTheme.muted,
@@ -277,7 +353,7 @@ class _AppointmentAvailabilityScreenState
                                       borderRadius: BorderRadius.circular(14),
                                     ),
                                     child: Text(
-                                      _dates[index].$2,
+                                      '${date.day}',
                                       style: TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.w800,
@@ -291,7 +367,7 @@ class _AppointmentAvailabilityScreenState
                               ),
                             ),
                           );
-                        }),
+                        }).toList(),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -425,31 +501,40 @@ class _AppointmentAvailabilityScreenState
                             width: (MediaQuery.sizeOf(context).width - 50) / 2,
                             height: 46,
                             child: OutlinedButton(
-                              onPressed: slot.isBooked
-                                  ? null
-                                  : () => setState(() => _time = slot.display),
+                              onPressed: () => setState(() {
+                                if (slot.isBooked) {
+                                  _time = null;
+                                  _unavailableTime = slot.display;
+                                } else {
+                                  _time = slot.display;
+                                  _unavailableTime = null;
+                                }
+                              }),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: selected
                                     ? AppTheme.primary
                                     : AppTheme.heading,
-                                disabledForegroundColor: const Color(
-                                  0xFFBFC8CC,
-                                ),
                                 side: BorderSide(
                                   color: selected
                                       ? AppTheme.primary
                                       : AppTheme.border,
                                   width: selected ? 2 : 1,
                                 ),
+                                backgroundColor: slot.isBooked
+                                    ? const Color(0xFFFAFAFA)
+                                    : Colors.white,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                               ),
                               child: Text(
                                 slot.display,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
+                                  color: slot.isBooked
+                                      ? const Color(0xFFBFC7CC)
+                                      : null,
                                 ),
                               ),
                             ),
@@ -457,6 +542,26 @@ class _AppointmentAvailabilityScreenState
                         }).toList(),
                       ),
                     const SizedBox(height: 14),
+                    if (_unavailableTime != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBF0),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFE7D8A6)),
+                        ),
+                        child: Text(
+                          'Preferred time $_unavailableTime is unavailable. Tap Show Recommended Schedules to see alternatives.',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1.35,
+                            color: Color(0xFF7B6438),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
                     const Text(
                       'Greyed slots have no vet free. The assigned vet appears in your booking details.',
                       style: TextStyle(
@@ -470,8 +575,25 @@ class _AppointmentAvailabilityScreenState
               ),
             ),
             AppointmentBottomButton(
-              label: 'Book Now',
-              onTap: _time == null
+              label: _unavailableTime != null
+                  ? 'Show Recommended Schedules'
+                  : 'Book Now',
+              onTap: _unavailableTime != null
+                  ? () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => RecommendedSchedulesScreen(
+                          pet: widget.pet,
+                          procedure: widget.procedure,
+                          preferredDate: _displayDate(_selectedDate),
+                          preferredTime: _unavailableTime!,
+                          veterinarian: _vet,
+                          petId: widget.petId,
+                          serviceId: widget.serviceId,
+                        ),
+                      ),
+                    )
+                  : _time == null
                   ? null
                   : () => Navigator.push(
                       context,
@@ -487,8 +609,7 @@ class _AppointmentAvailabilityScreenState
                           serviceId: widget.serviceId,
                           vetId: _vetId,
                           timeslotId: _selectedTimeslot?.timeslotId,
-                          date:
-                              '${_dates[_dateIndex].$1}, Nov ${_dates[_dateIndex].$2}',
+                          date: _displayDate(_selectedDate),
                         ),
                       ),
                     ),

@@ -199,7 +199,7 @@ class AppointmentService {
   }
 
   Future<List<Map<String, dynamic>>> fetchAppointments() async {
-    final response = await _apiClient.dio.get('/appointments');
+    final response = await _apiClient.dio.get('/appointments/me');
     return (response.data as List)
         .map((item) => Map<String, dynamic>.from(item as Map))
         .toList();
