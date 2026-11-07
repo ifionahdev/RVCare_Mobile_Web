@@ -43,16 +43,16 @@ export const findSuggestionSchedule = async ({ fromDate, toDate, vetIds }) => {
     }),
   ]);
 
-    const hourOf = (t) => {
+  const hourOf = (t) => {
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) throw new Error(`Bad timeslot format: "${t}"`);
     return Number(t.slice(0, 2));
   };
   const inHours = (h) => h >= HOURS_START && h < HOURS_END;
 
-  const occupied = new Set();
+  const occupied = [];
   for (const { vetId, scheduledDate, timeslot } of appointments) {
     const hour = hourOf(timeslot.startTime);
-    if (inHours(hour)) occupied.add(slotKey(vetId, toDateOnly(scheduledDate), hour));
+    if (inHours(hour)) occupied.push({ vetId, date: toDateOnly(scheduledDate), hour });
   }
 
   return {
@@ -61,6 +61,7 @@ export const findSuggestionSchedule = async ({ fromDate, toDate, vetIds }) => {
     hours: [...new Set(timeslots.map(({ startTime }) => hourOf(startTime)))]
       .filter(inHours)
       .sort((a, b) => a - b),
-    occupied,
-    blocked: new Set(), // no blocked-periods table yet: leave days and closures are NOT respected
-  }};
+    occupied, // array of { vetId, date, hour }; the service turns it into a Set
+    blocked: [], // no blocked-periods table yet
+  };
+};
