@@ -1,12 +1,15 @@
-const HOURS_START = 8;
-const HOURS_END = 20;
-const SLOTS_PER_DAY = HOURS_END - HOURS_START;
-const K = 3;
-const HALF_WINDOW = 7;
-const BOOKING_DAYS = 90;
+import {
+  HOURS_START,
+  HOURS_END,
+  BOOKING_DAYS,
+  HALF_WINDOW,
+  K,
+  slotKey,
+} from "../config/slots.js";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):00$/;
+const SLOTS_PER_DAY = HOURS_END - HOURS_START;
 
 const dayNum = (value) =>
   Date.UTC(
@@ -19,7 +22,6 @@ const dayStr = (value) =>
   new Date(value * 86_400_000).toISOString().slice(0, 10);
 
 const absMin = (day, hour) => day * 1_440 + hour * 60;
-const slotKey = (vetId, date, hour) => `${vetId}|${date}|${hour}`;
 
 const isValidDate = (value) => {
   if (!DATE_PATTERN.test(value ?? "")) return false;
