@@ -1,11 +1,9 @@
-import {
-  HOURS_START,
-  HOURS_END,
-  BOOKING_DAYS,
-  HALF_WINDOW,
-  K,
-  slotKey,
-} from "../config/slots.js";
+const HOURS_START = 8;
+const HOURS_END = 21;
+const SLOTS_PER_DAY = HOURS_END - HOURS_START;
+const K = 3;
+const HALF_WINDOW = 7;
+const BOOKING_DAYS = 90;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):00$/;
@@ -126,6 +124,7 @@ export const recommend = (request, schedule, now) => {
     (a, b) => Math.abs(a - requestedDay) - Math.abs(b - requestedDay) || a - b,
   );
 
+  const ranked = [];
   for (const day of days) {
     const date = dayStr(day);
     const candidates = [];
@@ -159,7 +158,7 @@ export const recommend = (request, schedule, now) => {
       }
     }
 
-    return [...byHour.values()]
+    ranked.push(...[...byHour.values()]
       .map((candidate) => {
         const difference = absMin(day, candidate.hour) - requestedAbs;
         return {
@@ -176,18 +175,27 @@ export const recommend = (request, schedule, now) => {
           a.hour - b.hour ||
           a.workload - b.workload ||
           a.vetId - b.vetId,
-      )
-      .slice(0, K)
-      .map((candidate) => ({
-        veterinarian_id: candidate.vetId,
-        date: candidate.date,
-        start_time: `${String(candidate.hour).padStart(2, "0")}:00`,
-        end_time: `${String(candidate.hour + 1).padStart(2, "0")}:00`,
-        reason: describe(candidate),
-      }));
+      ));
   }
 
-  return [];
+  return ranked
+    .sort(
+      (a, b) =>
+        a.dayGap - b.dayGap ||
+        a.dist - b.dist ||
+        Number(b.sameDay) - Number(a.sameDay) ||
+        a.hour - b.hour ||
+        a.workload - b.workload ||
+        a.vetId - b.vetId,
+    )
+    .slice(0, K)
+    .map((candidate) => ({
+      veterinarian_id: candidate.vetId,
+      date: candidate.date,
+      start_time: `${String(candidate.hour).padStart(2, "0")}:00`,
+      end_time: `${String(candidate.hour + 1).padStart(2, "0")}:00`,
+      reason: describe(candidate),
+    }));
 };
 
 export { HOURS_START, HOURS_END, BOOKING_DAYS, HALF_WINDOW, K, slotKey };

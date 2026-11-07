@@ -18,6 +18,7 @@ class AppointmentSummaryScreen extends StatelessWidget {
     required this.serviceId,
     this.vetId,
     this.timeslotId,
+    this.scheduledDate,
   });
 
   final String pet;
@@ -29,6 +30,7 @@ class AppointmentSummaryScreen extends StatelessWidget {
   final int serviceId;
   final int? vetId;
   final int? timeslotId;
+  final String? scheduledDate;
 
   @override
   Widget build(BuildContext context) {
@@ -105,14 +107,36 @@ class AppointmentSummaryScreen extends StatelessWidget {
               label: 'Confirm Booking',
               margin: 20,
               onTap: () async {
-                final match = RegExp(r'Nov (\d+)').firstMatch(date);
-                if (match == null || timeslotId == null) return;
+                if (timeslotId == null) return;
+                const monthNumbers = {
+                  'Jan': '01',
+                  'Feb': '02',
+                  'Mar': '03',
+                  'Apr': '04',
+                  'May': '05',
+                  'Jun': '06',
+                  'Jul': '07',
+                  'Aug': '08',
+                  'Sep': '09',
+                  'Oct': '10',
+                  'Nov': '11',
+                  'Dec': '12',
+                };
+                final match = RegExp(
+                  r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{1,2}), (\d{4})',
+                ).firstMatch(date);
+                final parsedDate =
+                    scheduledDate ??
+                    (match == null
+                        ? null
+                        : '${match.group(3)}-${monthNumbers[match.group(1)]}-${match.group(2)!.padLeft(2, '0')}');
+                if (parsedDate == null) return;
                 try {
                   await context.read<AppointmentService>().createAppointment(
                     petId: petId,
                     serviceId: serviceId,
                     vetId: vetId,
-                    scheduledDate: '2026-11-${match.group(1)!.padLeft(2, '0')}',
+                    scheduledDate: parsedDate,
                     timeslotId: timeslotId!,
                   );
                   if (!context.mounted) return;

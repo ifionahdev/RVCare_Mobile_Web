@@ -225,7 +225,13 @@ async function main() {
 
     const account = await prisma.account.upsert({
       where: { username: a.username },
-      update: {},
+      update: {
+        email: a.username,
+        password: await bcrypt.hash(a.password, 10),
+        firstName: a.firstName,
+        lastName: a.lastName,
+        roleId: role.roleId,
+      },
       create: {
         username: a.username,
         email: a.username,

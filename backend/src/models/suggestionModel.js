@@ -53,8 +53,15 @@ export const findSuggestionVets = async () => {
 
 // ---------- Booked slots in the search window ----------
 export const findSuggestionSchedule = async ({ fromDate, toDate, vetIds }) => {
-  const [hours, appointments] = await Promise.all([
-    loadClinicHours(),
+  const [timeslots, appointments] = await Promise.all([
+    prisma.timeslot.findMany({
+      where: {
+        startTime: { gte: "08:00", lt: "21:00" },
+        endTime: { lte: "21:00", gt: "08:00" },
+      },
+      select: { timeslotId: true, startTime: true, endTime: true },
+      orderBy: { startTime: "asc" },
+    }),
     prisma.appointment.findMany({
       where: {
         vetId: { in: vetIds },
@@ -62,7 +69,9 @@ export const findSuggestionSchedule = async ({ fromDate, toDate, vetIds }) => {
           gte: toUtcMidnight(fromDate),
           lte: toUtcMidnight(toDate),
         },
-        status: BLOCKING_STATUS,
+        status: {
+          notIn: ["Cancelled", "Rejected", "Completed", "Missed", "Past"],
+        },
         isDeleted: false,
       },
       select: {
@@ -73,12 +82,13 @@ export const findSuggestionSchedule = async ({ fromDate, toDate, vetIds }) => {
     }),
   ]);
 
-  const occupied = new Set();
-  for (const { vetId, scheduledDate, timeslot } of appointments) {
-    const hour = hourOf(timeslot.startTime);
-    if (!inClinicHours(hour)) continue;
-    occupied.add(slotKey(vetId, toDateOnly(scheduledDate), hour));
-  }
+  const occupied = appointments
+    .filter(({ timeslot }) => timeslot.startTime >= "08:00" && timeslot.startTime < "21:00")
+    .map(({ vetId, scheduledDate, timeslot }) => ({
+      vetId,
+      date: toDateOnly(scheduledDate),
+      hour: Number(timeslot.startTime.slice(0, 2)),
+    }));
 
   return {
     vets: vetIds,

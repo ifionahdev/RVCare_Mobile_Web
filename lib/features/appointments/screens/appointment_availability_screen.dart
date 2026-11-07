@@ -590,6 +590,9 @@ class _AppointmentAvailabilityScreenState
                           veterinarian: _vet,
                           petId: widget.petId,
                           serviceId: widget.serviceId,
+                          preferredVetId: _vetId,
+                          algorithmDate:
+                              '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}',
                         ),
                       ),
                     )

@@ -385,6 +385,7 @@ enum AppointmentStatus {
   Completed
   Missed
   Cancelled
+  Past
 
   @@map("tbl_appointment_status")
 }
