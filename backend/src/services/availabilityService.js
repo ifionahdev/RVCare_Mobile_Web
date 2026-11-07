@@ -38,7 +38,7 @@ const parseVetId = (vetId) => {
 export const getAvailability = async ({ scheduledDate, vetId } = {}) => {
   const date = parseScheduledDate(scheduledDate);
   const parsedVetId = parseVetId(vetId);
-  const [timeslots, appointments] = await Promise.all([
+  const [timeslots, appointments, veterinarianCount] = await Promise.all([
     prisma.timeslot.findMany({
       select: {
         timeslotId: true,
@@ -54,11 +54,29 @@ export const getAvailability = async ({ scheduledDate, vetId } = {}) => {
       scheduledDate: date,
       vetId: parsedVetId,
     }),
+    parsedVetId === undefined
+      ? prisma.veterinarian.count({ where: { isDeleted: false } })
+      : Promise.resolve(1),
   ]);
 
-  const bookedTimeslotIds = new Set(
-    appointments.map(({ timeslotId }) => timeslotId),
-  );
+  let bookedTimeslotIds;
+  if (parsedVetId === undefined && veterinarianCount > 0) {
+    const bookedVetsByTimeslot = new Map();
+    for (const appointment of appointments) {
+      const vets = bookedVetsByTimeslot.get(appointment.timeslotId) ?? new Set();
+      vets.add(appointment.vetId);
+      bookedVetsByTimeslot.set(appointment.timeslotId, vets);
+    }
+    bookedTimeslotIds = new Set(
+      [...bookedVetsByTimeslot.entries()]
+        .filter(([, vets]) => vets.size >= veterinarianCount)
+        .map(([timeslotId]) => timeslotId),
+    );
+  } else {
+    bookedTimeslotIds = new Set(
+      appointments.map(({ timeslotId }) => timeslotId),
+    );
+  }
 
   return timeslots.map((timeslot) => ({
     ...timeslot,

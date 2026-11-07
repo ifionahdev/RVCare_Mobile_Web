@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../data/appointment_service.dart';
 import '../widgets/appointment_widgets.dart';
 import 'appointment_summary_screen.dart';
 
@@ -14,6 +16,8 @@ class RecommendedSchedulesScreen extends StatefulWidget {
     required this.veterinarian,
     required this.petId,
     required this.serviceId,
+    this.preferredVetId,
+    this.algorithmDate,
   });
 
   final String pet;
@@ -23,6 +27,8 @@ class RecommendedSchedulesScreen extends StatefulWidget {
   final String veterinarian;
   final int petId;
   final int serviceId;
+  final int? preferredVetId;
+  final String? algorithmDate;
 
   @override
   State<RecommendedSchedulesScreen> createState() =>
@@ -33,23 +39,118 @@ class _RecommendedSchedulesScreenState
     extends State<RecommendedSchedulesScreen> {
   int _selected = 0;
 
-  final _schedules = const [
-    _RecommendedSchedule(
-      label: 'Closest Available Time',
-      date: 'Wed, Nov 4, 2026',
-      time: '11:00 AM - 12:00 PM',
-      veterinarian: 'Dr. Rachel Carter',
-    ),
-    _RecommendedSchedule(
-      date: 'Wed, Nov 4, 2026',
-      time: '3:00 PM - 4:00 PM',
-      veterinarian: 'Dr. Alan Mercer',
-    ),
-  ];
+  List<_RecommendedSchedule> _schedules = const [];
+  Object? _error;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSuggestions());
+  }
+
+  String _algorithmTime(String value) {
+    final match = RegExp(
+      r'^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?',
+      caseSensitive: false,
+    ).firstMatch(value.trim());
+    if (match == null) return value;
+    var hour = int.parse(match.group(1)!);
+    final period = match.group(3)?.toUpperCase();
+    final minute = match.group(2) ?? '00';
+    if (period == 'PM' && hour < 12) hour += 12;
+    if (period == 'AM' && hour == 12) hour = 0;
+    return '${hour.toString().padLeft(2, '0')}:$minute';
+  }
+
+  String _formatTime(String value) {
+    final parts = value.split(':');
+    var hour = int.parse(parts.first);
+    final minute = parts.length > 1 ? parts[1] : '00';
+    final period = hour >= 12 ? 'PM' : 'AM';
+    if (hour > 12) hour -= 12;
+    if (hour == 0) hour = 12;
+    return '$hour:$minute $period';
+  }
+
+  String _displayDate(String isoDate) {
+    final date = DateTime.parse(isoDate);
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${weekdays[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  Future<void> _loadSuggestions() async {
+    try {
+      final service = context.read<AppointmentService>();
+      final results = await Future.wait([
+        service.fetchVeterinarians(),
+        service.fetchSuggestions(
+          preferredDate: widget.algorithmDate ?? widget.preferredDate,
+          preferredTime: _algorithmTime(widget.preferredTime),
+          preferredVetId: widget.preferredVetId,
+        ),
+      ]);
+      final vets = results[0] as List<AppointmentVeterinarian>;
+      final suggestions = results[1] as List<AppointmentSuggestion>;
+      final schedules = <_RecommendedSchedule>[];
+      for (final suggestion in suggestions) {
+        final slots = await service.fetchAvailability(
+          date: DateTime.parse(suggestion.date),
+          vetId: suggestion.veterinarianId,
+        );
+        final slot = slots
+            .where((candidate) => candidate.startTime == suggestion.startTime)
+            .firstOrNull;
+        if (slot == null) continue;
+        final vet = vets
+            .where((candidate) => candidate.vetId == suggestion.veterinarianId)
+            .firstOrNull;
+        schedules.add(
+          _RecommendedSchedule(
+            label: schedules.isEmpty ? 'Closest Available Time' : null,
+            date: _displayDate(suggestion.date),
+            isoDate: suggestion.date,
+            time:
+                '${_formatTime(suggestion.startTime)} - ${_formatTime(suggestion.endTime)}',
+            veterinarian: vet == null
+                ? 'Preferred veterinarian'
+                : (vet.name.startsWith('Dr.') ? vet.name : 'Dr. ${vet.name}'),
+            veterinarianId: suggestion.veterinarianId,
+            timeslotId: slot.timeslotId,
+          ),
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _schedules = schedules;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error;
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final selectedSchedule = _schedules[_selected];
+    final selectedSchedule = _schedules.isEmpty ? null : _schedules[_selected];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -61,178 +162,200 @@ class _RecommendedSchedulesScreenState
       body: Column(
         children: [
           const AppointmentProgress(step: 2, label: 'Step 2 of 2'),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 8),
-                  Text(
-                    '${widget.preferredDate} · ${widget.veterinarian}',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.heading,
-                    ),
+          if (_isLoading)
+            const Expanded(child: Center(child: CircularProgressIndicator()))
+          else if (_error != null || _schedules.isEmpty)
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                    'No schedule suggestions are available right now.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppTheme.muted),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Preferred ${widget.preferredTime} · Unavailable',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF9A6A1C),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBF0),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE7D8A6)),
-                    ),
-                    child: const Text(
-                      'Your preferred time is unavailable. Here are the closest available schedules.',
-                      style: TextStyle(
-                        fontSize: 16,
-                        height: 1.35,
-                        color: Color(0xFF7B6438),
+                ),
+              ),
+            )
+          else
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    Text(
+                      '${widget.preferredDate} · ${widget.veterinarian}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.heading,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Suggested Appointment Schedules',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.heading,
+                    const SizedBox(height: 4),
+                    Text(
+                      'Preferred ${widget.preferredTime} · Unavailable',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF9A6A1C),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  ...List.generate(_schedules.length, (index) {
-                    final schedule = _schedules[index];
-                    final selected = index == _selected;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: InkWell(
-                        onTap: () => setState(() => _selected = index),
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.fromLTRB(28, 22, 20, 22),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: selected
-                                  ? AppTheme.primaryDark
-                                  : AppTheme.border,
-                              width: selected ? 3 : 1.5,
+                    const SizedBox(height: 18),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFBF0),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFFE7D8A6)),
+                      ),
+                      child: const Text(
+                        'Your preferred time is unavailable. Here are the closest available schedules.',
+                        style: TextStyle(
+                          fontSize: 16,
+                          height: 1.35,
+                          color: Color(0xFF7B6438),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Suggested Appointment Schedules',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.heading,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ...List.generate(_schedules.length, (index) {
+                      final schedule = _schedules[index];
+                      final selected = index == _selected;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: InkWell(
+                          onTap: () => setState(() => _selected = index),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.fromLTRB(28, 22, 20, 22),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: selected
+                                    ? AppTheme.primaryDark
+                                    : AppTheme.border,
+                                width: selected ? 3 : 1.5,
+                              ),
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (schedule.label != null)
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (schedule.label != null)
+                                        Text(
+                                          schedule.label!,
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppTheme.primaryDark,
+                                          ),
+                                        ),
+                                      if (schedule.label != null)
+                                        const SizedBox(height: 12),
                                       Text(
-                                        schedule.label!,
+                                        schedule.date,
                                         style: const TextStyle(
-                                          fontSize: 15,
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppTheme.heading,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        schedule.time,
+                                        style: const TextStyle(
+                                          fontSize: 18,
                                           fontWeight: FontWeight.w800,
                                           color: AppTheme.primaryDark,
                                         ),
                                       ),
-                                    if (schedule.label != null)
-                                      const SizedBox(height: 12),
-                                    Text(
-                                      schedule.date,
-                                      style: const TextStyle(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppTheme.heading,
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        schedule.veterinarian,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          color: AppTheme.muted,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      schedule.time,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppTheme.primaryDark,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      schedule.veterinarian,
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        color: AppTheme.muted,
-                                      ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              _ScheduleRadio(selected: selected),
-                            ],
+                                _ScheduleRadio(selected: selected),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
-            child: Text(
-              '${selectedSchedule.date} · ${selectedSchedule.time}',
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.primaryDark,
-              ),
-            ),
-          ),
-          AppointmentBottomButton(
-            label: 'Continue with Selected Time',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => AppointmentSummaryScreen(
-                  pet: widget.pet,
-                  procedure: widget.procedure,
-                  veterinarian: selectedSchedule.veterinarian,
-                  time: selectedSchedule.time.split(' - ').first,
-                  date: selectedSchedule.date,
-                  petId: widget.petId,
-                  serviceId: widget.serviceId,
+                      );
+                    }),
+                  ],
                 ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
-              },
-              child: const Text(
-                'Choose Another Schedule',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
+          if (selectedSchedule != null) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+              child: Text(
+                '${selectedSchedule.date} · ${selectedSchedule.time}',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                   color: AppTheme.primaryDark,
                 ),
               ),
             ),
-          ),
+            AppointmentBottomButton(
+              label: 'Continue with Selected Time',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => AppointmentSummaryScreen(
+                    pet: widget.pet,
+                    procedure: widget.procedure,
+                    veterinarian: selectedSchedule.veterinarian,
+                    time: selectedSchedule.time.split(' - ').first,
+                    date: selectedSchedule.date,
+                    petId: widget.petId,
+                    serviceId: widget.serviceId,
+                    vetId: selectedSchedule.veterinarianId,
+                    timeslotId: selectedSchedule.timeslotId,
+                    scheduledDate: selectedSchedule.isoDate,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pop(context);
+                },
+                child: const Text(
+                  'Choose Another Schedule',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.primaryDark,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -274,10 +397,16 @@ class _RecommendedSchedule {
     required this.date,
     required this.time,
     required this.veterinarian,
+    required this.isoDate,
+    required this.veterinarianId,
+    required this.timeslotId,
   });
 
   final String? label;
   final String date;
   final String time;
   final String veterinarian;
+  final String isoDate;
+  final int veterinarianId;
+  final int timeslotId;
 }

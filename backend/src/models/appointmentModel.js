@@ -6,12 +6,13 @@ export const findBookedTimeslotIds = async ({ scheduledDate, vetId }) =>
       scheduledDate,
       isDeleted: false,
       status: {
-        notIn: ["Cancelled", "Pending"],
+        notIn: ["Cancelled", "Rejected", "Completed", "Missed", "Past"],
       },
       ...(vetId === undefined ? {} : { vetId }),
     },
     select: {
       timeslotId: true,
+      vetId: true,
     },
   });
 
@@ -27,8 +28,19 @@ const appointmentInclude = {
   veterinarian: { include: { account: true } },
 };
 
-export const findOwnerAppointments = (accountId) =>
-  prisma.appointment.findMany({
+export const expirePastAppointments = () =>
+  prisma.appointment.updateMany({
+    where: {
+      isDeleted: false,
+      scheduledDate: { lt: getTodayManilaDate() },
+      status: { in: ["Pending", "Upcoming"] },
+    },
+    data: { status: "Past" },
+  });
+
+export const findOwnerAppointments = async (accountId) => {
+  await expirePastAppointments();
+  return prisma.appointment.findMany({
     where: {
       isDeleted: false,
       pet: { owner: { accountId } },
@@ -36,6 +48,7 @@ export const findOwnerAppointments = (accountId) =>
     include: appointmentInclude,
     orderBy: [{ scheduledDate: "desc" }, { timeslotId: "asc" }],
   });
+};
 
 const appointmentListSelect = {
   appointmentId: true,
@@ -54,8 +67,9 @@ const appointmentListSelect = {
   },
 };
 
-export const findAllAppointments = () =>
-  prisma.appointment.findMany({
+export const findAllAppointments = async () => {
+  await expirePastAppointments();
+  return prisma.appointment.findMany({
     where: {
       isDeleted: false,
       status: { not: "Pending" },
@@ -63,6 +77,7 @@ export const findAllAppointments = () =>
     select: appointmentListSelect,
     orderBy: [{ scheduledDate: "desc" }, { timeslotId: "asc" }],
   });
+};
 
 export const findAppointmentById = (appointmentId) =>
   prisma.appointment.findFirst({

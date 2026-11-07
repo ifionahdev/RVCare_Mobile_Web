@@ -82,6 +82,32 @@ class AppointmentVeterinarian {
   }
 }
 
+class AppointmentSuggestion {
+  const AppointmentSuggestion({
+    required this.veterinarianId,
+    required this.date,
+    required this.startTime,
+    required this.endTime,
+    required this.reason,
+  });
+
+  final int veterinarianId;
+  final String date;
+  final String startTime;
+  final String endTime;
+  final String reason;
+
+  factory AppointmentSuggestion.fromJson(Map<String, dynamic> json) {
+    return AppointmentSuggestion(
+      veterinarianId: json['veterinarian_id'] as int,
+      date: json['date'] as String,
+      startTime: json['start_time'] as String,
+      endTime: json['end_time'] as String,
+      reason: json['reason'] as String? ?? '',
+    );
+  }
+}
+
 class AppointmentService {
   AppointmentService(this._apiClient);
 
@@ -170,6 +196,37 @@ class AppointmentService {
           .toList();
     } on DioException catch (e) {
       throw Exception(_message(e, 'Failed to fetch veterinarians'));
+    }
+  }
+
+  Future<List<AppointmentSuggestion>> fetchSuggestions({
+    required String preferredDate,
+    required String preferredTime,
+    int? preferredVetId,
+  }) async {
+    try {
+      final response = await _apiClient.dio.post(
+        '/availability/suggest',
+        data: {
+          'request_id': 'flutter-${DateTime.now().microsecondsSinceEpoch}',
+          'preferred_date': preferredDate,
+          'preferred_time': preferredTime,
+          'preferred_vet_id': preferredVetId,
+        },
+      );
+      final recommendations = response.data is Map
+          ? response.data['recommendations']
+          : null;
+      if (recommendations is! List) return const [];
+      return recommendations
+          .map(
+            (item) => AppointmentSuggestion.fromJson(
+              Map<String, dynamic>.from(item as Map),
+            ),
+          )
+          .toList();
+    } on DioException catch (e) {
+      throw Exception(_message(e, 'Failed to fetch schedule suggestions'));
     }
   }
 

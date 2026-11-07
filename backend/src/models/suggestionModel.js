@@ -16,8 +16,8 @@ export const findSuggestionSchedule = async ({ fromDate, toDate, vetIds }) => {
   const [timeslots, appointments] = await Promise.all([
     prisma.timeslot.findMany({
       where: {
-        startTime: { gte: "08:00", lt: "20:00" },
-        endTime: { lte: "20:00", gt: "08:00" },
+        startTime: { gte: "08:00", lt: "21:00" },
+        endTime: { lte: "21:00", gt: "08:00" },
       },
       select: { timeslotId: true, startTime: true, endTime: true },
       orderBy: { startTime: "asc" },
@@ -29,7 +29,9 @@ export const findSuggestionSchedule = async ({ fromDate, toDate, vetIds }) => {
           gte: new Date(`${fromDate}T00:00:00.000Z`),
           lte: new Date(`${toDate}T00:00:00.000Z`),
         },
-        status: "Upcoming",
+        status: {
+          notIn: ["Cancelled", "Rejected", "Completed", "Missed", "Past"],
+        },
         isDeleted: false,
       },
       select: {
@@ -41,7 +43,7 @@ export const findSuggestionSchedule = async ({ fromDate, toDate, vetIds }) => {
   ]);
 
   const occupied = appointments
-    .filter(({ timeslot }) => timeslot.startTime >= "08:00" && timeslot.startTime < "20:00")
+    .filter(({ timeslot }) => timeslot.startTime >= "08:00" && timeslot.startTime < "21:00")
     .map(({ vetId, scheduledDate, timeslot }) => ({
       vetId,
       date: toDateOnly(scheduledDate),
