@@ -92,10 +92,25 @@ const BREEDS = [
   { species: "Dog", breedName: "Shih Tzu" },
 ] as const;
 
+const dateOnly = (year: number, month: number, day: number) =>
+  new Date(Date.UTC(year, month - 1, day));
+
 // 6) Pets for the test customer: one cat, one dog
 const TEST_PETS = [
-  { petName: "Whiskers", gender: "Female", species: "Cat", breedName: "Puspin" },
-  { petName: "Buddy", gender: "Male", species: "Dog", breedName: "Aspin" },
+  {
+    petName: "Whiskers",
+    gender: "Female",
+    species: "Cat",
+    breedName: "Puspin",
+    dateOfBirth: dateOnly(2020, 1, 1),
+  },
+  {
+    petName: "Buddy",
+    gender: "Male",
+    species: "Dog",
+    breedName: "Aspin",
+    dateOfBirth: dateOnly(2019, 6, 15),
+  },
 ] as const;
 
 //FAKER SEEDING FUNCTIONS
@@ -147,7 +162,7 @@ async function seedFakeData() {
             petName: faker.person.firstName(),
             gender: faker.helpers.arrayElement(["Male", "Female"] as const),
             breedId: faker.helpers.arrayElement(breeds).breedId,
-            dateOfBirth: new Date("2020-01-01"),
+            dateOfBirth: dateOnly(2020, 1, 1),
           },
         }),
       );
@@ -290,13 +305,19 @@ async function main() {
     const exists = await prisma.pet.findFirst({
       where: { ownerId: customerOwnerId, petName: p.petName },
     });
-    if (!exists) {
+    if (exists) {
+      await prisma.pet.update({
+        where: { petId: exists.petId },
+        data: { dateOfBirth: p.dateOfBirth },
+      });
+    } else {
       await prisma.pet.create({
         data: {
           ownerId: customerOwnerId,
           petName: p.petName,
           gender: p.gender,
           breedId: breed.breedId,
+          dateOfBirth: p.dateOfBirth,
         },
       });
     }
