@@ -9,17 +9,17 @@ datasource db {
 }
 
 model Account {
-  accountId      Int      @id @default(autoincrement()) @map("account_id")
-  roleId         Int      @map("role_id")
-  username       String   @unique(map: "tbl_account_username") @db.VarChar(50)
-  email          String   @unique(map: "tbl_account_email") @db.VarChar(255)
-  isDeleted      Boolean  @default(false) @map("is_deleted")
+  accountId      Int        @id @default(autoincrement()) @map("account_id")
+  roleId         Int        @map("role_id")
+  username       String     @unique(map: "tbl_account_username") @db.VarChar(50)
+  email          String     @unique(map: "tbl_account_email") @db.VarChar(255)
+  isDeleted      Boolean    @default(false) @map("is_deleted")
   gender         PetGender?
-  dateOfBirth    DateTime? @map("date_of_birth") @db.Date
-  password       String   @db.VarChar(255)
-  firstName      String   @map("first_name") @db.VarChar(100)
-  lastName       String   @map("last_name") @db.VarChar(100)
-  dateRegistered DateTime @default(now()) @map("date_registered") @db.DateTime(0)
+  dateOfBirth    DateTime?  @map("date_of_birth") @db.Date
+  password       String     @db.VarChar(255)
+  firstName      String     @map("first_name") @db.VarChar(100)
+  lastName       String     @map("last_name") @db.VarChar(100)
+  dateRegistered DateTime   @default(now()) @map("date_registered") @db.DateTime(0)
 
   role           Role                @relation(fields: [roleId], references: [roleId], onUpdate: Restrict, map: "tbl_account_tbl_role_FK")
   admin          Admin?
@@ -30,7 +30,7 @@ model Account {
   uploadedFiles  MedicalRecordFile[]
   passwordResets PasswordReset[]
   activityLogs   ActivityLog[]
-  auditLogs     AuditLog[]
+  auditLogs      AuditLog[]
 
   @@index([roleId], map: "tbl_account_tbl_role_FK")
   @@map("tbl_account")
@@ -95,7 +95,7 @@ model AuditLog {
   createdAt   DateTime       @default(now()) @map("created_at") @db.DateTime(0)
 
   account Account? @relation(fields: [accountId], references: [accountId], onUpdate: Restrict, map: "tbl_audit_log_tbl_account_FK")
-  
+
   @@map("tbl_audit_log")
 }
 
@@ -194,12 +194,14 @@ model PetBreed {
 }
 
 model PetOwner {
-  ownerId          Int     @id @default(autoincrement()) @map("owner_id")
-  accountId        Int     @unique @map("account_id")
-  address          String? @db.VarChar(100)
-  contactNumber    String? @map("contact_number") @db.VarChar(11)
-  alternateContact String? @map("alternate_contact") @db.VarChar(100)
-  isDeleted        Boolean @default(false) @map("is_deleted")
+  ownerId           Int     @id @default(autoincrement()) @map("owner_id")
+  accountId         Int     @unique @map("account_id")
+  address           String? @db.VarChar(100)
+  contactNumber     String? @map("contact_number") @db.VarChar(11)
+  alternateContact  String? @map("alternate_contact") @db.VarChar(100)
+  emailNotification Boolean @default(true) @map("email_notification")
+  phoneNotification Boolean @default(true) @map("phone_notification")
+  isDeleted         Boolean @default(false) @map("is_deleted")
 
   account Account @relation(fields: [accountId], references: [accountId], onUpdate: Restrict, map: "tbl_pet_owner_tbl_account_FK")
   pets    Pet[]
@@ -209,81 +211,79 @@ model PetOwner {
 }
 
 model PetCareTip {
-  tipId             Int                 @id @default(autoincrement()) @map("tip_id")
-  type              PetCareTipType
-  category          PetCareTipCategory
-  title             String              @db.VarChar(100)
-  description       String              @db.VarChar(1000)
-  imageUrl          String?             @map("image_url") @db.VarChar(255)
-  linkUrl           String              @map("link_url") @db.VarChar(255)
-  uploaderAccountId Int                 @map("uploader_account_id")
-  createdAt         DateTime            @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt         DateTime            @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
-  isDeleted         Boolean             @default(false) @map("is_deleted")
-  shortDescription  String?             @map("short_description") @db.VarChar(180)
-  detailedContent   String?             @map("detailed_content") @db.VarChar(500)
-  iconId            Int?                @map("icon_id")
-  publicationStatusId Int?              @map("publication_status_id")
-  contentCategoryId Int?                @map("content_category_id")
+  tipId               Int                @id @default(autoincrement()) @map("tip_id")
+  type                PetCareTipType
+  title               String             @db.VarChar(100)
+  imageUrl            String?            @map("image_url") @db.VarChar(255)
+  linkUrl             String             @map("link_url") @db.VarChar(255)
+  uploaderAccountId   Int                @map("uploader_account_id")
+  createdAt           DateTime           @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt           DateTime           @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
+  isDeleted           Boolean            @default(false) @map("is_deleted")
+  shortDescription    String?            @map("short_description") @db.VarChar(180)
+  detailedContent     String?            @map("detailed_content") @db.VarChar(500)
+  iconId              Int?               @map("icon_id")
+  publicationStatusId Int?               @map("publication_status_id")
+  contentCategoryId   Int?               @map("content_category_id")
 
-  uploader Account @relation(fields: [uploaderAccountId], references: [accountId], onUpdate: Restrict, map: "tbl_pet_care_tips_tbl_account_FK")
-  icon PetCareIcon? @relation(fields: [iconId], references: [iconId], onUpdate: Restrict, onDelete: SetNull)
+  uploader          Account            @relation(fields: [uploaderAccountId], references: [accountId], onUpdate: Restrict, map: "tbl_pet_care_tips_tbl_account_FK")
+  icon              PetCareIcon?       @relation(fields: [iconId], references: [iconId], onUpdate: Restrict, onDelete: SetNull)
   publicationStatus PublicationStatus? @relation(fields: [publicationStatusId], references: [statusId], onUpdate: Restrict, onDelete: SetNull)
-  contentCategory PetCareCategory? @relation(fields: [contentCategoryId], references: [categoryId], onUpdate: Restrict, onDelete: SetNull)
+  contentCategory   PetCareCategory?   @relation(fields: [contentCategoryId], references: [categoryId], onUpdate: Restrict, onDelete: SetNull)
 
   @@map("tbl_pet_care_tip")
 }
 
 model PetCareCategory {
-  categoryId Int          @id @default(autoincrement()) @map("category_id")
-  categoryName String     @unique(map: "tbl_pet_care_category_name") @map("category_name") @db.VarChar(80)
-  isDeleted Boolean       @default(false) @map("is_deleted")
-  tips PetCareTip[]
+  categoryId   Int          @id @default(autoincrement()) @map("category_id")
+  categoryName String       @unique(map: "tbl_pet_care_category_name") @map("category_name") @db.VarChar(80)
+  isDeleted    Boolean      @default(false) @map("is_deleted")
+  tips         PetCareTip[]
 
   @@map("tbl_pet_care_category")
 }
 
 model PetCareIcon {
-  iconId Int @id @default(autoincrement()) @map("icon_id")
-  iconName String @unique(map: "tbl_pet_care_icon_name") @map("icon_name") @db.VarChar(50)
-  iconKey String @map("icon_key") @db.VarChar(50)
-  tips PetCareTip[]
+  iconId   Int          @id @default(autoincrement()) @map("icon_id")
+  iconName String       @unique(map: "tbl_pet_care_icon_name") @map("icon_name") @db.VarChar(50)
+  iconKey  String       @map("icon_key") @db.VarChar(50)
+  tips     PetCareTip[]
 
   @@map("tbl_pet_care_icon")
 }
 
 model PublicationStatus {
-  statusId Int @id @default(autoincrement()) @map("status_id")
-  statusName String @unique(map: "tbl_publication_status_name") @map("status_name") @db.VarChar(30)
-  tips PetCareTip[]
-  videos ContentVideo[]
+  statusId   Int            @id @default(autoincrement()) @map("status_id")
+  statusName String         @unique(map: "tbl_publication_status_name") @map("status_name") @db.VarChar(30)
+  tips       PetCareTip[]
+  videos     ContentVideo[]
 
   @@map("tbl_publication_status")
 }
 
 model VideoCategory {
-  videoCategoryId Int @id @default(autoincrement()) @map("video_category_id")
-  categoryName String @unique(map: "tbl_video_category_name") @map("category_name") @db.VarChar(80)
-  isDeleted Boolean @default(false) @map("is_deleted")
-  videos ContentVideo[]
+  videoCategoryId Int            @id @default(autoincrement()) @map("video_category_id")
+  categoryName    String         @unique(map: "tbl_video_category_name") @map("category_name") @db.VarChar(80)
+  isDeleted       Boolean        @default(false) @map("is_deleted")
+  videos          ContentVideo[]
 
   @@map("tbl_video_category")
 }
 
 model ContentVideo {
-  videoId Int @id @default(autoincrement()) @map("video_id")
-  title String @db.VarChar(120)
-  videoUrl String @map("video_url") @db.VarChar(500)
-  categoryId Int @map("category_id")
-  publicationStatusId Int @map("publication_status_id")
-  uploaderAccountId Int @map("uploader_account_id")
-  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
-  isDeleted Boolean @default(false) @map("is_deleted")
+  videoId             Int      @id @default(autoincrement()) @map("video_id")
+  title               String   @db.VarChar(120)
+  videoUrl            String   @map("video_url") @db.VarChar(500)
+  categoryId          Int      @map("category_id")
+  publicationStatusId Int      @map("publication_status_id")
+  uploaderAccountId   Int      @map("uploader_account_id")
+  createdAt           DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
+  isDeleted           Boolean  @default(false) @map("is_deleted")
 
-  category VideoCategory @relation(fields: [categoryId], references: [videoCategoryId], onUpdate: Restrict)
+  category          VideoCategory     @relation(fields: [categoryId], references: [videoCategoryId], onUpdate: Restrict)
   publicationStatus PublicationStatus @relation(fields: [publicationStatusId], references: [statusId], onUpdate: Restrict)
-  uploader Account @relation(fields: [uploaderAccountId], references: [accountId], onUpdate: Restrict)
+  uploader          Account           @relation(fields: [uploaderAccountId], references: [accountId], onUpdate: Restrict)
 
   @@map("tbl_content_video")
 }
@@ -325,12 +325,50 @@ model Veterinarian {
   accountId Int     @unique @map("account_id")
   isDeleted Boolean @default(false) @map("is_deleted")
 
-  account      Account       @relation(fields: [accountId], references: [accountId], onUpdate: Restrict, map: "tbl_veterinarian_tbl_account_FK")
+  account      Account                         @relation(fields: [accountId], references: [accountId], onUpdate: Restrict, map: "tbl_veterinarian_tbl_account_FK")
   visits       Visit[]
   appointments Appointment[]
+  schedules    VeterinarianSchedule[]
+  timeOffs     VeterinarianTimeOff[]
 
   @@index([accountId], map: "tbl_veterinarian_tbl_account_FK")
   @@map("tbl_veterinarian")
+}
+
+model VeterinarianSchedule {
+  scheduleId Int     @id @default(autoincrement()) @map("schedule_id")
+  vetId      Int     @map("vet_id")
+  dayOfWeek  Int     @map("day_of_week")
+  startTime  String?  @map("start_time") @db.VarChar(5)
+  endTime    String?  @map("end_time") @db.VarChar(5)
+  note       String?  @db.VarChar(255)
+  isDeleted  Boolean @default(false) @map("is_deleted")
+  assignerId   Int?    @map("assigner_id")
+  assignedAt   DateTime @map("assigned_at") @default(now()) @db.DateTime(0)
+
+  veterinarian Veterinarian @relation(fields: [vetId], references: [vetId], onUpdate: Restrict, map: "tbl_veterinarian_schedule_tbl_veterinarian_FK")  
+  @@index([vetId], map: "tbl_veterinarian_schedule_tbl_veterinarian_FK")
+  @@map("tbl_veterinarian_schedule")
+}
+
+model VeterinarianTimeOff {
+  timeOffId   Int      @id @default(autoincrement()) @map("time_off_id")
+  vetId         Int      @map("vet_id")
+  date          DateTime @map("exception_date") @db.Date
+  startTime     String?   @map("start_time") @db.VarChar(5)
+  endTime       String?   @map("end_time") @db.VarChar(5)
+  status        TimeOffStatus @default(Pending)
+  reason      String?  @db.VarChar(255)
+  note        String?  @db.VarChar(255)
+  reviewerId    Int     @map("reviewer_id")
+  reviewedAt    DateTime @default(now())@map("reviewed_at") @db.DateTime(0)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
+  isDeleted     Boolean  @default(false) @map("is_deleted")
+
+  veterinarian Veterinarian @relation(fields: [vetId], references: [vetId], onUpdate: Restrict, map: "tbl_veterinarian_time_off_tbl_veterinarian_FK")
+  @@index([vetId], map: "tbl_veterinarian_time_off_tbl_veterinarian_FK")
+  @@map("tbl_veterinarian_time_off")
 }
 
 model Visit {
@@ -385,7 +423,6 @@ enum AppointmentStatus {
   Completed
   Missed
   Cancelled
-  Past
 
   @@map("tbl_appointment_status")
 }
@@ -398,23 +435,17 @@ enum VisitStatus {
   @@map("tbl_visit_status")
 }
 
+enum TimeOffStatus {
+  Pending
+  Approved
+  Rejected
+
+  @@map("tbl_veterinarian_time_off_status")
+}
+
 enum PetCareTipType {
   Article
   Video
 
   @@map("tbl_pet_care_tips_type")
-}
-
-enum PetCareTipCategory {
-  Health
-  Nutrition
-  Grooming
-  Training
-  Behavior
-  Safety
-  Travel
-  Adoption
-  Miscellaneous
-
-  @@map("tbl_pet_care_tips_category")
 }
