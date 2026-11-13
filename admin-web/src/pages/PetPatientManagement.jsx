@@ -11,12 +11,15 @@ import socket from "../socket";
 import { buildMediaUrl } from "../utils/runtimeUrls";
 import PetOwnersTab from "../components/petpatient-management/PetOwnersTab";
 import PetsTab from "../components/petpatient-management/PetsTab";
-import RecordsTab from "../components/petpatient-management/RecordsTab";
+import RecordsTab from "../components/records-management/RecordsTab";
 import RightPanel from "../components/petpatient-management/RightPanel";
 import DeleteModal from "../components/petpatient-management/DeleteModal";
-import UploadRecordModal from "../components/petpatient-management/UploadRecordModal";
-import PdfModal from "../components/petpatient-management/PdfModal";
+import UploadRecordModal from "../components/records-management/UploadRecordModal";
+import LabRecordPreviewModal from "../components/records-management/LabRecordPreviewModal";
 import FilterSort from "../components/petpatient-management/FilterSort";
+import LaboratoryRecordsWorkspace from "../components/records-management/LaboratoryRecordsWorkspace";
+import MedicalHistoryWorkspace from "../components/records-management/MedicalHistoryWorkspace";
+import { mockLabPets, mockLabRecords } from "../components/records-management/mockLabRecords";
 
 const resolveAdminPetImage = (pet) => {
   if (!pet) return "/images/sad-dog.png";
@@ -71,8 +74,8 @@ const PetPatientManagement = ({ recordsMode = false }) => {
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const [petOwners, setPetOwners] = useState([]);
-  const [pets, setPets] = useState([]);
-  const [records, setRecords] = useState([]);
+  const [pets, setPets] = useState(() => recordsMode ? mockLabPets : []);
+  const [records, setRecords] = useState(() => recordsMode ? mockLabRecords : []);
 
   // Check if user is veterinarian (role 3)
   const [isVet, setIsVet] = useState(false);
@@ -85,18 +88,18 @@ const PetPatientManagement = ({ recordsMode = false }) => {
   });
 
   useEffect(() => {
-    // Check user role from localStorage or API
+    // Check user role from localStorage.
     const userRole = localStorage.getItem('userRole') || 2; // Default to admin if not found
     setIsVet(userRole === '3');
-    
-    // Load initial data
-    fetchOwnersAndPets();
-    if (recordsMode) {
-      fetchMedicalRecords();
+
+    if (!recordsMode || activeRecordType === "Medical") {
+      fetchOwnersAndPets();
     }
-  }, []);
+  }, [recordsMode, activeRecordType]);
 
   useEffect(() => {
+    if (recordsMode && activeRecordType !== "Medical") return undefined;
+
     const userId = localStorage.getItem("userId");
 
     const joinRoom = () => {
@@ -125,7 +128,7 @@ const PetPatientManagement = ({ recordsMode = false }) => {
       socket.off("owner_updated", handleOwnerUpdated);
       socket.off("owner_profile_updated", handleOwnerUpdated);
     };
-  }, []);
+  }, [recordsMode, activeRecordType]);
 
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -480,12 +483,18 @@ const PetPatientManagement = ({ recordsMode = false }) => {
   const filteredRecords = applyRecordsFilterSort(
     records.filter(record => {
       const type = String(record.type || "").toLowerCase();
+      const recordId = String(record.id || "");
+      const displayRecordId = /^LAB-/i.test(recordId)
+        ? recordId
+        : `LAB-${recordId.padStart(4, "0")}`;
       const isSelectedType = activeRecordType === "Lab"
         ? type.includes("lab")
         : type.includes("medical");
       return isSelectedType && (
+        displayRecordId.toLowerCase().includes(searchQuery.toLowerCase()) ||
         record.petName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        record.owner?.toLowerCase().includes(searchQuery.toLowerCase())
+        record.owner?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        record.recordTitle?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     })
   );
@@ -658,8 +667,26 @@ const PetPatientManagement = ({ recordsMode = false }) => {
     }
   };
 
+  const handleMockLabRecordSave = (updatedRecord) => {
+    setRecords((currentRecords) => {
+      const exists = currentRecords.some((record) => record.id === updatedRecord.id);
+      return exists
+        ? currentRecords.map((record) => record.id === updatedRecord.id ? updatedRecord : record)
+        : [updatedRecord, ...currentRecords];
+    });
+    setSuccessMessage("Mock lab record saved for this session.");
+  };
+
+  const handleMockLabRecordDelete = (recordToDelete) => {
+    setRecords((currentRecords) => currentRecords.filter((record) => record.id !== recordToDelete.id));
+    setSelectedRecord((currentRecord) => currentRecord?.id === recordToDelete.id ? null : currentRecord);
+    setSuccessMessage("Mock lab record removed.");
+  };
+
   return (
-    <div className="flex flex-col h-screen bg-[#FBFBFB] dark:bg-[#101010] p-4 gap-4 relative">
+    <div className={`flex flex-col h-screen p-4 gap-4 relative ${
+      recordsMode ? "bg-[#F6F7FB]" : "bg-[#FBFBFB] dark:bg-[#101010]"
+    }`}>
       <Header title={recordsMode ? "Records Management" : "Customer & Pet Management"} />
 
       {/* Toasts */}
@@ -672,20 +699,20 @@ const PetPatientManagement = ({ recordsMode = false }) => {
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4 relative">
-        {(recordsMode ? ["Laboratory Records", "Medical Records"] : ["Pet Owners", "Pets"]).map(tab => {
+        {(recordsMode ? ["Lab Records", "Medical History"] : ["Pet Owners", "Pets"]).map(tab => {
           const isActive = recordsMode
-            ? activeRecordType === (tab === "Laboratory Records" ? "Lab" : "Medical")
+            ? activeRecordType === (tab === "Lab Records" ? "Lab" : "Medical")
             : activeTab === tab;
 
           return (
           <button
             key={tab}
             onClick={() => recordsMode
-              ? handleRecordTypeChange(tab === "Laboratory Records" ? "Lab" : "Medical")
+              ? handleRecordTypeChange(tab === "Lab Records" ? "Lab" : "Medical")
               : handleTabChange(tab)}
             className={`relative px-5 py-2 font-semibold text-md transition-colors ${
               isActive
-                ? "text-[#A9E6FF]"
+                ? "text-cyan-600"
                 : "text-gray-600 dark:text-gray-300 hover:text-[#A9E6FF] dark:hover:text-[#3BAFDA]"
             }`}
           >
@@ -698,7 +725,28 @@ const PetPatientManagement = ({ recordsMode = false }) => {
         })}
       </div>
 
-      <div className="flex-1 flex gap-4 min-h-0">
+      {recordsMode && activeRecordType === "Lab" ? (
+        <LaboratoryRecordsWorkspace
+          records={filteredRecords}
+          allRecords={records}
+          pets={mockLabPets}
+          selectedRecord={selectedRecord}
+          setSelectedRecord={setSelectedRecord}
+          canManageRecords={!isVet}
+          onSaveRecord={handleMockLabRecordSave}
+          onDeleteRecord={handleMockLabRecordDelete}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          statusFilter={filterSort.records.status}
+          onStatusFilterChange={(value) => handleFilterChange("status", value)}
+        />
+      ) : recordsMode ? (
+        <MedicalHistoryWorkspace
+          pets={pets}
+          labRecords={records.filter((record) => String(record.type || "").toLowerCase().includes("lab"))}
+          canManageRecords={!isVet}
+        />
+      ) : <div className="flex-1 flex gap-4 min-h-0">
         {/* Main Tables */}
         <div className="flex flex-col flex-1 bg-white dark:bg-[#181818] rounded-2xl shadow-md border border-gray-100 dark:border-gray-800 p-4 min-h-0">
           {/* Search and Add Button Row */}
@@ -794,7 +842,7 @@ const PetPatientManagement = ({ recordsMode = false }) => {
           setIsPdfModalOpen={setIsPdfModalOpen}
           isVetView={isVet}
         />
-      </div>
+      </div>}
 
       {/* Add/Edit Modals - Only show for non-veterinarians */}
       {!isVet && (
@@ -817,7 +865,7 @@ const PetPatientManagement = ({ recordsMode = false }) => {
           />
 
           {/* Delete Confirmation Modal */}
-          {showDeleteModal && (
+          {!recordsMode && showDeleteModal && (
             <DeleteModal
               isOpen={showDeleteModal}
               onClose={() => {
@@ -832,7 +880,7 @@ const PetPatientManagement = ({ recordsMode = false }) => {
           )}
 
           {/* Upload Record Modal */}
-          {showUploadRecordModal && (
+          {!recordsMode && showUploadRecordModal && (
             <UploadRecordModal
               isOpen={showUploadRecordModal}
               onClose={() => {
@@ -857,8 +905,8 @@ const PetPatientManagement = ({ recordsMode = false }) => {
       )}
 
       {/* PDF Modal - Show for both roles */}
-      {isPdfModalOpen && selectedRecord && (
-        <PdfModal
+      {!recordsMode && isPdfModalOpen && selectedRecord && (
+        <LabRecordPreviewModal
           isOpen={isPdfModalOpen}
           onClose={() => setIsPdfModalOpen(false)}
           selectedRecord={selectedRecord}

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { buildMediaUrl } from "../../utils/runtimeUrls";
 
-const PdfModal = ({ isOpen, onClose, selectedRecord, onEdit }) => {
+const LabRecordPreviewModal = ({ isOpen, onClose, selectedRecord, onEdit }) => {
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -176,4 +176,4 @@ const PdfModal = ({ isOpen, onClose, selectedRecord, onEdit }) => {
   );
 };
 
-export default PdfModal;
+export default LabRecordPreviewModal;

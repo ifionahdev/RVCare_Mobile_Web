@@ -1,4 +1,4 @@
-// components/petpatient-management/RecordsTab.jsx
+// components/records-management/RecordsTab.jsx
 import { Edit2, Trash2 } from "lucide-react";
 
 const RecordsTab = ({ 
