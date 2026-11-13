@@ -23,6 +23,7 @@ class CareArticle {
     required this.source,
     required this.url,
     required this.icon,
+    this.categoryName = '',
     this.type = CareContentType.article,
     this.channel,
     this.thumbnailUrl,
@@ -37,6 +38,7 @@ class CareArticle {
   final String source;
   final String url;
   final IconData icon;
+  final String categoryName;
 
   /// Whether this entry is a written article or a video.
   final CareContentType type;
@@ -54,6 +56,90 @@ class CareArticle {
   final String? subtitle;
 
   bool get isVideo => type == CareContentType.video;
+  String get displayCategory =>
+      categoryName.isEmpty ? category.label : categoryName;
+
+  factory CareArticle.fromJson(Map<String, dynamic> json) {
+    final type = json['type'] == 'video'
+        ? CareContentType.video
+        : CareContentType.article;
+    final categoryName = (json['category'] as String? ?? 'General').trim();
+    final summary = (json['shortDescription'] as String? ?? '').trim();
+    final detailedContent = (json['detailedContent'] as String? ?? '').trim();
+    final url = (json['url'] as String? ?? '').trim();
+    final contentLines = detailedContent
+        .split(RegExp(r'[\r\n]+'))
+        .map((line) => line.replaceFirst(RegExp(r'^\s*[-*•]\s*'), '').trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+    final wordCount = detailedContent
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .length;
+    final estimatedMinutes = (wordCount / 200).ceil().clamp(1, 99);
+    final parsedUrl = Uri.tryParse(url);
+
+    return CareArticle(
+      title: (json['title'] as String? ?? '').trim(),
+      category: _categoryFor(categoryName),
+      categoryName: categoryName,
+      readTime: type == CareContentType.video
+          ? ''
+          : '$estimatedMinutes min read',
+      summary: summary.isNotEmpty
+          ? summary
+          : type == CareContentType.video
+          ? 'Watch this video guide.'
+          : detailedContent,
+      takeaways: contentLines,
+      source: parsedUrl?.host.replaceFirst(RegExp(r'^www\.'), '') ?? url,
+      url: url,
+      icon: _iconFor(json['icon'] as String?),
+      type: type,
+    );
+  }
+
+  static CareCategory _categoryFor(String name) {
+    switch (name.toLowerCase()) {
+      case 'nutrition':
+      case 'feeding':
+        return CareCategory.nutrition;
+      case 'grooming':
+      case 'hygiene':
+        return CareCategory.grooming;
+      case 'vaccine':
+      case 'vaccines':
+      case 'vaccination':
+        return CareCategory.vaccines;
+      default:
+        return CareCategory.all;
+    }
+  }
+
+  static IconData _iconFor(String? key) {
+    switch (key?.toLowerCase()) {
+      case 'scissors':
+        return Icons.content_cut;
+      case 'dumbbell':
+      case 'activity':
+        return Icons.fitness_center;
+      case 'droplets':
+        return Icons.water_drop_outlined;
+      case 'bone':
+      case 'utensils':
+        return Icons.restaurant_outlined;
+      case 'puzzle':
+        return Icons.extension_outlined;
+      case 'heart':
+        return Icons.favorite_border;
+      case 'stethoscope':
+        return Icons.medical_services_outlined;
+      case 'bath':
+        return Icons.bathtub_outlined;
+      default:
+        return Icons.article_outlined;
+    }
+  }
 
   /// Image to show for this item: the custom [thumbnailUrl] if set,
   /// otherwise the YouTube thumbnail derived from [url] (videos only).

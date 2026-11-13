@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Plus, Minus, Video, Globe, Eye, FileText, Archive } from "lucide-react";
 import api from "../../api/axios";
 
@@ -40,6 +40,10 @@ const VideoModal = ({
 
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [categoryLoading, setCategoryLoading] = useState(false);
+  const [youtubeMetadata, setYoutubeMetadata] = useState(null);
+  const [titleLookupState, setTitleLookupState] = useState("idle");
+  const [titleLookupError, setTitleLookupError] = useState("");
+  const lastFetchedTitle = useRef("");
 
   // Helper function to get status ID from item
   const getStatusIdFromItem = (item) => {
@@ -88,6 +92,10 @@ const VideoModal = ({
 
   // Initialize form data
   useEffect(() => {
+    lastFetchedTitle.current = "";
+    setYoutubeMetadata(null);
+    setTitleLookupState("idle");
+    setTitleLookupError("");
 
     if (item) {
       const initialPubStatusID = getStatusIdFromItem(item);
@@ -116,6 +124,63 @@ const VideoModal = ({
       setShowNewCategory(false);
     }
   }, [item, categories, publicationStatuses]);
+
+  useEffect(() => {
+    const videoURL = formData.videoURL.trim();
+    if (!isValidHttpUrl(videoURL) || !isValidYoutubeUrl(videoURL)) {
+      setYoutubeMetadata(null);
+      setTitleLookupState("idle");
+      setTitleLookupError("");
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    let active = true;
+    const timeout = setTimeout(async () => {
+      setTitleLookupState("loading");
+      setTitleLookupError("");
+      setYoutubeMetadata(null);
+      try {
+        const response = await api.post(
+          "/admin/content/videos/metadata",
+          { videoURL },
+          { signal: controller.signal },
+        );
+        const metadata = response.data?.data;
+        if (!response.data?.success || typeof metadata?.title !== "string") {
+          throw new Error(response.data?.message || "YouTube title was not returned.");
+        }
+
+        const fetchedTitle = metadata.title.trim().slice(0, MAX_VIDEO_TITLE_LENGTH);
+        if (!active) return;
+        setYoutubeMetadata(metadata);
+        setFormData((current) => ({
+          ...current,
+          videoTitle:
+            !current.videoTitle.trim() ||
+            current.videoTitle === lastFetchedTitle.current
+              ? fetchedTitle
+              : current.videoTitle,
+        }));
+        lastFetchedTitle.current = fetchedTitle;
+        setTitleLookupState("success");
+      } catch (error) {
+        if (!active || controller.signal.aborted) return;
+        setYoutubeMetadata(null);
+        setTitleLookupState("error");
+        setTitleLookupError(
+          error.response?.data?.message ||
+            "Could not fetch the YouTube title. You can enter it manually.",
+        );
+      }
+    }, 500);
+
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [formData.videoURL]);
 
   // Function to create a new video category
   const createNewVideoCategory = async (categoryName) => {
@@ -435,6 +500,16 @@ const VideoModal = ({
                 </div>
                 <p className="text-xs text-gray-500">Must be a valid http:// or https:// link</p>
                 <p className="text-xs text-gray-500 text-right">{formData.videoURL.length}/{MAX_VIDEO_URL_LENGTH}</p>
+                <p
+                  aria-live="polite"
+                  className={`text-xs ${
+                    titleLookupState === "error" ? "text-amber-700" : "text-gray-500"
+                  }`}
+                >
+                  {titleLookupState === "loading" && "Fetching the YouTube title..."}
+                  {titleLookupState === "success" && "Title fetched from YouTube; you can edit it."}
+                  {titleLookupState === "error" && titleLookupError}
+                </p>
               </div>
             </div>
           </div>
@@ -463,6 +538,13 @@ const VideoModal = ({
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Preview</label>
                 <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                  {youtubeMetadata?.thumbnailUrl && (
+                    <img
+                      src={youtubeMetadata.thumbnailUrl}
+                      alt="YouTube video preview"
+                      className="mb-3 aspect-video w-full rounded-lg object-cover"
+                    />
+                  )}
                   <div className="flex items-center gap-3 mb-3">
                     <div className="p-2 bg-white rounded-lg border border-red-100">
                       <Video className="h-5 w-5 text-red-600" />

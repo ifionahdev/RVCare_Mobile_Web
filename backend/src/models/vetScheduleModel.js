@@ -63,6 +63,12 @@ export const findActiveVeterinarianSchedule = (scheduleId) =>
     select: { scheduleId: true },
   });
 
+export const findActiveVeterinarianScheduleForDay = (vetId, dayOfWeek) =>
+  prisma.veterinarianSchedule.findFirst({
+    where: { vetId, dayOfWeek, isDeleted: false },
+    select: { scheduleId: true },
+  });
+
 export const updateVeterinarianScheduleRecord = (scheduleId, data) =>
   prisma.veterinarianSchedule.update({
     where: { scheduleId },

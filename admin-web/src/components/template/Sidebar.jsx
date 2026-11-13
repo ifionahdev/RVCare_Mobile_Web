@@ -8,12 +8,10 @@ import { useAuth } from "../../context/authContext.jsx";
 const Sidebar = () => {
   const location = useLocation(); 
   const navigate = useNavigate(); 
-  const { logout } = useAuth();
+  const { logout, user, loading: authLoading } = useAuth();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [userName, setUserName] = useState("Admin");
-  const [loading, setLoading] = useState(true);
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
@@ -27,6 +25,7 @@ const Sidebar = () => {
   const [changePasswordLoading, setChangePasswordLoading] = useState(false);
   const [changePasswordMessage, setChangePasswordMessage] = useState({ message: "", type: "" });
   const userMenuRef = useRef(null);
+  const userName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Admin";
 
   const menuItems = [
     { name: "Dashboard", icon: <Home size={18} />, path: "/admin/dashboard" },
@@ -59,24 +58,6 @@ const Sidebar = () => {
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    const fetchAdminName = async () => {
-      try {
-        const response = await api.get("/auth/me");
-        const user = response.data.user;
-        const name = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
-        setUserName(name || "Admin");
-      } catch (err) {
-        console.error("❌ Failed to fetch admin name:", err);
-        setUserName("Admin");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAdminName();
   }, []);
 
   const handleLogout = async () => {
@@ -224,7 +205,7 @@ const Sidebar = () => {
             </div>
             <div>
               <p className="text-gray-800 font-medium text-sm">
-                {loading ? "Loading..." : userName}
+                {authLoading ? "Loading..." : userName}
               </p>
               <p className="text-gray-500 text-xs">Administrator</p>
             </div>

@@ -164,10 +164,11 @@ class CareArticleScreen extends StatelessWidget {
                       ),
                   ],
                   const SizedBox(height: 8),
-                  _SourceCard(
-                    article: article,
-                    onTap: () => _openExternal(context),
-                  ),
+                  if (article.url.isNotEmpty)
+                    _SourceCard(
+                      article: article,
+                      onTap: () => _openExternal(context),
+                    ),
                 ],
               ),
             ),
@@ -185,26 +186,27 @@ class CareArticleScreen extends StatelessWidget {
                         style: TextStyle(fontSize: 12, color: AppTheme.muted),
                       ),
                     ),
-                  FilledButton.icon(
-                    onPressed: () => _openExternal(context),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _tealDark,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(52),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(26),
+                  if (article.url.isNotEmpty)
+                    FilledButton.icon(
+                      onPressed: () => _openExternal(context),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _tealDark,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(52),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(26),
+                        ),
+                      ),
+                      icon: const Icon(Icons.open_in_new),
+                      iconAlignment: IconAlignment.end,
+                      label: Text(
+                        _isVideo ? 'Watch on YouTube' : 'Read full article',
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                    icon: const Icon(Icons.open_in_new),
-                    iconAlignment: IconAlignment.end,
-                    label: Text(
-                      _isVideo ? 'Watch on YouTube' : 'Read full article',
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -317,7 +319,7 @@ class _VideoHero extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        '${article.category.label} · Video'.toUpperCase(),
+                        '${article.displayCategory} · Video'.toUpperCase(),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,

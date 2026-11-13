@@ -79,7 +79,11 @@ export default function VetSchedulesTab() {
   const handleWeekStartChange = (date) => setWeekStart(startOfWeek(date));
 
   const openNewSchedule = () => {
-    setScheduleDraft(createScheduleDraft(veterinarians[0]?.vetId ?? ""));
+    const vetId = selectedVet === "all" ? veterinarians[0]?.vetId ?? "" : selectedVet;
+    const existingDays = schedules
+      .filter((schedule) => String(schedule.vetId) === String(vetId))
+      .map((schedule) => schedule.dayOfWeek);
+    setScheduleDraft(createScheduleDraft(vetId, existingDays));
     setToast(null);
     setView("editor");
   };
@@ -96,7 +100,10 @@ export default function VetSchedulesTab() {
         note: schedule.note ?? "",
       });
     } else {
-      setScheduleDraft(createScheduleDraft(vetId, [dayIndex + 1]));
+      const existingDays = schedules
+        .filter((item) => String(item.vetId) === String(vetId))
+        .map((item) => item.dayOfWeek);
+      setScheduleDraft(createScheduleDraft(vetId, [...new Set([...existingDays, dayIndex + 1])]));
     }
     setToast(null);
     setView("editor");
@@ -121,9 +128,12 @@ export default function VetSchedulesTab() {
           dayOfWeek: scheduleDraft.days[0],
         });
       } else {
+        const existingDays = schedules
+          .filter((schedule) => String(schedule.vetId) === String(scheduleDraft.vetId))
+          .map((schedule) => schedule.dayOfWeek);
         await api.post("/admin/vet-schedules", {
           ...data,
-          days: scheduleDraft.days,
+          days: scheduleDraft.days.filter((day) => !existingDays.includes(day)),
         });
       }
       await refreshData();
@@ -177,6 +187,30 @@ export default function VetSchedulesTab() {
 
   const saveTimeOff = async (event) => {
     event.preventDefault();
+    const date = new Date(`${timeOffDraft.date}T00:00:00.000Z`);
+    if (
+      timeOffDraft.date &&
+      !Number.isNaN(date.getTime()) &&
+      date.toISOString().slice(0, 10) === timeOffDraft.date
+    ) {
+      const dayOfWeek = date.getUTCDay() || weekdays.length;
+      const hasSchedule = schedules.some(
+        (schedule) =>
+          Number(schedule.vetId) === Number(timeOffDraft.vetId) &&
+          schedule.dayOfWeek === dayOfWeek,
+      );
+      if (!hasSchedule) {
+        const veterinarian = veterinarians.find(
+          (vet) => Number(vet.vetId) === Number(timeOffDraft.vetId),
+        );
+        setToast({
+          type: "error",
+          message: `${veterinarian?.name ?? "The selected veterinarian"} does not have a schedule on ${weekdays[dayOfWeek - 1]}. Time off can only be filed on a scheduled day.`,
+        });
+        return;
+      }
+    }
+
     setIsSaving(true);
     setToast(null);
     const data = {
@@ -257,6 +291,7 @@ export default function VetSchedulesTab() {
       ) : view === "editor" ? (
         <VetScheduleEditor
           veterinarians={veterinarians}
+          schedules={schedules}
           timeOptions={timeOptions}
           draft={scheduleDraft}
           setDraft={setScheduleDraft}

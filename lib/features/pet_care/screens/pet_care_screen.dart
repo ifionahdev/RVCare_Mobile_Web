@@ -1,54 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../data/pet_care_service.dart';
 import '../models/care_article.dart';
 import 'care_article_screen.dart';
-
-// ---------------------------------------------------------------------------
-// REQUIRED MODEL CHANGES (care_article.dart)
-//
-//   enum CareContentType { article, video }
-//
-//   class CareArticle {
-//     ...existing fields...
-//     final CareContentType type;      // default: CareContentType.article
-//     final String? channel;           // e.g. 'DoveLewis' (videos only)
-//     const CareArticle({..., this.type = CareContentType.article, this.channel});
-//   }
-// ---------------------------------------------------------------------------
 
 const _teal = Color(0xFF068A98);
 const _mint = Color(0xFFE0F2F1);
 const _sun = Color(0xFFFFF0B8);
-
-enum _GuideFilter {
-  all('All'),
-  articles('Articles'),
-  videos('Videos'),
-  nutrition('Nutrition'),
-  grooming('Grooming'),
-  vaccines('Vaccines');
-
-  const _GuideFilter(this.label);
-  final String label;
-
-  bool matches(CareArticle a) {
-    switch (this) {
-      case _GuideFilter.all:
-        return true;
-      case _GuideFilter.articles:
-        return a.type == CareContentType.article;
-      case _GuideFilter.videos:
-        return a.type == CareContentType.video;
-      case _GuideFilter.nutrition:
-        return a.category == CareCategory.nutrition;
-      case _GuideFilter.grooming:
-        return a.category == CareCategory.grooming;
-      case _GuideFilter.vaccines:
-        return a.category == CareCategory.vaccines;
-    }
-  }
-}
 
 class PetCareScreen extends StatefulWidget {
   const PetCareScreen({super.key});
@@ -58,103 +18,27 @@ class PetCareScreen extends StatefulWidget {
 }
 
 class _PetCareScreenState extends State<PetCareScreen> {
-  static const _articles = [
-    CareArticle(
-      title: 'Keeping your dog’s ears clean and healthy',
-      category: CareCategory.grooming,
-      readTime: '4 min read',
-      summary:
-          "A short guide to checking and cleaning your dog's ears at home, what is normal, and when a clinic visit is the safer choice.",
-      takeaways: [
-        'Check ears weekly for redness, odor or discharge.',
-        'Use a vet-approved cleaner and avoid deep cotton swabs.',
-        "Follow your vet's instructions for any prescribed ear drops.",
-        'Book a visit if your pet scratches or shakes its head often.',
-      ],
-      source: 'rvcare.example/guides/ear-care',
-      url: 'https://rvcare.example/guides/ear-care',
-      icon: Icons.hearing_outlined,
-    ),
-    CareArticle(
-      title: 'How to Clean a Dog’s Ears',
-      category: CareCategory.grooming,
-      readTime: '',
-      summary:
-          "A short guide to checking and cleaning your dog's ears at home, what is normal, and when a clinic visit is the safer choice.",
-      subtitle: 'Safe ear cleaning · Vet tech demonstration',
-      takeaways: [
-        'Check ears weekly for redness, odor or discharge.',
-        'Use a vet-approved cleaner and avoid deep cotton swabs.',
-        "Follow your vet's instructions for any prescribed ear drops.",
-        'Book a visit if your pet scratches or shakes its head often.',
-      ],
-      source: 'youtube.com',
-      url: 'https://www.youtube.com/watch?v=nkh6yugdjnU',
-      icon: Icons.play_circle_outline_rounded,
-      type: CareContentType.video,
-      channel: 'Dove / DoveLewis Emergency Animal Hospital',
-      // TODO: point to your illustrated preview image, e.g.
-      // 'assets/images/ear_cleaning_preview.png' (declare it in pubspec.yaml)
-      thumbnailUrl: null,
-    ),
-    CareArticle(
-      title: 'Choosing the right food by age',
-      category: CareCategory.nutrition,
-      readTime: '5 min read',
-      summary:
-          'Learn how nutritional needs change from puppyhood through the senior years.',
-      takeaways: [
-        'Choose food appropriate for your pet’s life stage.',
-        'Measure portions instead of free-feeding.',
-        'Ask your veterinarian before changing diet plans.',
-      ],
-      source: 'rvcare.example/guides/nutrition',
-      url: 'https://rvcare.example/guides/nutrition',
-      icon: Icons.water_drop_outlined,
-    ),
-    CareArticle(
-      title: 'Vaccination schedule basics',
-      category: CareCategory.vaccines,
-      readTime: '3 min read',
-      summary:
-          'A simple overview of core vaccines and why your pet’s schedule matters.',
-      takeaways: [
-        'Keep an accurate vaccination record.',
-        'Core vaccines and timing vary by location and lifestyle.',
-        'Confirm booster dates with your veterinarian.',
-      ],
-      source: 'rvcare.example/guides/vaccines',
-      url: 'https://rvcare.example/guides/vaccines',
-      icon: Icons.shield_outlined,
-    ),
-    CareArticle(
-      title: 'Brushing your pet’s teeth at home',
-      category: CareCategory.grooming,
-      readTime: '4 min read',
-      summary: 'Build an easy dental care routine with pet-safe products.',
-      takeaways: [
-        'Use a toothbrush and toothpaste made for pets.',
-        'Introduce brushing gradually and reward calm behavior.',
-        'Schedule dental checks if you notice persistent bad breath.',
-      ],
-      source: 'rvcare.example/guides/dental-care',
-      url: 'https://rvcare.example/guides/dental-care',
-      icon: Icons.cleaning_services_outlined,
-    ),
-  ];
-
   static const _maxFeatured = 3;
   // Start deep inside an endless PageView so you can swipe either way forever.
   // 1200 is divisible by 1, 2 and 3 so the first card is always first.
   static const _loopStart = 1200;
 
+  List<CareArticle> _articles = [];
+  bool _isLoading = true;
+  String? _loadError;
   final _pageController = PageController(
     viewportFraction: 0.88,
     initialPage: _loopStart,
   );
-  _GuideFilter _filter = _GuideFilter.all;
+  String _filter = 'All';
   String _query = '';
   int _page = _loopStart;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContent();
+  }
 
   @override
   void dispose() {
@@ -162,17 +46,67 @@ class _PetCareScreenState extends State<PetCareScreen> {
     super.dispose();
   }
 
+  Future<void> _loadContent() async {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+    try {
+      final articles = await context.read<PetCareService>().fetchContent();
+      if (!mounted) return;
+      setState(() {
+        _articles = articles;
+        _isLoading = false;
+      });
+      _resetPager();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = 'Could not load pet-care content. Please try again.';
+      });
+    }
+  }
+
+  List<String> get _filters => [
+    'All',
+    'Articles',
+    'Videos',
+    ..._articles
+        .map((article) => article.displayCategory)
+        .where(
+          (category) =>
+              category.isNotEmpty &&
+              category != 'All' &&
+              category != 'Articles' &&
+              category != 'Videos',
+        )
+        .toSet(),
+  ];
+
   List<CareArticle> get _visible {
     final query = _query.trim().toLowerCase();
     return _articles.where((a) {
-      if (!_filter.matches(a)) return false;
+      if (_filter == 'Articles' && a.type != CareContentType.article) {
+        return false;
+      }
+      if (_filter == 'Videos' && a.type != CareContentType.video) {
+        return false;
+      }
+      if (_filter != 'All' &&
+          _filter != 'Articles' &&
+          _filter != 'Videos' &&
+          a.displayCategory != _filter) {
+        return false;
+      }
       if (query.isEmpty) return true;
-      return '${a.title} ${a.category.label}'.toLowerCase().contains(query);
+      return '${a.title} ${a.displayCategory}'.toLowerCase().contains(query);
     }).toList();
   }
 
-  void _setFilter(_GuideFilter f) {
-    setState(() => _filter = f);
+  void _setFilter(String filter) {
+    if (!_filters.contains(filter)) return;
+    setState(() => _filter = filter);
     _resetPager();
   }
 
@@ -196,16 +130,11 @@ class _PetCareScreenState extends State<PetCareScreen> {
     );
   }
 
-  String _countLabel(int n) {
-    switch (_filter) {
-      case _GuideFilter.articles:
-        return '$n ${n == 1 ? 'article' : 'articles'}';
-      case _GuideFilter.videos:
-        return '$n ${n == 1 ? 'video' : 'videos'}';
-      default:
-        return '$n ${n == 1 ? 'guide' : 'guides'}';
-    }
-  }
+  String _countLabel(int n) => switch (_filter) {
+    'Articles' => '$n ${n == 1 ? 'article' : 'articles'}',
+    'Videos' => '$n ${n == 1 ? 'video' : 'videos'}',
+    _ => '$n ${n == 1 ? 'guide' : 'guides'}',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -278,14 +207,14 @@ class _PetCareScreenState extends State<PetCareScreen> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: _GuideFilter.values.map((f) {
-                final selected = f == _filter;
+              children: _filters.map((filter) {
+                final selected = filter == _filter;
                 return Padding(
                   padding: const EdgeInsets.only(right: 10),
                   child: ChoiceChip(
-                    label: Text(f.label),
+                    label: Text(filter),
                     selected: selected,
-                    onSelected: (_) => _setFilter(f),
+                    onSelected: (_) => _setFilter(filter),
                     selectedColor: _teal,
                     backgroundColor: Colors.white,
                     side: const BorderSide(color: AppTheme.border),
@@ -306,6 +235,31 @@ class _PetCareScreenState extends State<PetCareScreen> {
           ),
           const SizedBox(height: 14),
 
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Center(child: CircularProgressIndicator(color: _teal)),
+            )
+          else if (_loadError != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Column(
+                children: [
+                  Text(
+                    _loadError!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppTheme.muted),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: _loadContent,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Try again'),
+                  ),
+                ],
+              ),
+            )
+          else ...[
           // Featured carousel
           if (featured.isNotEmpty) ...[
             SizedBox(
@@ -369,6 +323,7 @@ class _PetCareScreenState extends State<PetCareScreen> {
           for (var i = 0; i < visible.length; i++) ...[
             if (i != 0) const SizedBox(height: 10),
             _GuideTile(article: visible[i], onTap: () => _open(visible[i])),
+          ],
           ],
         ],
       ),
@@ -452,7 +407,7 @@ class _FeaturedCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Text(
-                        article.category.label.toUpperCase(),
+                        article.displayCategory.toUpperCase(),
                         style: const TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
@@ -542,7 +497,7 @@ class _FeaturedCard extends StatelessWidget {
     if (_isVideo) return _buildVideo();
 
     final meta = [
-      article.category.label,
+      article.displayCategory,
       if (article.readTime.isNotEmpty) article.readTime,
     ].join(' · ');
 
@@ -646,7 +601,7 @@ class _GuideTile extends StatelessWidget {
     final typeLabel = _isVideo ? 'Video' : 'Article';
     final meta = [
       typeLabel,
-      article.category.label,
+      article.displayCategory,
       if (!_isVideo && article.readTime.isNotEmpty) article.readTime,
     ].join(' · ');
 

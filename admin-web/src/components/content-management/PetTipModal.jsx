@@ -80,10 +80,10 @@ const isValidHttpUrl = (value = "") => {
   }
 };
 
-const MAX_TIP_TITLE_LENGTH = 120;
+const MAX_TIP_TITLE_LENGTH = 100;
 const MAX_TIP_SHORT_DESCRIPTION_LENGTH = 180;
 const MAX_TIP_DETAILED_CONTENT_LENGTH = 500;
-const MAX_TIP_URL_LENGTH = 500;
+const MAX_TIP_URL_LENGTH = 255;
 const MAX_TIP_CATEGORY_LENGTH = 80;
 
 const PetTipModal = ({ 

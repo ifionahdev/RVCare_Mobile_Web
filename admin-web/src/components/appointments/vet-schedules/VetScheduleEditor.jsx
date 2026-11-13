@@ -3,6 +3,7 @@ import { formatTime, weekdays } from "./vetScheduleData.js";
 
 export default function VetScheduleEditor({
   veterinarians,
+  schedules,
   timeOptions,
   draft,
   setDraft,
@@ -14,6 +15,11 @@ export default function VetScheduleEditor({
   const veterinarian = veterinarians.find(
     (item) => String(item.vetId) === String(draft.vetId),
   );
+  const existingDays = isEditing
+    ? []
+    : schedules
+        .filter((schedule) => String(schedule.vetId) === String(draft.vetId))
+        .map((schedule) => schedule.dayOfWeek);
   const startTimes = timeOptions.startTimes;
   const endTimes = timeOptions.endTimes.filter((time) => time > draft.startTime);
 
@@ -59,7 +65,17 @@ export default function VetScheduleEditor({
               <select
                 required
                 value={draft.vetId}
-                onChange={(event) => setDraft((current) => ({ ...current, vetId: event.target.value }))}
+                onChange={(event) => {
+                  const vetId = event.target.value;
+                  const days = schedules
+                    .filter((schedule) => String(schedule.vetId) === String(vetId))
+                    .map((schedule) => schedule.dayOfWeek);
+                  setDraft((current) => ({
+                    ...current,
+                    vetId,
+                    days: isEditing ? current.days : days,
+                  }));
+                }}
                 className="mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal text-gray-700"
               >
                 <option value="">Select veterinarian</option>
@@ -73,23 +89,34 @@ export default function VetScheduleEditor({
               <legend className="mb-2 text-sm font-medium text-gray-600">
                 {isEditing ? "Weekday *" : "Repeat on *"}
               </legend>
+              {!isEditing && existingDays.length > 0 && (
+                <p className="mb-2 text-xs text-gray-500">
+                  Existing weekdays are preselected. Choose any additional days to add.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
                 {weekdays.map((day, index) => {
                   const dayOfWeek = index + 1;
-                  const selected = draft.days.includes(dayOfWeek);
+                  const alreadyScheduled = existingDays.includes(dayOfWeek);
+                  const selected = alreadyScheduled || draft.days.includes(dayOfWeek);
                   return (
                     <button
                       key={day}
                       type="button"
+                      disabled={alreadyScheduled}
                       aria-pressed={selected}
+                      title={alreadyScheduled ? `${day} already has a schedule` : undefined}
                       onClick={() => toggleDay(dayOfWeek, !selected)}
-                      className={`min-h-12 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-[#38c7e5] focus:ring-offset-1 ${
-                        selected
+                      className={`min-h-12 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-[#38c7e5] focus:ring-offset-1 disabled:cursor-not-allowed ${
+                        alreadyScheduled
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : selected
                           ? "border-[#25b6d2] bg-[#e8faff] text-[#087f96]"
                           : "border-gray-200 bg-white text-gray-600 hover:border-[#8cdeec] hover:bg-sky-50"
                       }`}
                     >
-                      {day}
+                      <span className="block">{day}</span>
+                      {alreadyScheduled && <span className="block text-[10px] font-medium">Already set</span>}
                     </button>
                   );
                 })}
@@ -154,6 +181,7 @@ export default function VetScheduleEditor({
               type="submit"
               disabled={
                 draft.days.length === 0 ||
+                (!isEditing && draft.days.every((day) => existingDays.includes(day))) ||
                 isSaving ||
                 veterinarians.length === 0 ||
                 !draft.startTime ||

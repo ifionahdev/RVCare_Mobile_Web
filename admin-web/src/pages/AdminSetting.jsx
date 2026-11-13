@@ -12,10 +12,11 @@ import {
   Mail,
 } from "lucide-react";
 import { useAlert } from "../hooks/useAlert.jsx";
+import { useAuth } from "../context/authContext.jsx";
 
 const AdminSettings = () => {
-  const userRole = Number(localStorage.getItem('userRole') || 0);
-  const canManageUsers = userRole === 2;
+  const { user } = useAuth();
+  const canManageUsers = user?.role === "admin";
   const { showSuccess, showError, showWarning, showInfo, AlertComponent } = useAlert();
 
   const [activeTab, setActiveTab] = useState("admins");
@@ -37,38 +38,12 @@ const AdminSettings = () => {
     firstName: "",
     lastName: "",
     email: "",
-    phone: "",
   });
 
   const nameRegex = /^[\p{L}\p{M}]+(?:[ '\-][\p{L}\p{M}]+)*$/u;
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-  const phoneRegex = /^9\d{9}$/;
 
-  const normalizePhoneInput = (value = '') => {
-    const digits = value.replace(/\D/g, '');
-    if (!digits) return '';
-
-    if (digits.startsWith('63') && digits.length >= 12) {
-      return digits.slice(2, 12);
-    }
-
-    if (digits.startsWith('0') && digits.length >= 11) {
-      return digits.slice(1, 11);
-    }
-
-    if (digits.length > 10) {
-      return digits.slice(-10);
-    }
-
-    return digits;
-  };
-
-  const formatPhoneDisplay = (digits = '') => {
-    const normalizedDigits = normalizePhoneInput(digits);
-    return normalizedDigits ? `+63${normalizedDigits}` : '-';
-  };
-
-  const validateUserPayload = ({ firstName, lastName, email, phone }) => {
+  const validateUserPayload = ({ firstName, lastName, email }) => {
     const errors = {};
 
     if (!nameRegex.test((firstName || '').trim())) {
@@ -83,9 +58,8 @@ const AdminSettings = () => {
       errors.email = 'Please enter a valid email address.';
     }
 
-    const phoneDigits = normalizePhoneInput(phone || '');
-    if (!phoneRegex.test(phoneDigits)) {
-      errors.phone = 'Phone number must be 10 digits and start with 9.';
+    if ((email || '').trim().length > 50) {
+      errors.email = 'Email must be 50 characters or fewer for account login.';
     }
 
     return errors;
@@ -146,13 +120,11 @@ const AdminSettings = () => {
 
     setSubmitting(true);
     try {
-      const phoneDigits = normalizePhoneInput(newUser.phone);
       const payload = {
         type: newUser.type,
         firstName: newUser.firstName.trim(),
         lastName: newUser.lastName.trim(),
         email: newUser.email.trim(),
-        phone: phoneDigits,
       };
 
       const response = await api.post('/admin/settings/users', payload);
@@ -185,7 +157,6 @@ const AdminSettings = () => {
       firstName: "",
       lastName: "",
       email: "",
-      phone: "",
     });
     setShowAddModal(false);
   };
@@ -208,12 +179,10 @@ const AdminSettings = () => {
 
     setSubmitting(true);
     try {
-      const phoneDigits = normalizePhoneInput(selectedUser.phone || '');
       const payload = {
         firstName: selectedUser.firstName.trim(),
         lastName: selectedUser.lastName.trim(),
         email: selectedUser.email.trim(),
-        phone: phoneDigits,
       };
 
       const response = await api.put(`/admin/settings/users/${selectedUser.id}`, payload);
@@ -286,9 +255,6 @@ const AdminSettings = () => {
               Administrator
             </th>
             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-              Contact
-            </th>
-            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
               Actions
             </th>
           </tr>
@@ -307,11 +273,6 @@ const AdminSettings = () => {
                       {admin.email}
                     </div>
                   </div>
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  {formatPhoneDisplay(admin.phone)}
                 </div>
               </td>
               <td className="px-6 py-4">
@@ -342,7 +303,7 @@ const AdminSettings = () => {
           ))}
           {!loading && filteredAdmins.length === 0 && (
             <tr>
-              <td colSpan="3" className="px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+              <td colSpan="2" className="px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
                 No administrators found
               </td>
             </tr>
@@ -360,9 +321,6 @@ const AdminSettings = () => {
           <tr>
             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
               Veterinarian
-            </th>
-            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-              Contact
             </th>
             <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
               Actions
@@ -383,11 +341,6 @@ const AdminSettings = () => {
                       {vet.email}
                     </div>
                   </div>
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  {formatPhoneDisplay(vet.phone)}
                 </div>
               </td>
               <td className="px-6 py-4">
@@ -418,7 +371,7 @@ const AdminSettings = () => {
           ))}
           {!loading && filteredVeterinarians.length === 0 && (
             <tr>
-              <td colSpan="3" className="px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+              <td colSpan="2" className="px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
                 No veterinarians found
               </td>
             </tr>
@@ -556,6 +509,7 @@ const AdminSettings = () => {
                       <input
                         type="text"
                         value={newUser.firstName}
+                        maxLength={100}
                         onChange={(e) => {
                           setNewUser({...newUser, firstName: e.target.value.replace(/[^\p{L}\p{M} '\-.]/gu, '')});
                           setAddErrors((prev) => ({ ...prev, firstName: '' }));
@@ -573,6 +527,7 @@ const AdminSettings = () => {
                       <input
                         type="text"
                         value={newUser.lastName}
+                        maxLength={100}
                         onChange={(e) => {
                           setNewUser({...newUser, lastName: e.target.value.replace(/[^\p{L}\p{M} '\-.]/gu, '')});
                           setAddErrors((prev) => ({ ...prev, lastName: '' }));
@@ -591,6 +546,7 @@ const AdminSettings = () => {
                     <input
                       type="email"
                       value={newUser.email}
+                      maxLength={50}
                       onChange={(e) => {
                         setNewUser({...newUser, email: e.target.value});
                         setAddErrors((prev) => ({ ...prev, email: '' }));
@@ -604,28 +560,6 @@ const AdminSettings = () => {
                     </p>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Phone Number
-                    </label>
-                    <div className="flex items-center border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900">
-                      <span className="px-3 text-gray-500 dark:text-gray-400">+63</span>
-                      <input
-                        type="tel"
-                        value={normalizePhoneInput(newUser.phone)}
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        onChange={(e) => {
-                          setNewUser({...newUser, phone: normalizePhoneInput(e.target.value)});
-                          setAddErrors((prev) => ({ ...prev, phone: '' }));
-                        }}
-                        className="w-full px-3 py-2 rounded-r-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"
-                        placeholder="9XXXXXXXXX"
-                        maxLength={10}
-                      />
-                    </div>
-                    {addErrors.phone && <p className="mt-1 text-xs text-red-500">{addErrors.phone}</p>}
-                  </div>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700 mt-6">
@@ -677,6 +611,7 @@ const AdminSettings = () => {
                       <input
                         type="text"
                         value={selectedUser.firstName}
+                        maxLength={100}
                         onChange={(e) => {
                           setSelectedUser({...selectedUser, firstName: e.target.value.replace(/[^\p{L}\p{M} '\-.]/gu, '')});
                           setEditErrors((prev) => ({ ...prev, firstName: '' }));
@@ -693,6 +628,7 @@ const AdminSettings = () => {
                       <input
                         type="text"
                         value={selectedUser.lastName}
+                        maxLength={100}
                         onChange={(e) => {
                           setSelectedUser({...selectedUser, lastName: e.target.value.replace(/[^\p{L}\p{M} '\-.]/gu, '')});
                           setEditErrors((prev) => ({ ...prev, lastName: '' }));
@@ -710,6 +646,7 @@ const AdminSettings = () => {
                     <input
                       type="email"
                       value={selectedUser.email}
+                      maxLength={50}
                       onChange={(e) => {
                         setSelectedUser({...selectedUser, email: e.target.value});
                         setEditErrors((prev) => ({ ...prev, email: '' }));
@@ -719,28 +656,6 @@ const AdminSettings = () => {
                     {editErrors.email && <p className="mt-1 text-xs text-red-500">{editErrors.email}</p>}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Phone
-                    </label>
-                    <div className="flex items-center border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900">
-                      <span className="px-3 text-gray-500 dark:text-gray-400">+63</span>
-                      <input
-                        type="tel"
-                        value={normalizePhoneInput(selectedUser.phone || '')}
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        onChange={(e) => {
-                          setSelectedUser({...selectedUser, phone: normalizePhoneInput(e.target.value)});
-                          setEditErrors((prev) => ({ ...prev, phone: '' }));
-                        }}
-                        className="w-full px-3 py-2 rounded-r-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300"
-                        maxLength={10}
-                        placeholder="9XXXXXXXXX"
-                      />
-                    </div>
-                    {editErrors.phone && <p className="mt-1 text-xs text-red-500">{editErrors.phone}</p>}
-                  </div>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700 mt-6">

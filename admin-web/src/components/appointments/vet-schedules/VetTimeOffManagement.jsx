@@ -1,3 +1,4 @@
+import { Check, Pencil, Trash2, X } from "lucide-react";
 import { createEmptyTimeOffDraft, formatTime } from "./vetScheduleData.js";
 
 const statusClass = {
@@ -45,14 +46,14 @@ export default function VetTimeOffManagement({
         <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
           <h3 className="mb-4 text-base font-semibold text-gray-800">Time off</h3>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left text-sm">
+            <table className="w-full min-w-[720px] table-fixed text-left text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-xs text-gray-500">
-                  <th className="pb-3 pr-3 font-medium">Veterinarian</th>
-                  <th className="pb-3 pr-3 font-medium">Date / Time</th>
-                  <th className="pb-3 pr-3 font-medium">Reason</th>
-                  <th className="pb-3 pr-3 font-medium">Status</th>
-                  <th className="w-[220px] pb-3 pl-2 font-medium">Actions</th>
+                  <th className="w-[18%] pb-3 pr-3 font-medium">Veterinarian</th>
+                  <th className="w-[24%] pb-3 pr-3 font-medium">Date / Time</th>
+                  <th className="w-[18%] pb-3 pr-3 font-medium">Reason</th>
+                  <th className="w-[15%] pb-3 pr-3 font-medium">Status</th>
+                  <th className="w-[160px] pb-3 pl-2 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -74,38 +75,46 @@ export default function VetTimeOffManagement({
                       </span>
                     </td>
                     <td className="py-4 pl-2">
-                      <div className="grid w-[200px] grid-cols-2 gap-2">
+                      <div className="flex w-[148px] items-center gap-1 whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => onEdit(item)}
-                          className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+                          aria-label={`Edit time off for ${item.veterinarian}`}
+                          title="Edit"
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100"
                         >
-                          Edit
+                          <Pencil size={15} />
                         </button>
                         {item.status === "Pending" && (
                           <>
                             <button
                               type="button"
                               onClick={() => onStatusChange(item, "Approved")}
-                              className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                              aria-label={`Approve time off for ${item.veterinarian}`}
+                              title="Approve"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                             >
-                              Approve
+                              <Check size={16} />
                             </button>
                             <button
                               type="button"
                               onClick={() => onStatusChange(item, "Rejected")}
-                              className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100"
+                              aria-label={`Reject time off for ${item.veterinarian}`}
+                              title="Reject"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
                             >
-                              Reject
+                              <X size={16} />
                             </button>
                           </>
                         )}
                         <button
                           type="button"
                           onClick={() => onDelete(item.timeOffId)}
-                          className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-100"
+                          aria-label={`Delete time off for ${item.veterinarian}`}
+                          title="Delete"
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
                         >
-                          Delete
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </td>

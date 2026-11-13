@@ -3,6 +3,7 @@ import {
   createVeterinarianTimeOff,
   findActiveVeterinarian,
   findActiveVeterinarianSchedule,
+  findActiveVeterinarianScheduleForDay,
   findActiveVeterinarianTimeOff,
   findScheduleConflict,
   findVeterinarianScheduleTimeOptions,
@@ -65,6 +66,9 @@ const notFound = (res, message) => res.status(404).json({ message });
 const conflict = (res, message) => res.status(409).json({ message });
 const scheduleConflictMessage = (vet, dayOfWeek) =>
   `${DAY_NAMES[dayOfWeek - 1]} already has a schedule for Dr. ${vet.account.firstName} ${vet.account.lastName}.`;
+const timeOffScheduleMessage = (vet, dayOfWeek) =>
+  `Dr. ${vet.account.firstName} ${vet.account.lastName} does not have a schedule on ${DAY_NAMES[dayOfWeek - 1]}. Time off can only be filed on a scheduled day.`;
+const dayOfWeekForDate = (date) => date.getUTCDay() || DAYS_PER_WEEK;
 
 const readScheduleFields = (body) => {
   const vetId = positiveInteger(body.vetId);
@@ -303,8 +307,13 @@ export const createVeterinarianTimeOffEntry = async (req, res, next) => {
     if (fields.data.date < todayInManila()) {
       return badRequest(res, "Time off cannot be scheduled for a past date.");
     }
-    if (!(await findActiveVeterinarian(fields.data.vetId))) {
+    const veterinarian = await findActiveVeterinarian(fields.data.vetId);
+    if (!veterinarian) {
       return notFound(res, "Veterinarian not found.");
+    }
+    const dayOfWeek = dayOfWeekForDate(fields.data.date);
+    if (!(await findActiveVeterinarianScheduleForDay(fields.data.vetId, dayOfWeek))) {
+      return badRequest(res, timeOffScheduleMessage(veterinarian, dayOfWeek));
     }
 
     const timeOff = await createVeterinarianTimeOff({
@@ -337,8 +346,13 @@ export const updateVeterinarianTimeOffEntry = async (req, res, next) => {
     if (fields.data.date < todayInManila()) {
       return badRequest(res, "Time off cannot be scheduled for a past date.");
     }
-    if (!(await findActiveVeterinarian(fields.data.vetId))) {
+    const veterinarian = await findActiveVeterinarian(fields.data.vetId);
+    if (!veterinarian) {
       return notFound(res, "Veterinarian not found.");
+    }
+    const dayOfWeek = dayOfWeekForDate(fields.data.date);
+    if (!(await findActiveVeterinarianScheduleForDay(fields.data.vetId, dayOfWeek))) {
+      return badRequest(res, timeOffScheduleMessage(veterinarian, dayOfWeek));
     }
 
     const timeOff = await updateVeterinarianTimeOff(timeOffId, {
