@@ -31,7 +31,7 @@ export const findSuggestionSchedule = async ({ fromDate, toDate, vetIds }) => {
           lte: new Date(`${toDate}T00:00:00.000Z`),
         },
         status: {
-          notIn: ["Cancelled", "Rejected", "Completed", "Missed", "Past"],
+          notIn: ["Cancelled", "Rejected", "Completed", "Missed"],
         },
         isDeleted: false,
       },

@@ -15,6 +15,7 @@ export default function VetScheduleList({
   onAddSchedule,
   onManageTimeOff,
   onEditSchedule,
+  onDeleteSchedule,
 }) {
   return (
     <>
@@ -111,30 +112,71 @@ export default function VetScheduleList({
                 <tr key={schedule.vetId} className="border-b border-gray-100 last:border-0">
                   <td className="py-3 pr-3 align-top">
                     <p className="text-sm font-semibold text-gray-800">{schedule.name}</p>
-                    <p className="mt-1 text-xs text-gray-500">{schedule.specialty}</p>
                   </td>
                   {schedule.shifts.map((shift, dayIndex) => {
-                    const hasTimeOff = Boolean(shift.timeOff);
+                    const hasTimeOff = shift.timeOff.length > 0;
+                    const hasSchedule = Boolean(shift.scheduleId);
                     const showShift = scheduleStatus === "all" ||
                       (scheduleStatus === "timeOff" && hasTimeOff) ||
-                      (scheduleStatus === "scheduled" && !hasTimeOff);
+                      (scheduleStatus === "scheduled" && hasSchedule && !hasTimeOff);
 
                     return (
                       <td key={`${schedule.vetId}-${dayIndex}`} className="px-2 py-2 align-top">
-                        {showShift ? (
+                        {showShift && (hasSchedule || hasTimeOff) ? (
                           <div className={`min-h-[70px] rounded-lg p-2 ${hasTimeOff ? "bg-amber-50" : "bg-sky-50"}`}>
-                            <p className={`text-xs font-semibold ${hasTimeOff ? "text-amber-800" : "text-sky-800"}`}>{shift.start} – {shift.end}</p>
-                            <p className="mt-1 text-xs text-gray-500">
-                              {hasTimeOff ? `Time off: ${shift.timeOff}` : `Break · ${shift.breakStart}–${shift.breakEnd}`}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => onEditSchedule(schedule.vetId, dayIndex)}
-                              className="mt-1 text-xs font-medium text-[#08a9c5] hover:underline"
-                            >
-                              Edit schedule
-                            </button>
+                            {hasSchedule && (
+                              <>
+                                <p className="text-xs font-semibold text-sky-800">{shift.start} – {shift.end}</p>
+                                {shift.note && <p className="mt-1 text-xs text-gray-500">{shift.note}</p>}
+                              </>
+                            )}
+                            {hasTimeOff && (
+                              <ul className="mt-1 space-y-1 break-words text-xs text-amber-900">
+                                {shift.timeOff.map((leave) => (
+                                  <li key={leave.timeOffId} title={`${leave.reason} · ${leave.hours}`}>
+                                    <span className="font-semibold">
+                                      {leave.status === "Pending" ? "Pending leave: " : "Leave: "}
+                                    </span>
+                                    <span className="block text-amber-800">{leave.hours}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                            {hasSchedule ? (
+                              <div className="mt-1 flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => onEditSchedule(shift.scheduleId, schedule.vetId, dayIndex)}
+                                  className="text-xs font-medium text-[#08a9c5] hover:underline"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteSchedule(shift.scheduleId)}
+                                  className="text-xs font-medium text-rose-600 hover:underline"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => onEditSchedule(null, schedule.vetId, dayIndex)}
+                                className="mt-1 text-xs font-medium text-[#08a9c5] hover:underline"
+                              >
+                                Add schedule
+                              </button>
+                            )}
                           </div>
+                        ) : scheduleStatus === "all" ? (
+                          <button
+                            type="button"
+                            onClick={() => onEditSchedule(null, schedule.vetId, dayIndex)}
+                            className="text-sm text-gray-400 hover:text-[#08a9c5]"
+                          >
+                            Add
+                          </button>
                         ) : (
                           <span className="text-sm text-gray-400">—</span>
                         )}

@@ -67,6 +67,13 @@ const TEST_ACCOUNTS = [
   },
 ];
 
+const VETERINARIAN_SCHEDULE_SEEDS = [
+  { username: "vet@gmail.com", days: [1, 2, 3, 4, 5], startTime: "08:00", endTime: "17:00" },
+  { username: "vet2@gmail.com", days: [1, 2, 3, 4, 5], startTime: "09:00", endTime: "18:00" },
+  { username: "vet3@gmail.com", days: [1, 2, 3, 4, 5], startTime: "08:00", endTime: "16:00" },
+  { username: "vet4@gmail.com", days: [1, 2, 3, 4, 5], startTime: "10:00", endTime: "19:00" },
+] as const;
+
 // 3) Timeslots: 08:00-09:00 up to 19:00-20:00 (12 hourly slots)
 const pad = (h: number) => String(h).padStart(2, "0");
 const hourLabel = (h: number) =>
@@ -94,6 +101,81 @@ const BREEDS = [
 
 const dateOnly = (year: number, month: number, day: number) =>
   new Date(Date.UTC(year, month - 1, day));
+
+const futureDateOnly = (daysAhead: number) => {
+  const manilaToday = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  const date = new Date(`${manilaToday}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + daysAhead);
+  return date;
+};
+
+async function seedVeterinarianSchedules(adminAccountId: number) {
+  for (const seed of VETERINARIAN_SCHEDULE_SEEDS) {
+    const account = await prisma.account.findUniqueOrThrow({
+      where: { username: seed.username },
+      include: { veterinarian: true },
+    });
+    const veterinarian = account.veterinarian;
+    if (!veterinarian) {
+      throw new Error(`Veterinarian profile is missing for ${seed.username}`);
+    }
+
+    for (const dayOfWeek of seed.days) {
+      const existing = await prisma.veterinarianSchedule.findFirst({
+        where: { vetId: veterinarian.vetId, dayOfWeek },
+      });
+      const data = {
+        vetId: veterinarian.vetId,
+        dayOfWeek,
+        startTime: seed.startTime,
+        endTime: seed.endTime,
+        note: null,
+        assignerId: adminAccountId,
+        isDeleted: false,
+      };
+
+      if (existing) {
+        await prisma.veterinarianSchedule.update({
+          where: { scheduleId: existing.scheduleId },
+          data,
+        });
+      } else {
+        await prisma.veterinarianSchedule.create({ data });
+      }
+    }
+  }
+
+  const firstVet = await prisma.account.findUniqueOrThrow({
+    where: { username: VETERINARIAN_SCHEDULE_SEEDS[0].username },
+    include: { veterinarian: true },
+  });
+  const vetId = firstVet.veterinarian?.vetId;
+  if (!vetId) throw new Error("Sample veterinarian profile is missing.");
+
+  const existingTimeOff = await prisma.veterinarianTimeOff.findFirst({
+    where: { vetId, reason: "Seeded training session" },
+  });
+  const timeOffData = {
+    vetId,
+    date: futureDateOnly(14),
+    startTime: "13:00",
+    endTime: "15:00",
+    status: "Pending" as const,
+    reason: "Seeded training session",
+    note: "Sample time-off request for schedule management.",
+    reviewerId: adminAccountId,
+    isDeleted: false,
+  };
+
+  if (existingTimeOff) {
+    await prisma.veterinarianTimeOff.update({
+      where: { timeOffId: existingTimeOff.timeOffId },
+      data: timeOffData,
+    });
+  } else {
+    await prisma.veterinarianTimeOff.create({ data: timeOffData });
+  }
+}
 
 // 6) Pets for the test customer: one cat, one dog
 const TEST_PETS = [
@@ -327,6 +409,8 @@ async function main() {
     where: { username: "markmapili29@gmail.com" },
   });
 
+  await seedVeterinarianSchedules(adminAccount.accountId);
+
   const publicationStatuses = ["Draft", "Published", "Archived"] as const;
   for (const statusName of publicationStatuses) {
     await prisma.publicationStatus.upsert({
@@ -392,8 +476,6 @@ async function main() {
   const articleSeeds = [
     {
       title: "Keep Your Pet Hydrated",
-      category: "Health",
-      description: "Fresh water supports digestion, circulation, and healthy energy.",
       shortDescription: "Make sure your pet always has access to clean, fresh water.",
       detailedContent: "Refresh your pet's water daily and clean bowls regularly to encourage healthy hydration.",
       iconId: healthIcon.iconId,
@@ -402,8 +484,6 @@ async function main() {
     },
     {
       title: "A Simple Grooming Routine",
-      category: "Grooming",
-      description: "Regular brushing helps keep your pet comfortable and clean.",
       shortDescription: "Create a gentle brushing routine suited to your pet's coat.",
       detailedContent: "Brush regularly, check the ears and paws, and use pet-safe grooming products.",
       iconId: groomingIcon.iconId,
@@ -420,9 +500,7 @@ async function main() {
       await prisma.petCareTip.create({
         data: {
           type: "Article",
-          category: article.category,
           title: article.title,
-          description: article.description,
           linkUrl: "",
           uploaderAccountId: adminAccount.accountId,
           shortDescription: article.shortDescription,
@@ -463,7 +541,7 @@ async function main() {
   }
 
   console.log(
-    "Seed complete: roles, accounts, timeslots, services, breeds, pets, content",
+    "Seed complete: roles, accounts, schedules, time off, timeslots, services, breeds, pets, content",
   );
 }
 

@@ -64,8 +64,10 @@ const Sidebar = () => {
   useEffect(() => {
     const fetchAdminName = async () => {
       try {
-        const response = await api.get('/admin/dashboard/stats');
-        setUserName(response.data.adminName || "Admin");
+        const response = await api.get("/auth/me");
+        const user = response.data.user;
+        const name = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
+        setUserName(name || "Admin");
       } catch (err) {
         console.error("❌ Failed to fetch admin name:", err);
         setUserName("Admin");

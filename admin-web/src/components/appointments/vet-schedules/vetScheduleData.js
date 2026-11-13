@@ -1,58 +1,12 @@
-export const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-export const defaultWeekStart = new Date(2026, 10, 2);
-
-export const createInitialSchedules = () => [
-  {
-    vetId: "sofia",
-    name: "Dr. Sofia Reyes",
-    specialty: "General practice",
-    shifts: Array.from({ length: 5 }, () => ({
-      start: "8:00 AM",
-      end: "5:00 PM",
-      breakStart: "12:00 PM",
-      breakEnd: "1:00 PM",
-    })),
-  },
-  {
-    vetId: "miguel",
-    name: "Dr. Miguel Santos",
-    specialty: "Surgery & diagnostics",
-    shifts: [
-      { start: "8:00 AM", end: "5:00 PM", breakStart: "12:00 PM", breakEnd: "1:00 PM" },
-      { start: "8:00 AM", end: "5:00 PM", breakStart: "12:00 PM", breakEnd: "1:00 PM" },
-      { start: "8:00 AM", end: "5:00 PM", breakStart: "12:00 PM", breakEnd: "1:00 PM" },
-      { start: "8:00 AM", end: "12:00 PM", timeOff: "1:00 PM–5:00 PM" },
-      { start: "8:00 AM", end: "5:00 PM", breakStart: "12:00 PM", breakEnd: "1:00 PM" },
-    ],
-  },
-  {
-    vetId: "ana",
-    name: "Dr. Ana Cruz",
-    specialty: "Preventive care",
-    shifts: Array.from({ length: 5 }, () => ({
-      start: "10:00 AM",
-      end: "6:00 PM",
-      breakStart: "12:00 PM",
-      breakEnd: "1:00 PM",
-    })),
-  },
+export const weekdays = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
 ];
-
-export const createInitialTimeOff = () => [
-  { id: 1, veterinarian: "Dr. Miguel Santos", date: new Date(2026, 10, 5), time: "1:00–5:00 PM", reason: "Personal leave", status: "Approved" },
-  { id: 2, veterinarian: "Dr. Ana Cruz", date: new Date(2026, 10, 12), time: "All day", reason: "Training", status: "Approved" },
-  { id: 3, veterinarian: "Dr. Sofia Reyes", date: new Date(2026, 10, 18), time: "8:00 AM–12:00 PM", reason: "Personal leave", status: "Pending" },
-];
-
-export const createEmptyTimeOffDraft = () => ({
-  veterinarian: "",
-  date: "",
-  allDay: false,
-  startTime: "",
-  endTime: "",
-  reason: "",
-  notes: "",
-});
 
 export const startOfWeek = (date) => {
   const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -61,14 +15,18 @@ export const startOfWeek = (date) => {
   return result;
 };
 
+export const defaultWeekStart = startOfWeek(new Date());
+
 export const addDays = (date, days) => {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
 };
 
-export const formatDate = (date, options = { month: "short", day: "numeric" }) =>
-  date.toLocaleDateString("en-US", options);
+export const formatDate = (value, options = { month: "short", day: "numeric" }) => {
+  const date = value instanceof Date ? value : new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("en-US", options);
+};
 
 export const formatWeekLabel = (start, end) => {
   const startLabel = formatDate(start, { month: "long", day: "numeric" });
@@ -85,15 +43,77 @@ export const toDateInput = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-export const createScheduleDraft = (vetId, start, end, days = [0, 1, 2, 3, 4]) => ({
-  vetId,
-  startDate: toDateInput(start),
-  endDate: toDateInput(end),
-  days,
-  startTime: "8:00 AM",
-  endTime: "5:00 PM",
-  breakStart: "12:00 PM",
-  breakEnd: "1:00 PM",
-  location: "Main clinic",
+export const todayInManilaDate = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.year}-${values.month}-${values.day}`;
+};
+
+export const formatTime = (value) => {
+  if (!value) return "";
+  const [hours, minutes] = value.split(":").map(Number);
+  const suffix = hours >= 12 ? "PM" : "AM";
+  return `${hours % 12 || 12}:${String(minutes).padStart(2, "0")} ${suffix}`;
+};
+
+export const createEmptyTimeOffDraft = () => ({
+  timeOffId: null,
+  vetId: "",
+  date: "",
+  allDay: true,
+  startTime: "",
+  endTime: "",
+  reason: "",
   notes: "",
+  status: "Pending",
 });
+
+export const createScheduleDraft = (vetId = "", days = [1, 2, 3, 4, 5]) => ({
+  scheduleId: null,
+  vetId: String(vetId),
+  days,
+  startTime: "08:00",
+  endTime: "17:00",
+  note: "",
+});
+
+export const groupSchedulesByVeterinarian = (vets, schedules, timeOff, weekDays) =>
+  vets.map((vet) => ({
+    vetId: String(vet.vetId),
+    name: vet.name,
+    shifts: weekdays.map((_, index) => {
+      const dayOfWeek = index + 1;
+      const schedule = schedules.find(
+        (item) => item.vetId === vet.vetId && item.dayOfWeek === dayOfWeek,
+      );
+      const date = toDateInput(weekDays[index]);
+      const dayTimeOff = timeOff.filter(
+        (item) =>
+          Number(item.vetId) === Number(vet.vetId) &&
+          (item.date instanceof Date
+            ? toDateInput(item.date)
+            : String(item.date ?? "").slice(0, 10)) === date &&
+          item.status !== "Rejected",
+      );
+
+      return {
+        scheduleId: schedule?.scheduleId ?? null,
+        start: schedule ? formatTime(schedule.startTime) : "",
+        end: schedule ? formatTime(schedule.endTime) : "",
+        note: schedule?.note ?? "",
+        timeOff: dayTimeOff.map((item) => ({
+          timeOffId: item.timeOffId,
+          reason: item.reason || "Leave",
+          status: item.status,
+          hours: item.startTime
+            ? `${formatTime(item.startTime)}–${formatTime(item.endTime)}`
+            : "All day",
+        })),
+      };
+    }),
+  }));

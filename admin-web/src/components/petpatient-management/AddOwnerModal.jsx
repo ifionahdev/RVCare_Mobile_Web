@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { X, Copy, Check, AlertCircle } from "lucide-react";
 import api from "../../api/axios";
 
-const AddOwnerModal = ({ isOpen, onClose, onSave, initialData }) => {
+const AddOwnerModal = ({ isOpen, onClose, onSave, onError, initialData }) => {
   const todayIso = new Date().toISOString().split("T")[0];
   const ownerMaxDob = new Date();
   ownerMaxDob.setFullYear(ownerMaxDob.getFullYear() - 18);
@@ -34,7 +34,6 @@ const AddOwnerModal = ({ isOpen, onClose, onSave, initialData }) => {
   const [copiedField, setCopiedField] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [apiError, setApiError] = useState("");
   
   // State for breeds from database
   const [dogBreeds, setDogBreeds] = useState([]);
@@ -184,7 +183,6 @@ const AddOwnerModal = ({ isOpen, onClose, onSave, initialData }) => {
         setStep("form");
         setCopiedField(null);
         setErrors({});
-        setApiError("");
       }
     }
   }, [initialData, isOpen]);
@@ -287,10 +285,6 @@ const AddOwnerModal = ({ isOpen, onClose, onSave, initialData }) => {
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: "" }));
     }
-    // Clear API error when email changes
-    if (field === "email" && apiError) {
-      setApiError("");
-    }
   };
 
   const handlePetChange = (field, value) => {
@@ -332,14 +326,12 @@ const AddOwnerModal = ({ isOpen, onClose, onSave, initialData }) => {
   const handleNext = () => {
     if (validateOwnerForm()) {
       setStep("review");
-      setApiError(""); // Clear any previous API errors
     }
   };
   
   const handleConfirm = async () => {
     try {
       setIsLoading(true);
-      setApiError("");
       
       // PET DATA IS REQUIRED FOR NEW OWNERS
       const finalBreed = petData.breed === "other" ? petData.customBreed : petData.breed;
@@ -385,12 +377,12 @@ const AddOwnerModal = ({ isOpen, onClose, onSave, initialData }) => {
       
       // Handle specific API errors
       if (error.response?.data?.message?.includes("Email already exists")) {
-        setApiError("This email address is already registered. Please use a different email.");
+        onError?.("This email address is already registered. Please use a different email.");
         setStep("form");
       } else if (error.response?.data?.message) {
-        setApiError(error.response.data.message);
+        onError?.(error.response.data.message);
       } else {
-        setApiError("Failed to save owner. Please try again.");
+        onError?.("Failed to save owner. Please try again.");
       }
     } finally {
       setIsLoading(false);
@@ -403,7 +395,6 @@ const AddOwnerModal = ({ isOpen, onClose, onSave, initialData }) => {
     setPetData({ type: "", breed: "", name: "", sex: "", weight: "", color: "", dob: "", notes: "" });
     setCopiedField(null);
     setErrors({});
-    setApiError("");
     setIsLoading(false);
     onClose();
   };
@@ -441,14 +432,6 @@ const AddOwnerModal = ({ isOpen, onClose, onSave, initialData }) => {
             <X size={18} className="text-gray-500" />
           </button>
         </div>
-
-        {/* API Error Message */}
-        {apiError && (
-          <div className="mx-4 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-            <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
-            <p className="text-red-700 text-sm">{apiError}</p>
-          </div>
-        )}
 
         {/* Content */}
         <div className="flex-1 p-5 overflow-auto">

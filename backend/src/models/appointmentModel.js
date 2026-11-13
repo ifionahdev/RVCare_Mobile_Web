@@ -6,7 +6,7 @@ export const findBookedTimeslotIds = async ({ scheduledDate, vetId }) =>
       scheduledDate,
       isDeleted: false,
       status: {
-        notIn: ["Cancelled", "Rejected", "Completed", "Missed", "Past"],
+        notIn: ["Cancelled", "Rejected", "Completed", "Missed"],
       },
       ...(vetId === undefined ? {} : { vetId }),
     },
@@ -35,7 +35,7 @@ export const expirePastAppointments = () =>
       scheduledDate: { lt: getTodayManilaDate() },
       status: { in: ["Pending", "Upcoming"] },
     },
-    data: { status: "Past" },
+    data: { status: "Missed" },
   });
 
 export const findOwnerAppointments = async (accountId) => {

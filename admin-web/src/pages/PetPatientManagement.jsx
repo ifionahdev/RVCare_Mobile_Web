@@ -851,6 +851,7 @@ const PetPatientManagement = ({ recordsMode = false }) => {
             isOpen={isAddOwnerModalOpen}
             onClose={() => { setIsAddOwnerModalOpen(false); setEditingItem(null); }}
             onSave={handleSaveOwner}
+            onError={setErrorMessage}
             refreshOwners={fetchOwnersAndPets}
             initialData={editingItem?.type === "owner" ? editingItem : null}
           />
@@ -859,6 +860,7 @@ const PetPatientManagement = ({ recordsMode = false }) => {
             isOpen={isAddPetModalOpen}
             onClose={() => { setIsAddPetModalOpen(false); setEditingItem(null); }}
             onSave={handleSavePet}
+            onError={setErrorMessage}
             owners={petOwners}
             refreshPets={fetchOwnersAndPets}
             initialData={editingItem}
@@ -873,6 +875,7 @@ const PetPatientManagement = ({ recordsMode = false }) => {
                 setDeleteTarget(null);
               }}
               onDelete={handleDelete}
+              onError={setErrorMessage}
               itemType={deleteTarget?.type === "owner" ? "owner" : deleteTarget?.type === "pet" ? "pet" : "record"}
               deleteTarget={deleteTarget}
               refreshData={deleteTarget?.type === "record" ? fetchMedicalRecords : fetchOwnersAndPets}

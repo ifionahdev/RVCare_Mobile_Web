@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { X, Search, AlertCircle } from "lucide-react";
 import api from "../../api/axios"; 
 
-const AddPetModal = ({ isOpen, onClose, onSave, owners, initialData, refreshPets, defaultOwnerId = "", lockOwnerSelection = false }) => {
+const AddPetModal = ({ isOpen, onClose, onSave, onError, owners, initialData, refreshPets, defaultOwnerId = "", lockOwnerSelection = false }) => {
   const MAX_PET_NAME_LENGTH = 50;
   const MAX_PET_NOTES_LENGTH = 500;
 
@@ -25,7 +25,6 @@ const AddPetModal = ({ isOpen, onClose, onSave, owners, initialData, refreshPets
   const [ownerSearch, setOwnerSearch] = useState("");
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [apiError, setApiError] = useState("");
 
   const toInputDate = (dateStr) => {
     if (!dateStr) return "";
@@ -273,7 +272,6 @@ const AddPetModal = ({ isOpen, onClose, onSave, owners, initialData, refreshPets
       updated.customBreed = ""; // Clear custom breed when selecting predefined breed
     }
     setPetData(updated);
-    setApiError("");
     
     // Validate field in real-time
     validateField(field, value);
@@ -327,7 +325,7 @@ const AddPetModal = ({ isOpen, onClose, onSave, owners, initialData, refreshPets
       }
     } catch (err) {
       console.error("Error saving pet:", err);
-      setApiError(err?.response?.data?.message || "Failed to save pet.");
+      onError?.(err?.response?.data?.message || "Failed to save pet.");
     } finally {
       setIsLoading(false);
     }
@@ -350,7 +348,6 @@ const AddPetModal = ({ isOpen, onClose, onSave, owners, initialData, refreshPets
     setOwnerSearch("");
     setBreeds([]);
     setErrors({});
-    setApiError("");
   };
 
   useEffect(() => {
@@ -383,13 +380,6 @@ const AddPetModal = ({ isOpen, onClose, onSave, owners, initialData, refreshPets
         <h2 className="text-2xl font-bold text-[#212529] dark:text-white mb-5 text-center">
           {initialData ? "Edit Pet" : "Add New Pet"}
         </h2>
-
-        {apiError && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 flex items-center gap-2">
-            <AlertCircle size={14} />
-            <span>{apiError}</span>
-          </div>
-        )}
 
         <div className="flex gap-4 flex-1 min-h-0">
           {/* Left: Owner selection */}
