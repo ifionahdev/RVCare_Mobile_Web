@@ -108,6 +108,7 @@ export const createAppointment = async ({
     vetId: selectedVetId,
     scheduledDate: parsedScheduledDate,
     timeslotId: parsedTimeslotId,
+    accountId,
   });
 
   emitAppointmentChanged(accountId, {
@@ -166,6 +167,7 @@ export const rescheduleOwnerAppointment = async ({
     scheduledDate: parsedScheduledDate,
     timeslotId: parsedTimeslotId,
     vetId: parsedVetId,
+    accountId,
   });
 
   emitAppointmentChanged(appointment.pet.owner.accountId, {

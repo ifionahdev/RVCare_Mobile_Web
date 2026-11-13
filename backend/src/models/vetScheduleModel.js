@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma.js";
+import { createAuditLog } from "../services/auditLogService.js";
 
 const veterinarianInclude = {
   veterinarian: {
@@ -48,13 +49,27 @@ export const findScheduleConflict = ({ vetId, dayOfWeek, exceptScheduleId }) =>
   });
 
 export const createVeterinarianSchedules = (schedules) =>
-  prisma.$transaction(
-    schedules.map((schedule) =>
-      prisma.veterinarianSchedule.create({
+  prisma.$transaction(async (tx) =>
+    Promise.all(schedules.map(async (schedule) => {
+      const created = await tx.veterinarianSchedule.create({
         data: schedule,
         include: veterinarianInclude,
-      }),
-    ),
+      });
+      await createAuditLog(tx, {
+        accountId: schedule.assignerId,
+        action: "Created",
+        targetTable: "tbl_veterinarian_schedule",
+        targetId: created.scheduleId,
+        newValue: {
+          vetId: created.vetId,
+          dayOfWeek: created.dayOfWeek,
+          startTime: created.startTime,
+          endTime: created.endTime,
+          note: created.note,
+        },
+      });
+      return created;
+    })),
   );
 
 export const findActiveVeterinarianSchedule = (scheduleId) =>
@@ -69,17 +84,70 @@ export const findActiveVeterinarianScheduleForDay = (vetId, dayOfWeek) =>
     select: { scheduleId: true },
   });
 
-export const updateVeterinarianScheduleRecord = (scheduleId, data) =>
-  prisma.veterinarianSchedule.update({
-    where: { scheduleId },
-    data,
-    include: veterinarianInclude,
+export const updateVeterinarianScheduleRecord = (scheduleId, data, accountId) =>
+  prisma.$transaction(async (tx) => {
+    const current = await tx.veterinarianSchedule.findUniqueOrThrow({
+      where: { scheduleId },
+    });
+    const updated = await tx.veterinarianSchedule.update({
+      where: { scheduleId },
+      data,
+      include: veterinarianInclude,
+    });
+    await createAuditLog(tx, {
+      accountId,
+      action: "Updated",
+      targetTable: "tbl_veterinarian_schedule",
+      targetId: scheduleId,
+      oldValue: {
+        vetId: current.vetId,
+        dayOfWeek: current.dayOfWeek,
+        startTime: current.startTime,
+        endTime: current.endTime,
+        note: current.note,
+      },
+      newValue: {
+        vetId: updated.vetId,
+        dayOfWeek: updated.dayOfWeek,
+        startTime: updated.startTime,
+        endTime: updated.endTime,
+        note: updated.note,
+      },
+    });
+    return updated;
   });
 
-export const softDeleteVeterinarianSchedule = (scheduleId) =>
-  prisma.veterinarianSchedule.update({
-    where: { scheduleId },
-    data: { isDeleted: true },
+export const softDeleteVeterinarianSchedule = (scheduleId, accountId) =>
+  prisma.$transaction(async (tx) => {
+    const current = await tx.veterinarianSchedule.findUniqueOrThrow({
+      where: { scheduleId },
+    });
+    await tx.veterinarianSchedule.update({
+      where: { scheduleId },
+      data: { isDeleted: true },
+    });
+    await createAuditLog(tx, {
+      accountId,
+      action: "Deleted",
+      targetTable: "tbl_veterinarian_schedule",
+      targetId: scheduleId,
+      oldValue: {
+        vetId: current.vetId,
+        dayOfWeek: current.dayOfWeek,
+        startTime: current.startTime,
+        endTime: current.endTime,
+        note: current.note,
+        isDeleted: false,
+      },
+      newValue: {
+        vetId: current.vetId,
+        dayOfWeek: current.dayOfWeek,
+        startTime: current.startTime,
+        endTime: current.endTime,
+        note: current.note,
+        isDeleted: true,
+      },
+    });
   });
 
 export const findVeterinarianTimeOff = () =>
@@ -99,20 +167,99 @@ export const findActiveVeterinarianTimeOff = (timeOffId) =>
   });
 
 export const createVeterinarianTimeOff = (data) =>
-  prisma.veterinarianTimeOff.create({
-    data,
-    include: veterinarianInclude,
+  prisma.$transaction(async (tx) => {
+    const created = await tx.veterinarianTimeOff.create({
+      data,
+      include: veterinarianInclude,
+    });
+    await createAuditLog(tx, {
+      accountId: data.reviewerId,
+      action: "Created",
+      targetTable: "tbl_veterinarian_time_off",
+      targetId: created.timeOffId,
+      newValue: {
+        vetId: created.vetId,
+        date: created.date,
+        startTime: created.startTime,
+        endTime: created.endTime,
+        status: created.status,
+        reason: created.reason,
+        note: created.note,
+      },
+    });
+    return created;
   });
 
 export const updateVeterinarianTimeOff = (timeOffId, data) =>
-  prisma.veterinarianTimeOff.update({
-    where: { timeOffId },
-    data,
-    include: veterinarianInclude,
+  prisma.$transaction(async (tx) => {
+    const current = await tx.veterinarianTimeOff.findUniqueOrThrow({
+      where: { timeOffId },
+    });
+    const updated = await tx.veterinarianTimeOff.update({
+      where: { timeOffId },
+      data,
+      include: veterinarianInclude,
+    });
+    await createAuditLog(tx, {
+      accountId: data.reviewerId,
+      action: "Updated",
+      targetTable: "tbl_veterinarian_time_off",
+      targetId: timeOffId,
+      oldValue: {
+        vetId: current.vetId,
+        date: current.date,
+        startTime: current.startTime,
+        endTime: current.endTime,
+        status: current.status,
+        reason: current.reason,
+        note: current.note,
+      },
+      newValue: {
+        vetId: updated.vetId,
+        date: updated.date,
+        startTime: updated.startTime,
+        endTime: updated.endTime,
+        status: updated.status,
+        reason: updated.reason,
+        note: updated.note,
+      },
+    });
+    return updated;
   });
 
-export const softDeleteVeterinarianTimeOff = (timeOffId) =>
-  prisma.veterinarianTimeOff.update({
-    where: { timeOffId },
-    data: { isDeleted: true },
+export const softDeleteVeterinarianTimeOff = (timeOffId, accountId) =>
+  prisma.$transaction(async (tx) => {
+    const current = await tx.veterinarianTimeOff.findUniqueOrThrow({
+      where: { timeOffId },
+    });
+    await tx.veterinarianTimeOff.update({
+      where: { timeOffId },
+      data: { isDeleted: true },
+    });
+    await createAuditLog(tx, {
+      accountId,
+      action: "Deleted",
+      targetTable: "tbl_veterinarian_time_off",
+      targetId: timeOffId,
+      oldValue: {
+        vetId: current.vetId,
+        date: current.date,
+        startTime: current.startTime,
+        endTime: current.endTime,
+        status: current.status,
+        reason: current.reason,
+        note: current.note,
+        isDeleted: false,
+      },
+      newValue: {
+        vetId: current.vetId,
+        date: current.date,
+        startTime: current.startTime,
+        endTime: current.endTime,
+        status: current.status,
+        reason: current.reason,
+        note: current.note,
+        isDeleted: true,
+      },
+    });
   });

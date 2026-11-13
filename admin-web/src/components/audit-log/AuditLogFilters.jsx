@@ -11,6 +11,7 @@ export default function AuditLogFilters({
   setDateRange,
   users,
   modules,
+  hasUnknownActor,
   onFilterChange,
 }) {
   const updateFilter = (setter) => (event) => {
@@ -26,8 +27,8 @@ export default function AuditLogFilters({
           type="search"
           value={search}
           onChange={updateFilter(setSearch)}
-          placeholder="Search record or change ID"
-          aria-label="Search record or change ID"
+          placeholder="Search actor, table, or record ID"
+          aria-label="Search audit log"
           className="w-full rounded-lg border border-gray-100 bg-gray-50 py-2.5 pl-9 pr-3 text-sm text-gray-700 outline-none focus:border-[#38c7e5]"
         />
       </label>
@@ -38,7 +39,8 @@ export default function AuditLogFilters({
         className="w-full rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-[#38c7e5]"
       >
         <option value="all">All users</option>
-        {users.map((item) => <option key={item} value={item}>{item}</option>)}
+        {users.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+        {hasUnknownActor && <option value="unknown">Unknown / deleted account</option>}
       </select>
       <select
         value={module}
@@ -47,7 +49,7 @@ export default function AuditLogFilters({
         className="w-full rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-[#38c7e5]"
       >
         <option value="all">All modules</option>
-        {modules.map((item) => <option key={item} value={item}>{item}</option>)}
+        {modules.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
       </select>
       <select
         value={dateRange}
@@ -55,8 +57,8 @@ export default function AuditLogFilters({
         aria-label="Filter by date range"
         className="w-full rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-[#38c7e5]"
       >
-        <option value="november">Nov 1–12, 2026</option>
         <option value="last7">Last 7 days</option>
+        <option value="last30">Last 30 days</option>
         <option value="all">All dates</option>
       </select>
     </div>

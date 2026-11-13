@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "../config/prisma.js";
 import { sendOwnerCredentials } from "../services/emailService.js";
+import { createAuditLog } from "../services/auditLogService.js";
 
 const staffRoles = ["admin", "vet"];
 const lastAdminDeletionCode = "LAST_ACTIVE_ADMIN";
@@ -151,6 +152,20 @@ export const createManagedStaffAccount = async (req, res, next) => {
         await tx.veterinarian.create({ data: { accountId: created.accountId } });
       }
 
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Created",
+        targetTable: "tbl_account",
+        targetId: created.accountId,
+        newValue: {
+          firstName: created.firstName,
+          lastName: created.lastName,
+          email: created.email,
+          role: roleSlug,
+          isDeleted: created.isDeleted,
+        },
+      });
+
       return tx.account.findUniqueOrThrow({
         where: { accountId: created.accountId },
         include: includeStaffProfile,
@@ -202,15 +217,38 @@ export const updateManagedStaffAccount = async (req, res, next) => {
     });
     if (duplicate) return conflict(res, "An account with this email already exists.");
 
-    const updated = await prisma.account.update({
-      where: { accountId },
-      data: {
-        firstName: fields.data.firstName,
-        lastName: fields.data.lastName,
-        email: fields.data.email,
-        username: fields.data.email,
-      },
-      include: includeStaffProfile,
+    const updated = await prisma.$transaction(async (tx) => {
+      const current = await tx.account.findUniqueOrThrow({
+        where: { accountId },
+        include: includeStaffProfile,
+      });
+      const next = await tx.account.update({
+        where: { accountId },
+        data: {
+          firstName: fields.data.firstName,
+          lastName: fields.data.lastName,
+          email: fields.data.email,
+          username: fields.data.email,
+        },
+        include: includeStaffProfile,
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Updated",
+        targetTable: "tbl_account",
+        targetId: accountId,
+        oldValue: {
+          firstName: current.firstName,
+          lastName: current.lastName,
+          email: current.email,
+        },
+        newValue: {
+          firstName: next.firstName,
+          lastName: next.lastName,
+          email: next.email,
+        },
+      });
+      return next;
     });
     return success(res, staffDto(updated), "Staff account updated successfully.");
   } catch (error) {
@@ -258,6 +296,26 @@ export const deleteManagedStaffAccount = async (req, res, next) => {
       await tx.account.update({
         where: { accountId },
         data: { isDeleted: true },
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Deleted",
+        targetTable: "tbl_account",
+        targetId: accountId,
+        oldValue: {
+          firstName: account.firstName,
+          lastName: account.lastName,
+          email: account.email,
+          role: account.role.roleSlug,
+          isDeleted: false,
+        },
+        newValue: {
+          firstName: account.firstName,
+          lastName: account.lastName,
+          email: account.email,
+          role: account.role.roleSlug,
+          isDeleted: true,
+        },
       });
     });
 

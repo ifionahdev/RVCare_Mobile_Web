@@ -263,7 +263,7 @@ export const updateVeterinarianSchedule = async (req, res, next) => {
     const schedule = await updateVeterinarianScheduleRecord(scheduleId, {
       ...fields.data,
       dayOfWeek,
-    });
+    }, req.user.accountId);
     return res.json(scheduleDto(schedule));
   } catch (error) {
     return next(error);
@@ -278,7 +278,7 @@ export const deleteVeterinarianSchedule = async (req, res, next) => {
       return notFound(res, "Schedule not found.");
     }
 
-    await softDeleteVeterinarianSchedule(scheduleId);
+    await softDeleteVeterinarianSchedule(scheduleId, req.user.accountId);
     return res.json({ message: "Veterinarian schedule deleted." });
   } catch (error) {
     return next(error);
@@ -374,7 +374,7 @@ export const deleteVeterinarianTimeOffEntry = async (req, res, next) => {
       return notFound(res, "Time off not found.");
     }
 
-    await softDeleteVeterinarianTimeOff(timeOffId);
+    await softDeleteVeterinarianTimeOff(timeOffId, req.user.accountId);
     return res.json({ message: "Time off deleted." });
   } catch (error) {
     return next(error);

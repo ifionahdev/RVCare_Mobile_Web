@@ -1,8 +1,11 @@
-const formatDate = (date) => new Date(`${date}T00:00:00`).toLocaleDateString("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
+const formatDate = (date) =>
+  new Date(date).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
 export default function AuditLogTable({
   entries,
@@ -52,13 +55,15 @@ export default function AuditLogTable({
                 className={`cursor-pointer border-t border-gray-100 transition hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#38c7e5] ${selectedId === entry.id ? "bg-sky-50" : "bg-white"}`}
               >
                 <td className="px-3 py-3 text-xs text-gray-600">
-                  {formatDate(entry.date)}<br />{entry.time}
+                  {formatDate(entry.createdAt)}
                 </td>
                 <td className="px-3 py-3 text-xs text-gray-600">
-                  {entry.changedBy}<br />{entry.role}
+                  {entry.actorName}<br />{entry.actorRole}
                 </td>
                 <td className="px-3 py-3 text-xs text-gray-600">{entry.module}</td>
-                <td className="px-3 py-3 text-xs text-gray-600">{entry.record}</td>
+                <td className="px-3 py-3 text-xs text-gray-600">
+                  Record #{entry.targetId}
+                </td>
                 <td className="px-3 py-3 text-xs font-semibold text-[#08a9c5]">{entry.action}</td>
               </tr>
             ))}

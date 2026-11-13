@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma.js";
+import { createAuditLog } from "../services/auditLogService.js";
 
 const success = (res, data, message, status = 200) =>
   res.status(status).json({ success: true, data, message });
@@ -97,6 +98,26 @@ const videoDto = (video) => ({
   status: video.publicationStatus.statusName,
   createdAt: video.createdAt,
   updatedAt: video.updatedAt,
+});
+
+const tipAuditSnapshot = (tip) => ({
+  title: tip.title,
+  shortDescription: tip.shortDescription,
+  detailedContent: tip.detailedContent,
+  linkUrl: tip.linkUrl,
+  iconId: tip.iconId,
+  contentCategoryId: tip.contentCategoryId,
+  publicationStatusId: tip.publicationStatusId,
+  type: tip.type,
+  isDeleted: tip.isDeleted,
+});
+
+const videoAuditSnapshot = (video) => ({
+  title: video.title,
+  videoUrl: video.videoUrl,
+  categoryId: video.categoryId,
+  publicationStatusId: video.publicationStatusId,
+  isDeleted: video.isDeleted,
 });
 
 const readTipInput = (body = {}) => {
@@ -231,10 +252,24 @@ export const createPetCareCategory = async (req, res, next) => {
       return badRequest(res, "Category name is required and must be 80 characters or fewer.");
     }
 
-    const category = await prisma.petCareCategory.upsert({
-      where: { categoryName: name },
-      update: { isDeleted: false },
-      create: { categoryName: name },
+    const category = await prisma.$transaction(async (tx) => {
+      const current = await tx.petCareCategory.findUnique({ where: { categoryName: name } });
+      const saved = await tx.petCareCategory.upsert({
+        where: { categoryName: name },
+        update: { isDeleted: false },
+        create: { categoryName: name },
+      });
+      if (!current || current.isDeleted) {
+        await createAuditLog(tx, {
+          accountId: req.user.accountId,
+          action: current ? "Updated" : "Created",
+          targetTable: "tbl_pet_care_category",
+          targetId: saved.categoryId,
+          oldValue: current ? { categoryName: current.categoryName, isDeleted: true } : null,
+          newValue: { categoryName: saved.categoryName, isDeleted: false },
+        });
+      }
+      return saved;
     });
     return success(
       res,
@@ -289,13 +324,23 @@ export const createPetCareTip = async (req, res, next) => {
     if (!references.icon) return badRequest(res, "The selected article icon is unavailable.");
     if (!references.publicationStatus) return badRequest(res, "The selected publication status is unavailable.");
 
-    const tip = await prisma.petCareTip.create({
-      data: {
-        ...fields.data,
-        type: "Article",
-        uploaderAccountId: req.user.accountId,
-      },
-      include: tipInclude,
+    const tip = await prisma.$transaction(async (tx) => {
+      const created = await tx.petCareTip.create({
+        data: {
+          ...fields.data,
+          type: "Article",
+          uploaderAccountId: req.user.accountId,
+        },
+        include: tipInclude,
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Created",
+        targetTable: "tbl_pet_care_tip",
+        targetId: created.tipId,
+        newValue: tipAuditSnapshot(created),
+      });
+      return created;
     });
     return success(res, tipDto(tip), "Article created successfully.", 201);
   } catch (error) {
@@ -310,7 +355,7 @@ export const updatePetCareTip = async (req, res, next) => {
 
     const existing = await prisma.petCareTip.findFirst({
       where: { tipId, isDeleted: false, type: "Article" },
-      select: { tipId: true },
+      include: tipInclude,
     });
     if (!existing) return notFound(res, "Article not found.");
 
@@ -321,10 +366,21 @@ export const updatePetCareTip = async (req, res, next) => {
     if (!references.icon) return badRequest(res, "The selected article icon is unavailable.");
     if (!references.publicationStatus) return badRequest(res, "The selected publication status is unavailable.");
 
-    const tip = await prisma.petCareTip.update({
-      where: { tipId },
-      data: fields.data,
-      include: tipInclude,
+    const tip = await prisma.$transaction(async (tx) => {
+      const updated = await tx.petCareTip.update({
+        where: { tipId },
+        data: fields.data,
+        include: tipInclude,
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Updated",
+        targetTable: "tbl_pet_care_tip",
+        targetId: tipId,
+        oldValue: tipAuditSnapshot(existing),
+        newValue: tipAuditSnapshot(updated),
+      });
+      return updated;
     });
     return success(res, tipDto(tip), "Article updated successfully.");
   } catch (error) {
@@ -336,11 +392,25 @@ export const deletePetCareTip = async (req, res, next) => {
   try {
     const tipId = positiveInteger(req.params.tipId);
     if (!tipId) return badRequest(res, "Invalid article ID.");
-    const result = await prisma.petCareTip.updateMany({
+    const existing = await prisma.petCareTip.findFirst({
       where: { tipId, isDeleted: false, type: "Article" },
-      data: { isDeleted: true },
+      include: tipInclude,
     });
-    if (!result.count) return notFound(res, "Article not found.");
+    if (!existing) return notFound(res, "Article not found.");
+    await prisma.$transaction(async (tx) => {
+      await tx.petCareTip.update({
+        where: { tipId },
+        data: { isDeleted: true },
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Deleted",
+        targetTable: "tbl_pet_care_tip",
+        targetId: tipId,
+        oldValue: tipAuditSnapshot(existing),
+        newValue: { ...tipAuditSnapshot(existing), isDeleted: true },
+      });
+    });
     return success(res, null, "Article deleted successfully.");
   } catch (error) {
     return next(error);
@@ -366,10 +436,24 @@ export const createVideoCategory = async (req, res, next) => {
       return badRequest(res, "Category name is required and must be 80 characters or fewer.");
     }
 
-    const category = await prisma.videoCategory.upsert({
-      where: { categoryName: name },
-      update: { isDeleted: false },
-      create: { categoryName: name },
+    const category = await prisma.$transaction(async (tx) => {
+      const current = await tx.videoCategory.findUnique({ where: { categoryName: name } });
+      const saved = await tx.videoCategory.upsert({
+        where: { categoryName: name },
+        update: { isDeleted: false },
+        create: { categoryName: name },
+      });
+      if (!current || current.isDeleted) {
+        await createAuditLog(tx, {
+          accountId: req.user.accountId,
+          action: current ? "Updated" : "Created",
+          targetTable: "tbl_video_category",
+          targetId: saved.videoCategoryId,
+          oldValue: current ? { categoryName: current.categoryName, isDeleted: true } : null,
+          newValue: { categoryName: saved.categoryName, isDeleted: false },
+        });
+      }
+      return saved;
     });
     return success(res, videoCategoryDto(category), "Category created successfully.", 201);
   } catch (error) {
@@ -452,12 +536,22 @@ export const createVideo = async (req, res, next) => {
     if (!references.category) return badRequest(res, "The selected video category is unavailable.");
     if (!references.publicationStatus) return badRequest(res, "The selected publication status is unavailable.");
 
-    const video = await prisma.contentVideo.create({
-      data: {
-        ...fields.data,
-        uploaderAccountId: req.user.accountId,
-      },
-      include: videoInclude,
+    const video = await prisma.$transaction(async (tx) => {
+      const created = await tx.contentVideo.create({
+        data: {
+          ...fields.data,
+          uploaderAccountId: req.user.accountId,
+        },
+        include: videoInclude,
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Created",
+        targetTable: "tbl_content_video",
+        targetId: created.videoId,
+        newValue: videoAuditSnapshot(created),
+      });
+      return created;
     });
     return success(res, videoDto(video), "Video created successfully.", 201);
   } catch (error) {
@@ -471,7 +565,7 @@ export const updateVideo = async (req, res, next) => {
     if (!videoId) return badRequest(res, "Invalid video ID.");
     const existing = await prisma.contentVideo.findFirst({
       where: { videoId, isDeleted: false },
-      select: { videoId: true },
+      include: videoInclude,
     });
     if (!existing) return notFound(res, "Video not found.");
 
@@ -481,10 +575,21 @@ export const updateVideo = async (req, res, next) => {
     if (!references.category) return badRequest(res, "The selected video category is unavailable.");
     if (!references.publicationStatus) return badRequest(res, "The selected publication status is unavailable.");
 
-    const video = await prisma.contentVideo.update({
-      where: { videoId },
-      data: fields.data,
-      include: videoInclude,
+    const video = await prisma.$transaction(async (tx) => {
+      const updated = await tx.contentVideo.update({
+        where: { videoId },
+        data: fields.data,
+        include: videoInclude,
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Updated",
+        targetTable: "tbl_content_video",
+        targetId: videoId,
+        oldValue: videoAuditSnapshot(existing),
+        newValue: videoAuditSnapshot(updated),
+      });
+      return updated;
     });
     return success(res, videoDto(video), "Video updated successfully.");
   } catch (error) {
@@ -496,11 +601,25 @@ export const deleteVideo = async (req, res, next) => {
   try {
     const videoId = positiveInteger(req.params.videoId);
     if (!videoId) return badRequest(res, "Invalid video ID.");
-    const result = await prisma.contentVideo.updateMany({
+    const existing = await prisma.contentVideo.findFirst({
       where: { videoId, isDeleted: false },
-      data: { isDeleted: true },
+      include: videoInclude,
     });
-    if (!result.count) return notFound(res, "Video not found.");
+    if (!existing) return notFound(res, "Video not found.");
+    await prisma.$transaction(async (tx) => {
+      await tx.contentVideo.update({
+        where: { videoId },
+        data: { isDeleted: true },
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Deleted",
+        targetTable: "tbl_content_video",
+        targetId: videoId,
+        oldValue: videoAuditSnapshot(existing),
+        newValue: { ...videoAuditSnapshot(existing), isDeleted: true },
+      });
+    });
     return success(res, null, "Video deleted successfully.");
   } catch (error) {
     return next(error);
