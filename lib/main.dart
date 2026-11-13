@@ -10,6 +10,7 @@ import 'core/network/realtime_provider.dart';
 import 'features/auth/services/auth_service.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/appointments/data/appointment_service.dart';
+import 'features/pet_care/data/pet_care_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,7 @@ void main() {
           create: (_) => AuthProvider(authService)..bootstrap(),
         ),
         Provider(create: (_) => AppointmentService(apiClient)),
+        Provider(create: (_) => PetCareService(apiClient)),
         ChangeNotifierProvider(create: (_) => RealtimeProvider(storage)),
       ],
       child: const RaphaCareApp(),

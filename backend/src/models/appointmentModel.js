@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma.js";
+import { createAuditLog } from "../services/auditLogService.js";
 
 export const findBookedTimeslotIds = async ({ scheduledDate, vetId }) =>
   prisma.appointment.findMany({
@@ -6,7 +7,7 @@ export const findBookedTimeslotIds = async ({ scheduledDate, vetId }) =>
       scheduledDate,
       isDeleted: false,
       status: {
-        notIn: ["Cancelled", "Rejected", "Completed", "Missed", "Past"],
+        notIn: ["Cancelled", "Rejected", "Completed", "Missed"],
       },
       ...(vetId === undefined ? {} : { vetId }),
     },
@@ -35,7 +36,7 @@ export const expirePastAppointments = () =>
       scheduledDate: { lt: getTodayManilaDate() },
       status: { in: ["Pending", "Upcoming"] },
     },
-    data: { status: "Past" },
+    data: { status: "Missed" },
   });
 
 export const findOwnerAppointments = async (accountId) => {
@@ -91,16 +92,34 @@ export const createPendingAppointment = ({
   vetId,
   scheduledDate,
   timeslotId,
+  accountId,
 }) =>
-  prisma.appointment.create({
-    data: {
-      petId,
-      serviceId,
-      vetId,
-      scheduledDate,
-      timeslotId,
-      status: "Pending",
-    },
+  prisma.$transaction(async (tx) => {
+    const appointment = await tx.appointment.create({
+      data: {
+        petId,
+        serviceId,
+        vetId,
+        scheduledDate,
+        timeslotId,
+        status: "Pending",
+      },
+    });
+    await createAuditLog(tx, {
+      accountId,
+      action: "Created",
+      targetTable: "tbl_appointment",
+      targetId: appointment.appointmentId,
+      newValue: {
+        petId: appointment.petId,
+        serviceId: appointment.serviceId,
+        vetId: appointment.vetId,
+        scheduledDate: appointment.scheduledDate,
+        timeslotId: appointment.timeslotId,
+        status: appointment.status,
+      },
+    });
+    return appointment;
   });
 
 export const updateAppointmentSchedule = ({
@@ -108,14 +127,37 @@ export const updateAppointmentSchedule = ({
   scheduledDate,
   timeslotId,
   vetId,
+  accountId,
 }) =>
-  prisma.appointment.update({
-    where: { appointmentId },
-    data: {
-      scheduledDate,
-      timeslotId,
-      ...(vetId === undefined ? {} : { vetId }),
-    },
+  prisma.$transaction(async (tx) => {
+    const current = await tx.appointment.findUniqueOrThrow({
+      where: { appointmentId },
+    });
+    const updated = await tx.appointment.update({
+      where: { appointmentId },
+      data: {
+        scheduledDate,
+        timeslotId,
+        ...(vetId === undefined ? {} : { vetId }),
+      },
+    });
+    await createAuditLog(tx, {
+      accountId,
+      action: "Updated",
+      targetTable: "tbl_appointment",
+      targetId: appointmentId,
+      oldValue: {
+        scheduledDate: current.scheduledDate,
+        timeslotId: current.timeslotId,
+        vetId: current.vetId,
+      },
+      newValue: {
+        scheduledDate: updated.scheduledDate,
+        timeslotId: updated.timeslotId,
+        vetId: updated.vetId,
+      },
+    });
+    return updated;
   });
 
 export const getPendingAppointmentsCount = async () =>

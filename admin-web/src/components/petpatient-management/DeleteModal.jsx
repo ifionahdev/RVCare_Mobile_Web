@@ -1,7 +1,7 @@
 import { useState } from "react";
 import api from "../../api/axios";
 
-const DeleteModal = ({ isOpen, onClose, onDelete, itemType, deleteTarget, refreshData }) => {
+const DeleteModal = ({ isOpen, onClose, onDelete, onError, itemType, deleteTarget, refreshData }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSoftDelete = async () => {
@@ -48,7 +48,7 @@ const DeleteModal = ({ isOpen, onClose, onDelete, itemType, deleteTarget, refres
       
     } catch (error) {
       console.error(`Error soft deleting ${itemType}:`, error);
-      alert(`Failed to delete ${itemType}. Please try again.`);
+      onError?.(error.response?.data?.message || `Failed to delete ${itemType}. Please try again.`);
     } finally {
       setIsLoading(false);
       onClose();

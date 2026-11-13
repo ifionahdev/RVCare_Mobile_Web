@@ -1,19 +1,17 @@
 import { useState, useEffect, useRef } from "react"; 
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, Users, Calendar, Brain, FileBarChart, Settings, LogOut, Edit, MoreVertical, Lock, Eye, EyeOff, Check, Circle } from "lucide-react";
+import { Home, Users, Calendar, ClipboardList, FileBarChart, Settings, LogOut, Edit, MoreVertical, Lock, Eye, EyeOff, Check, Circle, ScrollText } from "lucide-react";
 import api from "../../api/axios.js";
 import { useAuth } from "../../context/authContext.jsx";
 
 const Sidebar = () => {
   const location = useLocation(); 
   const navigate = useNavigate(); 
-  const { logout } = useAuth();
+  const { logout, user, loading: authLoading } = useAuth();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [userName, setUserName] = useState("Admin");
-  const [loading, setLoading] = useState(true);
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
@@ -27,14 +25,17 @@ const Sidebar = () => {
   const [changePasswordLoading, setChangePasswordLoading] = useState(false);
   const [changePasswordMessage, setChangePasswordMessage] = useState({ message: "", type: "" });
   const userMenuRef = useRef(null);
+  const userName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Admin";
 
   const menuItems = [
     { name: "Dashboard", icon: <Home size={18} />, path: "/admin/dashboard" },
     { name: "Customer & Pet Management", icon: <Users size={18} />, path: "/admin/pet-management" },
-    { name: "Appointments & Visits", icon: <Calendar size={18} />, path: "/admin/appointments" },
+    { name: "Appointments & Vet Schedules", icon: <Calendar size={18} />, path: "/admin/appointments" },
+    { name: "Records Management", icon: <ClipboardList size={18} />, path: "/admin/records" },
     { name: "Content Management", icon: <Edit size={18} />, path: "/admin/content-manager" },
     { name: "Reports", icon: <FileBarChart size={18} />, path: "/admin/reports" },
     { name: "User Management", icon: <Settings size={18} />, path: "/admin/settings" },
+    { name: "Audit Log", icon: <ScrollText size={18} />, path: "/admin/audit-log" },
   ];
 
   // Password validation
@@ -57,22 +58,6 @@ const Sidebar = () => {
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    const fetchAdminName = async () => {
-      try {
-        const response = await api.get('/admin/dashboard/stats');
-        setUserName(response.data.adminName || "Admin");
-      } catch (err) {
-        console.error("❌ Failed to fetch admin name:", err);
-        setUserName("Admin");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAdminName();
   }, []);
 
   const handleLogout = async () => {
@@ -220,7 +205,7 @@ const Sidebar = () => {
             </div>
             <div>
               <p className="text-gray-800 font-medium text-sm">
-                {loading ? "Loading..." : userName}
+                {authLoading ? "Loading..." : userName}
               </p>
               <p className="text-gray-500 text-xs">Administrator</p>
             </div>

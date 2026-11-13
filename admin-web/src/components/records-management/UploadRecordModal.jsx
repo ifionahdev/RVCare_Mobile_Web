@@ -1,4 +1,4 @@
-// components/petpatient-management/UploadRecordModal.jsx
+// components/records-management/UploadRecordModal.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, FileUp, Edit3 } from 'lucide-react';

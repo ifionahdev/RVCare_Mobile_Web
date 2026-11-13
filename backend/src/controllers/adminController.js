@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../config/prisma.js";
 import { findActiveCustomersWithPets } from "../models/customerModel.js";
 import { sendOwnerCredentials } from "../services/emailService.js";
+import { createAuditLog } from "../services/auditLogService.js";
 
 const normalizePhone = (phone) => {
   const digits = String(phone ?? "").replace(/\D/g, "");
@@ -165,7 +166,7 @@ export const addOwner = async (req, res, next) => {
         });
       }
 
-      await tx.pet.create({
+      const pet = await tx.pet.create({
         data: {
           ownerId: owner.ownerId,
           petName: initialPet.name,
@@ -175,6 +176,44 @@ export const addOwner = async (req, res, next) => {
           weightKg: initialPet.weight ? Number(initialPet.weight) : null,
           color: String(initialPet.color ?? "").trim() || null,
           note: String(initialPet.notes ?? "").trim() || null,
+        },
+      });
+
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Created",
+        targetTable: "tbl_account",
+        targetId: account.accountId,
+        newValue: {
+          firstName: account.firstName,
+          lastName: account.lastName,
+          email: account.email,
+          role: "customer",
+        },
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Created",
+        targetTable: "tbl_pet_owner",
+        targetId: owner.ownerId,
+        newValue: {
+          address: owner.address,
+          contactNumber: owner.contactNumber,
+        },
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Created",
+        targetTable: "tbl_pet",
+        targetId: pet.petId,
+        newValue: {
+          petName: pet.petName,
+          breedId: pet.breedId,
+          gender: pet.gender,
+          dateOfBirth: pet.dateOfBirth,
+          weightKg: pet.weightKg,
+          color: pet.color,
+          note: pet.note,
         },
       });
 
@@ -202,6 +241,12 @@ export const updateOwner = async (req, res, next) => {
     const { firstName, lastName, email, phone, address, sex, dob } = req.body;
 
     await prisma.$transaction(async (tx) => {
+      const currentAccount = await tx.account.findUniqueOrThrow({
+        where: { accountId },
+      });
+      const currentOwner = await tx.petOwner.findUniqueOrThrow({
+        where: { accountId },
+      });
       const account = await tx.account.update({
         where: { accountId },
         data: {
@@ -212,11 +257,45 @@ export const updateOwner = async (req, res, next) => {
           dateOfBirth: parseDate(dob),
         },
       });
-      await tx.petOwner.update({
+      const owner = await tx.petOwner.update({
         where: { accountId: account.accountId },
         data: {
           address: String(address ?? "").trim() || null,
           contactNumber: normalizePhone(phone),
+        },
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Updated",
+        targetTable: "tbl_account",
+        targetId: accountId,
+        oldValue: {
+          firstName: currentAccount.firstName,
+          lastName: currentAccount.lastName,
+          email: currentAccount.email,
+          gender: currentAccount.gender,
+          dateOfBirth: currentAccount.dateOfBirth,
+        },
+        newValue: {
+          firstName: account.firstName,
+          lastName: account.lastName,
+          email: account.email,
+          gender: account.gender,
+          dateOfBirth: account.dateOfBirth,
+        },
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Updated",
+        targetTable: "tbl_pet_owner",
+        targetId: owner.ownerId,
+        oldValue: {
+          address: currentOwner.address,
+          contactNumber: currentOwner.contactNumber,
+        },
+        newValue: {
+          address: owner.address,
+          contactNumber: owner.contactNumber,
         },
       });
     });
@@ -259,7 +338,7 @@ export const addPet = async (req, res, next) => {
       if (!selectedOwner) {
         throw new Error("Selected pet owner was not found.");
       }
-      return tx.pet.create({
+      const pet = await tx.pet.create({
         data: {
           ownerId: selectedOwner.ownerId,
           petName: String(name).trim(),
@@ -271,6 +350,23 @@ export const addPet = async (req, res, next) => {
           note: String(notes ?? "").trim() || null,
         },
       });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Created",
+        targetTable: "tbl_pet",
+        targetId: pet.petId,
+        newValue: {
+          petName: pet.petName,
+          ownerId: pet.ownerId,
+          breedId: pet.breedId,
+          gender: pet.gender,
+          dateOfBirth: pet.dateOfBirth,
+          weightKg: pet.weightKg,
+          color: pet.color,
+          note: pet.note,
+        },
+      });
+      return pet;
     });
 
     return res.status(201).json({ petId: pet.petId });
@@ -285,6 +381,10 @@ export const updatePet = async (req, res, next) => {
     const { ownerId, name, type, breed, sex, dob, weight, color, notes } = req.body;
 
     const pet = await prisma.$transaction(async (tx) => {
+      const existing = await tx.pet.findUniqueOrThrow({
+        where: { petId },
+        include: { breed: true },
+      });
       const breedRecord = await findBreed(tx, type, breed);
       let selectedOwnerId;
       if (ownerId) {
@@ -299,7 +399,7 @@ export const updatePet = async (req, res, next) => {
         }
         selectedOwnerId = selectedOwner.ownerId;
       }
-      return tx.pet.update({
+      const updated = await tx.pet.update({
         where: { petId },
         data: {
           ownerId: selectedOwnerId,
@@ -312,6 +412,31 @@ export const updatePet = async (req, res, next) => {
           note: String(notes ?? "").trim() || null,
         },
       });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Updated",
+        targetTable: "tbl_pet",
+        targetId: petId,
+        oldValue: {
+          petName: existing.petName,
+          breed: existing.breed.breedName,
+          gender: existing.gender,
+          dateOfBirth: existing.dateOfBirth,
+          weightKg: existing.weightKg,
+          color: existing.color,
+          note: existing.note,
+        },
+        newValue: {
+          petName: updated.petName,
+          breed: breedRecord.breedName,
+          gender: updated.gender,
+          dateOfBirth: updated.dateOfBirth,
+          weightKg: updated.weightKg,
+          color: updated.color,
+          note: updated.note,
+        },
+      });
+      return updated;
     });
 
     return res.json({ petId: pet.petId });
@@ -323,16 +448,52 @@ export const updatePet = async (req, res, next) => {
 export const softDeleteOwner = async (req, res, next) => {
   try {
     const accountId = Number(req.params.accountId);
-    await prisma.$transaction([
-      prisma.account.update({
+    await prisma.$transaction(async (tx) => {
+      const account = await tx.account.findUniqueOrThrow({ where: { accountId } });
+      const owner = await tx.petOwner.findUniqueOrThrow({ where: { accountId } });
+      await tx.account.update({
         where: { accountId },
         data: { isDeleted: true },
-      }),
-      prisma.petOwner.updateMany({
+      });
+      await tx.petOwner.updateMany({
         where: { accountId },
         data: { isDeleted: true },
-      }),
-    ]);
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Deleted",
+        targetTable: "tbl_account",
+        targetId: accountId,
+        oldValue: {
+          firstName: account.firstName,
+          lastName: account.lastName,
+          email: account.email,
+          isDeleted: false,
+        },
+        newValue: {
+          firstName: account.firstName,
+          lastName: account.lastName,
+          email: account.email,
+          isDeleted: true,
+        },
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Deleted",
+        targetTable: "tbl_pet_owner",
+        targetId: owner.ownerId,
+        oldValue: {
+          address: owner.address,
+          contactNumber: owner.contactNumber,
+          isDeleted: false,
+        },
+        newValue: {
+          address: owner.address,
+          contactNumber: owner.contactNumber,
+          isDeleted: true,
+        },
+      });
+    });
     return res.json({ message: "Owner deleted successfully." });
   } catch (error) {
     return next(error);
@@ -341,9 +502,42 @@ export const softDeleteOwner = async (req, res, next) => {
 
 export const softDeletePet = async (req, res, next) => {
   try {
-    await prisma.pet.update({
-      where: { petId: Number(req.params.petId) },
-      data: { isDeleted: true },
+    const petId = Number(req.params.petId);
+    await prisma.$transaction(async (tx) => {
+      const pet = await tx.pet.findUniqueOrThrow({
+        where: { petId },
+        include: { breed: true },
+      });
+      await tx.pet.update({
+        where: { petId },
+        data: { isDeleted: true },
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Deleted",
+        targetTable: "tbl_pet",
+        targetId: petId,
+        oldValue: {
+          petName: pet.petName,
+          breed: pet.breed.breedName,
+          gender: pet.gender,
+          dateOfBirth: pet.dateOfBirth,
+          weightKg: pet.weightKg,
+          color: pet.color,
+          note: pet.note,
+          isDeleted: false,
+        },
+        newValue: {
+          petName: pet.petName,
+          breed: pet.breed.breedName,
+          gender: pet.gender,
+          dateOfBirth: pet.dateOfBirth,
+          weightKg: pet.weightKg,
+          color: pet.color,
+          note: pet.note,
+          isDeleted: true,
+        },
+      });
     });
     return res.json({ message: "Pet deleted successfully." });
   } catch (error) {
@@ -568,8 +762,25 @@ export const assignAppointment = async (req, res, next) => {
     if (await prisma.appointment.findFirst({ where: { scheduledDate, timeslotId: timeslot.timeslotId, isDeleted: false } })) {
       return res.status(409).json({ message: "That time slot is already booked." });
     }
-    const appointment = await prisma.appointment.create({
-      data: { petId, serviceId, timeslotId: timeslot.timeslotId, scheduledDate, vetId: veterinarian.vetId },
+    const appointment = await prisma.$transaction(async (tx) => {
+      const created = await tx.appointment.create({
+        data: { petId, serviceId, timeslotId: timeslot.timeslotId, scheduledDate, vetId: veterinarian.vetId },
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Created",
+        targetTable: "tbl_appointment",
+        targetId: created.appointmentId,
+        newValue: {
+          petId: created.petId,
+          serviceId: created.serviceId,
+          vetId: created.vetId,
+          scheduledDate: created.scheduledDate,
+          timeslotId: created.timeslotId,
+          status: created.status,
+        },
+      });
+      return created;
     });
     return res.status(201).json({ appointmentId: appointment.appointmentId });
   } catch (error) {
@@ -598,9 +809,26 @@ export const makeVisit = async (req, res, next) => {
       if (linked && !linked.isDeleted) return res.status(409).json({ message: "A visit already exists for this appointment." });
     }
     const now = new Date();
-    const visit = await prisma.visit.create({
-      data: { appointmentId, petId, serviceId: service.serviceId, vetId: veterinarian.vetId,
-        visitDate: now, visitTime: now },
+    const visit = await prisma.$transaction(async (tx) => {
+      const created = await tx.visit.create({
+        data: { appointmentId, petId, serviceId: service.serviceId, vetId: veterinarian.vetId,
+          visitDate: now, visitTime: now },
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Created",
+        targetTable: "tbl_visit",
+        targetId: created.visitId,
+        newValue: {
+          appointmentId: created.appointmentId,
+          petId: created.petId,
+          serviceId: created.serviceId,
+          vetId: created.vetId,
+          visitDate: created.visitDate,
+          status: created.status,
+        },
+      });
+      return created;
     });
     return res.status(201).json({ visitId: visit.visitId });
   } catch (error) {
@@ -614,9 +842,27 @@ export const updateAppointmentStatuses = async (req, res, next) => {
     if (!Array.isArray(ids) || ids.length === 0 || !req.body.status) {
       return res.status(400).json({ message: "Appointment IDs and status are required." });
     }
-    const result = await prisma.appointment.updateMany({
-      where: { appointmentId: { in: ids.map(Number).filter(Boolean) }, isDeleted: false },
-      data: { status: req.body.status },
+    const appointmentIds = ids.map(Number).filter(Boolean);
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.appointment.findMany({
+        where: { appointmentId: { in: appointmentIds }, isDeleted: false },
+        select: { appointmentId: true, status: true },
+      });
+      const updated = await tx.appointment.updateMany({
+        where: { appointmentId: { in: appointmentIds }, isDeleted: false },
+        data: { status: req.body.status },
+      });
+      await Promise.all(existing.map((appointment) =>
+        createAuditLog(tx, {
+          accountId: req.user.accountId,
+          action: "Updated",
+          targetTable: "tbl_appointment",
+          targetId: appointment.appointmentId,
+          oldValue: { status: appointment.status },
+          newValue: { status: req.body.status },
+        }),
+      ));
+      return updated;
     });
     return res.json({ updatedCount: result.count });
   } catch (error) {
@@ -628,10 +874,51 @@ export const softDeleteAppointments = async (req, res, next) => {
   try {
     const ids = (req.body.idsToDelete ?? []).map(Number).filter(Boolean);
     if (ids.length === 0) return res.status(400).json({ message: "IDs are required." });
-    const [appointments, visits] = await Promise.all([
-      prisma.appointment.updateMany({ where: { appointmentId: { in: ids } }, data: { isDeleted: true } }),
-      prisma.visit.updateMany({ where: { visitId: { in: ids } }, data: { isDeleted: true } }),
-    ]);
+    const [appointments, visits] = await prisma.$transaction(async (tx) => {
+      const [oldAppointments, oldVisits] = await Promise.all([
+        tx.appointment.findMany({
+          where: { appointmentId: { in: ids }, isDeleted: false },
+          select: { appointmentId: true, status: true },
+        }),
+        tx.visit.findMany({
+          where: { visitId: { in: ids }, isDeleted: false },
+          select: { visitId: true, status: true },
+        }),
+      ]);
+      const [updatedAppointments, updatedVisits] = await Promise.all([
+        tx.appointment.updateMany({
+          where: { appointmentId: { in: ids } },
+          data: { isDeleted: true },
+        }),
+        tx.visit.updateMany({
+          where: { visitId: { in: ids } },
+          data: { isDeleted: true },
+        }),
+      ]);
+      await Promise.all([
+        ...oldAppointments.map((appointment) =>
+          createAuditLog(tx, {
+            accountId: req.user.accountId,
+            action: "Deleted",
+            targetTable: "tbl_appointment",
+            targetId: appointment.appointmentId,
+            oldValue: { status: appointment.status, isDeleted: false },
+            newValue: { status: appointment.status, isDeleted: true },
+          }),
+        ),
+        ...oldVisits.map((visit) =>
+          createAuditLog(tx, {
+            accountId: req.user.accountId,
+            action: "Deleted",
+            targetTable: "tbl_visit",
+            targetId: visit.visitId,
+            oldValue: { status: visit.status, isDeleted: false },
+            newValue: { status: visit.status, isDeleted: true },
+          }),
+        ),
+      ]);
+      return [updatedAppointments, updatedVisits];
+    });
     return res.json({ deletedAppointmentCount: appointments.count, deletedVisitCount: visits.count });
   } catch (error) {
     return next(error);

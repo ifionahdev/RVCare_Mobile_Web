@@ -14,6 +14,8 @@ import ResetPassword from "./pages/auth/ResetPassword.jsx";
 import AdminLayout from "./components/AdminLayout.jsx";
 import AdminDashboard from "./pages/Dashboard.jsx";
 import PetPatientManagement from "./pages/PetPatientManagement.jsx";
+import RecordsManagement from "./pages/RecordsManagement.jsx";
+import AuditLog from "./pages/AuditLog.jsx";
 import AppointmentsVisits from "./pages/AppointmentsVisits.jsx";
 import AddAppointment from "./pages/AddAppointment.jsx";
 import AddVisit from "./pages/AddVisit.jsx";
@@ -53,6 +55,8 @@ createRoot(document.getElementById("root")).render(
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="pet-management" element={<PetPatientManagement />} />
+            <Route path="records" element={<RecordsManagement />} />
+            <Route path="audit-log" element={<AuditLog />} />
             <Route path="appointments" element={<AppointmentsVisits />} />
             <Route path="appointments/add" element={<AddAppointment />} />
             <Route path="visits/add" element={<AddVisit />} />

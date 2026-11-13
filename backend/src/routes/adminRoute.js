@@ -22,10 +22,16 @@ import {
 import { getReports, exportReportsPdf } from "../controllers/reportsController.js";
 import { authenticate } from "../middleware/auth.js";
 import { requireRole } from "../middleware/role.js";
+import vetScheduleRoutes from "./vetScheduleRoute.js";
+import accountManagementRoutes from "./accountManagementRoute.js";
+import auditLogRoutes from "./auditLogRoute.js";
 
 const router = Router();
 
 router.use(authenticate, requireRole("admin"));
+router.use("/vet-schedules", vetScheduleRoutes);
+router.use("/settings", accountManagementRoutes);
+router.use("/audit-logs", auditLogRoutes);
 router.get("/owners-with-pets", getOwnersWithPets);
 router.post("/add-owner", addOwner);
 router.put("/update-owner/:accountId", updateOwner);

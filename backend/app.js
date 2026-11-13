@@ -13,6 +13,7 @@ import appointmentRoutes from "./src/routes/appointmentRoutes.js";
 import customerRoutes from "./src/routes/customerRoute.js";
 import adminRoutes from "./src/routes/adminRoute.js";
 import contentRoutes from "./src/routes/contentRoute.js";
+import petCareRoutes from "./src/routes/petCareRoute.js";
 import {
   getAppointmentServices,
   getAppointmentTimes,
@@ -111,6 +112,7 @@ app.use("/api/customers", customerRoutes);
 
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin/content", contentRoutes);
+app.use("/api/pet-care", petCareRoutes);
 
 app.get("/api/appointment/services", authenticate, getAppointmentServices);
 app.get("/api/appointment/time", authenticate, getAppointmentTimes);

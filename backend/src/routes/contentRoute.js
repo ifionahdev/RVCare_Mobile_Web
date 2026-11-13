@@ -14,6 +14,7 @@ router.get("/pet-care-tips", content.getPetCareTips);
 router.post("/pet-care-tips/createPetCare", content.createPetCareTip);
 router.put("/pet-care-tips/updatePetCare/:tipId", content.updatePetCareTip);
 router.delete("/pet-care-tips/deletePetCare/:tipId", content.deletePetCareTip);
+router.post("/videos/metadata", content.getVideoMetadata);
 router.get("/videos/videos/", content.getVideos);
 router.post("/videos/create", content.createVideo);
 router.put("/videos/update/:videoId", content.updateVideo);

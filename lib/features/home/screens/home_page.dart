@@ -8,6 +8,8 @@ import '../../appointments/data/appointment_service.dart';
 import '../../pets/screens/manage_pet_profile_screen.dart';
 import '../../pets/screens/my_pets_screen.dart';
 import '../../appointments/screens/appointment_details_screen.dart';
+import '../../settings/screens/settings_screen.dart';
+import '../../notifications/screens/notifications_screen.dart';
 import '../../../core/network/realtime_provider.dart';
 
 class HomePage extends StatefulWidget {
@@ -172,6 +174,8 @@ class _HomePageState extends State<HomePage> {
         ? 'Good afternoon'
         : 'Good evening';
 
+    final displayName = userName.isEmpty ? 'Sarah' : userName;
+
     return SafeArea(
       top: true,
       child: SingleChildScrollView(
@@ -179,41 +183,61 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              greeting,
-              style: const TextStyle(fontSize: 12, color: AppTheme.muted),
-            ),
             const SizedBox(height: 2),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text(
-                    'Hello${userName.isEmpty ? '' : ', $userName'}',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      height: 1.15,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.heading,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        greeting,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.muted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Hello, $displayName',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          height: 1.15,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.heading,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Container(
-                  width: 48,
-                  height: 48,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE7EAEC),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFD9DDE0)),
-                  ),
-                  child: Text(
-                    _userInitials(userName),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: _teal,
+                Row(
+                  children: [
+                    _HeaderActionButton(
+                      icon: Icons.settings_outlined,
+                      onPressed: () {
+                        Navigator.push<void>(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SettingsScreen(),
+                          ),
+                        );
+                      },
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    _HeaderActionButton(
+                      icon: Icons.notifications_none_outlined,
+                      onPressed: () {
+                        Navigator.push<void>(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const NotificationsScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -330,15 +354,6 @@ class _HomePageState extends State<HomePage> {
         '';
   }
 
-  String _userInitials(String name) {
-    final parts = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((part) => part.isNotEmpty);
-    if (parts.isEmpty) return 'U';
-    return parts.take(2).map((part) => part[0].toUpperCase()).join();
-  }
-
   String _monthName(int month) {
     const months = [
       'January', 'February', 'March', 'April', 'May', 'June',
@@ -389,6 +404,34 @@ class _HomePageState extends State<HomePage> {
           status: status,
           reference: 'APT-${appointment['appointmentId']}',
           appointmentId: appointment['appointmentId'] as int,
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderActionButton extends StatelessWidget {
+  const _HeaderActionButton({required this.icon, required this.onPressed});
+
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFF6F8F9),
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onPressed,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFCDD7DC), width: 1.5),
+          ),
+          child: Icon(icon, color: const Color(0xFF0E6978), size: 21),
         ),
       ),
     );

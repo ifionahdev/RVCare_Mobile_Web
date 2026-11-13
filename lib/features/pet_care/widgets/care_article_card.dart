@@ -57,7 +57,9 @@ class CareArticleCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 7),
                   Text(
-                    '${article.category.label} · ${article.readTime}',
+                    article.readTime.isEmpty
+                        ? article.displayCategory
+                        : '${article.displayCategory} · ${article.readTime}',
                     style: const TextStyle(fontSize: 13, color: AppTheme.muted),
                   ),
                 ],
@@ -75,3 +77,5 @@ class CareArticleCard extends StatelessWidget {
     );
   }
 }
+
+//care_article_card.dart
