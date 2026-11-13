@@ -75,3 +75,5 @@ class CareArticleCard extends StatelessWidget {
     );
   }
 }
+
+//care_article_card.dart

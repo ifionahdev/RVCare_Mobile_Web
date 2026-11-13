@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../features/appointments/screens/my_appointments_screen.dart';
 import '../../features/home/screens/home_page.dart';
 import '../../features/pet_care/screens/pet_care_screen.dart';
-import '../../features/records/screens/medical_records_screen.dart';
+import '../../features/records/screens/records_screen.dart';
 import '../../core/network/realtime_provider.dart';
 import 'app_bottom_navigation.dart';
 
@@ -50,7 +50,7 @@ class _AppShellState extends State<AppShell> {
         children: [
           HomePage(onNavigate: _selectTab),
           const MyAppointmentsScreen(showBottomNavigation: false),
-          const MedicalRecordsScreen(),
+          const RecordsScreen(),
           const PetCareScreen(),
         ],
       ),
