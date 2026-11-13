@@ -21,16 +21,16 @@ model Account {
   lastName       String     @map("last_name") @db.VarChar(100)
   dateRegistered DateTime   @default(now()) @map("date_registered") @db.DateTime(0)
 
-  role           Role                @relation(fields: [roleId], references: [roleId], onUpdate: Restrict, map: "tbl_account_tbl_role_FK")
-  admin          Admin?
-  veterinarian   Veterinarian?
-  petOwner       PetOwner?
-  uploadedTips   PetCareTip[]
-  uploadedVideos ContentVideo[]
-  uploadedFiles  MedicalRecordFile[]
-  passwordResets PasswordReset[]
-  activityLogs   ActivityLog[]
-  auditLogs      AuditLog[]
+  role               Role            @relation(fields: [roleId], references: [roleId], onUpdate: Restrict, map: "tbl_account_tbl_role_FK")
+  admin              Admin?
+  veterinarian       Veterinarian?
+  petOwner           PetOwner?
+  uploadedTips       PetCareTip[]
+  uploadedVideos     ContentVideo[]
+  uploadedAttachment Attachment[]
+  passwordResets     PasswordReset[]
+  activityLogs       ActivityLog[]
+  auditLogs          AuditLog[]
 
   @@index([roleId], map: "tbl_account_tbl_role_FK")
   @@map("tbl_account")
@@ -90,32 +90,103 @@ model AuditLog {
   accountId   Int?           @map("account_id")
   targetTable String         @map("target_table") @db.VarChar(100)
   targetId    Int            @map("target_id")
-  oldValue    String?        @map("old_value") @db.LongText
-  newValue    String?        @map("new_value") @db.LongText
+  oldValue    Json?          @map("old_value")
+  newValue    Json?          @map("new_value")
+  hash        String         @db.Char(64)
   createdAt   DateTime       @default(now()) @map("created_at") @db.DateTime(0)
 
   account Account? @relation(fields: [accountId], references: [accountId], onUpdate: Restrict, map: "tbl_audit_log_tbl_account_FK")
 
+  @@index([accountId], map: "tbl_audit_log_tbl_account_FK")
+  @@index([targetTable, targetId], map: "tbl_audit_log_index_target")
+  @@index([createdAt], map: "tbl_audit_log_index_created_at")
+  @@index([action], map: "tbl_audit_log_index_action")
   @@map("tbl_audit_log")
 }
 
-model MedicalRecord {
-  recordId     Int @id @default(autoincrement()) @map("record_id")
-  visitId      Int @map("visit_id")
-  recordTypeId Int @map("record_type_id")
+model MedicalHistory {
+  historyId     Int      @id @default(autoincrement()) @map("record_id")
+  visitId       Int      @map("visit_id")
+  weightKg      Decimal? @map("weight_kg") @db.Decimal(5, 2)
+  temperature   Decimal? @map("temperature") @db.Decimal(4, 1)
+  heartRate     Int?     @map("heart_rate")
+  findings      Json?    @map("findings")
+  assessment    Json?    @map("assessment")
+  treatmentPlan Json?    @map("treatment_plan")
+  instructions  Json?    @map("instructions")
 
-  recordType MedicalRecordType   @relation(fields: [recordTypeId], references: [recordTypeId], onUpdate: Restrict, map: "tbl_medical_record_tbl_medical_record_type_FK")
-  visit      Visit               @relation(fields: [visitId], references: [visitId], onUpdate: Restrict, map: "tbl_medical_record_tbl_visit_FK")
-  files      MedicalRecordFile[]
+  visit       Visit        @relation(fields: [visitId], references: [visitId], onUpdate: Restrict, map: "tbl_medical_record_tbl_visit_FK")
+  attachments Attachment[]
 
-  @@index([recordTypeId], map: "tbl_medical_record_tbl_medical_record_type_FK")
   @@index([visitId], map: "tbl_medical_record_tbl_visit_FK")
-  @@map("tbl_medical_record")
+  @@map("tbl_medical_history")
 }
 
-model MedicalRecordFile {
-  recordFileId      Int      @id @default(autoincrement()) @map("record_file_id")
-  recordId          Int      @map("record_id")
+model LabResult {
+  labResultId    Int      @id @default(autoincrement()) @map("lab_result_id")
+  visitId        Int      @map("visit_id")
+  testTypeId     Int      @map("test_type_id")
+  interpretation String?  @db.VarChar(255)
+  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
+
+  testType        LabTestType      @relation(fields: [testTypeId], references: [testTypeId], onUpdate: Restrict, map: "tbl_lab_result_tbl_lab_test_type_FK")
+  visit           Visit            @relation(fields: [visitId], references: [visitId], onUpdate: Restrict, map: "tbl_lab_result_tbl_visit_FK")
+  attachments     Attachment[]
+  labResultValues LabResultValue[]
+
+  @@index([visitId], map: "tbl_lab_result_tbl_visit_FK")
+  @@map("tbl_lab_result")
+}
+
+model LabTestType {
+  testTypeId Int     @id @default(autoincrement()) @map("test_type_id")
+  code       String  @unique(map: "tbl_lab_test_type_code") @map("test_code") @db.VarChar(20)
+  name       String  @map("test_name") @db.VarChar(100)
+  isActive   Boolean @default(true) @map("is_active")
+  isDeleted  Boolean @default(false) @map("is_deleted")
+
+  parameters LabTestParameter[]
+  labResults LabResult[]
+
+  @@map("tbl_lab_test_type")
+}
+
+model LabTestParameter {
+  parameterId  Int     @id @default(autoincrement()) @map("parameter_id")
+  testTypeId   Int     @map("test_type_id")
+  name         String  @map("parameter_name") @db.VarChar(100)
+  unit         String? @db.VarChar(20)
+  refRangeText String? @map("ref_range_text") @db.VarChar(100)
+  displayOrder Int?    @map("display_order")
+  isDeleted    Boolean @default(false) @map("is_deleted")
+
+  testType        LabTestType      @relation(fields: [testTypeId], references: [testTypeId], onUpdate: Restrict, map: "tbl_lab_test_parameter_tbl_lab_test_type_FK")
+  labResultValues LabResultValue[]
+
+  @@index([testTypeId], map: "tbl_lab_test_parameter_tbl_lab_test_type_FK")
+  @@map("tbl_lab_test_parameter")
+}
+
+model LabResultValue {
+  valueId     Int      @id @default(autoincrement()) @map("value_id")
+  labResultId Int      @map("lab_result_id")
+  parameterId Int      @map("parameter_id")
+  value       Decimal? @db.Decimal(10, 2)
+  textValue   String?  @map("text_value") @db.VarChar(100)
+  isDeleted   Boolean  @default(false) @map("is_deleted")
+
+  labResult LabResult        @relation(fields: [labResultId], references: [labResultId], onUpdate: Restrict, map: "tbl_lab_result_value_tbl_lab_result_FK")
+  parameter LabTestParameter @relation(fields: [parameterId], references: [parameterId], onUpdate: Restrict, map: "tbl_lab_result_value_tbl_lab_test_parameter_FK")
+
+  @@index([labResultId], map: "tbl_lab_result_value_tbl_lab_result_FK")
+  @@index([parameterId], map: "tbl_lab_result_value_tbl_lab_test_parameter_FK")
+  @@map("tbl_lab_result_value")
+}
+
+model Attachment {
+  attachmentId      Int      @id @default(autoincrement()) @map("attachment_id")
+  medicalHistoryId  Int?     @map("medical_history_id")
+  labResultId       Int?     @map("lab_result_id")
   originalName      String   @map("original_name") @db.VarChar(255)
   storageKey        String   @map("storage_key") @db.VarChar(255)
   mimeType          String   @map("mime_type") @db.VarChar(100)
@@ -125,22 +196,14 @@ model MedicalRecordFile {
   uploadedAt        DateTime @default(now()) @map("uploaded_at") @db.DateTime(0)
   isDeleted         Boolean  @default(false) @map("is_deleted")
 
-  uploader Account       @relation(fields: [uploaderAccountId], references: [accountId], onUpdate: Restrict, map: "tbl_medical_record_file_tbl_account_FK")
-  record   MedicalRecord @relation(fields: [recordId], references: [recordId], onUpdate: Restrict, map: "tbl_medical_record_file_tbl_medical_record_FK")
+  labResult      LabResult?      @relation(fields: [labResultId], references: [labResultId], onUpdate: Restrict, map: "tbl_attachment_tbl_lab_result_FK")
+  medicalHistory MedicalHistory? @relation(fields: [medicalHistoryId], references: [historyId], onUpdate: Restrict, map: "tbl_attachment_tbl_medical_history_FK")
+  uploader       Account         @relation(fields: [uploaderAccountId], references: [accountId], onUpdate: Restrict, map: "tbl_attachment_tbl_account_FK")
 
-  @@index([uploaderAccountId], map: "tbl_medical_record_file_tbl_account_FK")
-  @@index([recordId], map: "tbl_medical_record_file_tbl_medical_record_FK")
-  @@map("tbl_medical_record_file")
-}
-
-model MedicalRecordType {
-  recordTypeId Int     @id @default(autoincrement()) @map("record_type_id")
-  recordType   String  @unique(map: "tbl_medical_record_type_unique") @map("record_type") @db.VarChar(100)
-  description  String? @db.VarChar(255)
-
-  records MedicalRecord[]
-
-  @@map("tbl_medical_record_type")
+  @@index([medicalHistoryId], map: "tbl_attachment_tbl_medical_history_FK")
+  @@index([labResultId], map: "tbl_attachment_tbl_lab_result_FK")
+  @@index([uploaderAccountId], map: "tbl_attachment_tbl_account_FK")
+  @@map("tbl_attachment")
 }
 
 model PasswordReset {
@@ -211,20 +274,20 @@ model PetOwner {
 }
 
 model PetCareTip {
-  tipId               Int                @id @default(autoincrement()) @map("tip_id")
+  tipId               Int            @id @default(autoincrement()) @map("tip_id")
   type                PetCareTipType
-  title               String             @db.VarChar(100)
-  imageUrl            String?            @map("image_url") @db.VarChar(255)
-  linkUrl             String             @map("link_url") @db.VarChar(255)
-  uploaderAccountId   Int                @map("uploader_account_id")
-  createdAt           DateTime           @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt           DateTime           @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
-  isDeleted           Boolean            @default(false) @map("is_deleted")
-  shortDescription    String?            @map("short_description") @db.VarChar(180)
-  detailedContent     String?            @map("detailed_content") @db.VarChar(500)
-  iconId              Int?               @map("icon_id")
-  publicationStatusId Int?               @map("publication_status_id")
-  contentCategoryId   Int?               @map("content_category_id")
+  title               String         @db.VarChar(100)
+  imageUrl            String?        @map("image_url") @db.VarChar(255)
+  linkUrl             String         @map("link_url") @db.VarChar(255)
+  uploaderAccountId   Int            @map("uploader_account_id")
+  createdAt           DateTime       @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt           DateTime       @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
+  isDeleted           Boolean        @default(false) @map("is_deleted")
+  shortDescription    String?        @map("short_description") @db.VarChar(180)
+  detailedContent     String?        @map("detailed_content") @db.VarChar(500)
+  iconId              Int?           @map("icon_id")
+  publicationStatusId Int?           @map("publication_status_id")
+  contentCategoryId   Int?           @map("content_category_id")
 
   uploader          Account            @relation(fields: [uploaderAccountId], references: [accountId], onUpdate: Restrict, map: "tbl_pet_care_tips_tbl_account_FK")
   icon              PetCareIcon?       @relation(fields: [iconId], references: [iconId], onUpdate: Restrict, onDelete: SetNull)
@@ -325,7 +388,7 @@ model Veterinarian {
   accountId Int     @unique @map("account_id")
   isDeleted Boolean @default(false) @map("is_deleted")
 
-  account      Account                         @relation(fields: [accountId], references: [accountId], onUpdate: Restrict, map: "tbl_veterinarian_tbl_account_FK")
+  account      Account                @relation(fields: [accountId], references: [accountId], onUpdate: Restrict, map: "tbl_veterinarian_tbl_account_FK")
   visits       Visit[]
   appointments Appointment[]
   schedules    VeterinarianSchedule[]
@@ -336,37 +399,39 @@ model Veterinarian {
 }
 
 model VeterinarianSchedule {
-  scheduleId Int     @id @default(autoincrement()) @map("schedule_id")
-  vetId      Int     @map("vet_id")
-  dayOfWeek  Int     @map("day_of_week")
+  scheduleId Int      @id @default(autoincrement()) @map("schedule_id")
+  vetId      Int      @map("vet_id")
+  dayOfWeek  Int      @map("day_of_week")
   startTime  String?  @map("start_time") @db.VarChar(5)
   endTime    String?  @map("end_time") @db.VarChar(5)
   note       String?  @db.VarChar(255)
-  isDeleted  Boolean @default(false) @map("is_deleted")
-  assignerId   Int?    @map("assigner_id")
-  assignedAt   DateTime @map("assigned_at") @default(now()) @db.DateTime(0)
+  isDeleted  Boolean  @default(false) @map("is_deleted")
+  assignerId Int?     @map("assigner_id")
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.DateTime(0)
 
-  veterinarian Veterinarian @relation(fields: [vetId], references: [vetId], onUpdate: Restrict, map: "tbl_veterinarian_schedule_tbl_veterinarian_FK")  
+  veterinarian Veterinarian @relation(fields: [vetId], references: [vetId], onUpdate: Restrict, map: "tbl_veterinarian_schedule_tbl_veterinarian_FK")
+
   @@index([vetId], map: "tbl_veterinarian_schedule_tbl_veterinarian_FK")
   @@map("tbl_veterinarian_schedule")
 }
 
 model VeterinarianTimeOff {
-  timeOffId   Int      @id @default(autoincrement()) @map("time_off_id")
-  vetId         Int      @map("vet_id")
-  date          DateTime @map("exception_date") @db.Date
-  startTime     String?   @map("start_time") @db.VarChar(5)
-  endTime       String?   @map("end_time") @db.VarChar(5)
-  status        TimeOffStatus @default(Pending)
-  reason      String?  @db.VarChar(255)
-  note        String?  @db.VarChar(255)
-  reviewerId    Int     @map("reviewer_id")
-  reviewedAt    DateTime @default(now())@map("reviewed_at") @db.DateTime(0)
-  createdAt     DateTime  @default(now()) @map("created_at") @db.DateTime(0)
-  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
-  isDeleted     Boolean  @default(false) @map("is_deleted")
+  timeOffId  Int           @id @default(autoincrement()) @map("time_off_id")
+  vetId      Int           @map("vet_id")
+  date       DateTime      @map("exception_date") @db.Date
+  startTime  String?       @map("start_time") @db.VarChar(5)
+  endTime    String?       @map("end_time") @db.VarChar(5)
+  status     TimeOffStatus @default(Pending)
+  reason     String?       @db.VarChar(255)
+  note       String?       @db.VarChar(255)
+  reviewerId Int           @map("reviewer_id")
+  reviewedAt DateTime      @default(now()) @map("reviewed_at") @db.DateTime(0)
+  createdAt  DateTime      @default(now()) @map("created_at") @db.DateTime(0)
+  updatedAt  DateTime      @default(now()) @updatedAt @map("updated_at") @db.DateTime(0)
+  isDeleted  Boolean       @default(false) @map("is_deleted")
 
   veterinarian Veterinarian @relation(fields: [vetId], references: [vetId], onUpdate: Restrict, map: "tbl_veterinarian_time_off_tbl_veterinarian_FK")
+
   @@index([vetId], map: "tbl_veterinarian_time_off_tbl_veterinarian_FK")
   @@map("tbl_veterinarian_time_off")
 }
@@ -377,16 +442,18 @@ model Visit {
   vetId         Int         @map("vet_id")
   petId         Int         @map("pet_id")
   serviceId     Int         @map("service_id")
-  visitDate     DateTime    @default(dbgenerated("(curdate())")) @map("visit_date") @db.Date
-  visitTime     DateTime    @default(dbgenerated("(curtime())")) @map("visit_time") @db.Time(0)
+  visitType     VisitType   @default(Walk_in) @map("visit_type")
+  visitDate     DateTime    @default(now()) @map("visit_date") @db.Date
+  visitTime     DateTime    @default(now()) @map("visit_time") @db.Time(0)
   status        VisitStatus @default(Checked_in)
   isDeleted     Boolean     @default(false) @map("is_deleted")
 
-  appointment    Appointment?    @relation(fields: [appointmentId], references: [appointmentId], onDelete: Restrict, onUpdate: Restrict, map: "tbl_visit_tbl_appointment_FK")
-  pet            Pet             @relation(fields: [petId], references: [petId], onUpdate: Restrict, map: "tbl_visit_tbl_pet_FK")
-  service        Service         @relation(fields: [serviceId], references: [serviceId], onUpdate: Restrict, map: "tbl_visit_tbl_service_FK")
-  veterinarian   Veterinarian    @relation(fields: [vetId], references: [vetId], onDelete: Restrict, onUpdate: Restrict, map: "tbl_visit_tbl_veterinarian_FK")
-  medicalRecords MedicalRecord[]
+  appointment    Appointment?     @relation(fields: [appointmentId], references: [appointmentId], onDelete: Restrict, onUpdate: Restrict, map: "tbl_visit_tbl_appointment_FK")
+  pet            Pet              @relation(fields: [petId], references: [petId], onUpdate: Restrict, map: "tbl_visit_tbl_pet_FK")
+  service        Service          @relation(fields: [serviceId], references: [serviceId], onUpdate: Restrict, map: "tbl_visit_tbl_service_FK")
+  veterinarian   Veterinarian     @relation(fields: [vetId], references: [vetId], onDelete: Restrict, onUpdate: Restrict, map: "tbl_visit_tbl_veterinarian_FK")
+  medicalRecords MedicalHistory[]
+  labResults     LabResult[]
 
   @@index([appointmentId], map: "tbl_visit_tbl_appointment_FK")
   @@index([petId], map: "tbl_visit_tbl_pet_FK")
@@ -448,4 +515,12 @@ enum PetCareTipType {
   Video
 
   @@map("tbl_pet_care_tips_type")
+}
+
+enum VisitType {
+  Walk_in     @map("Walk-in")
+  Appointment
+  Follow_up   @map("Follow-up")
+
+  @@map("tbl_visit_type")
 }
