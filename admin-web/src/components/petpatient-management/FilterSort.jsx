@@ -1,7 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 
-const FilterSort = ({ activeTab, onFilterChange, onSortChange, currentFilters, currentSort }) => {
+const FilterSort = ({ activeTab, onFilterChange, onSortChange, currentFilters, currentSort, hideRecordTypeFilter = false }) => {
   const [openDropdown, setOpenDropdown] = useState(null);
 
   const toggleDropdown = (dropdown) => {
@@ -242,7 +242,7 @@ const FilterSort = ({ activeTab, onFilterChange, onSortChange, currentFilters, c
     return (
       <div className="flex flex-wrap items-center gap-4 w-full">
         {/* Record Type Filter */}
-        <div className="flex items-center gap-3">
+        {!hideRecordTypeFilter && <div className="flex items-center gap-3">
           <span className="text-xs font-medium text-gray-600 dark:text-gray-400 min-w-fit">Type</span>
           <div className="relative">
             <button
@@ -288,7 +288,7 @@ const FilterSort = ({ activeTab, onFilterChange, onSortChange, currentFilters, c
               </div>
             )}
           </div>
-        </div>
+        </div>}
 
         {/* Upload Status Filter */}
         <div className="flex items-center gap-3">

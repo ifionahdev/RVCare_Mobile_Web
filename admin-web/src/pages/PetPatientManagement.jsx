@@ -48,9 +48,10 @@ const isRecordUploaded = (record) => {
   return Boolean(record?.fileName || record?.storedName || record?.filePath || record?.originalName || record?.uploadedOn);
 };
 
-const PetPatientManagement = () => {
+const PetPatientManagement = ({ recordsMode = false }) => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("Pet Owners");
+  const [activeTab, setActiveTab] = useState(recordsMode ? "Lab/Medical Records" : "Pet Owners");
+  const [activeRecordType, setActiveRecordType] = useState("Lab");
   const [selectedOwner, setSelectedOwner] = useState(null);
   const [selectedPet, setSelectedPet] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -80,7 +81,7 @@ const PetPatientManagement = () => {
   const [filterSort, setFilterSort] = useState({
     petOwners: { sort: "desc", nameSort: null },
     pets: { species: null, nameSort: "pet-name-asc", dateSort: null },
-    records: { type: null, status: null, dateSort: null }
+    records: { status: null, dateSort: null }
   });
 
   useEffect(() => {
@@ -90,7 +91,9 @@ const PetPatientManagement = () => {
     
     // Load initial data
     fetchOwnersAndPets();
-    fetchMedicalRecords();
+    if (recordsMode) {
+      fetchMedicalRecords();
+    }
   }, []);
 
   useEffect(() => {
@@ -170,7 +173,7 @@ const PetPatientManagement = () => {
         ...prev,
         pets: { ...prev.pets, [filterKey]: value }
       }));
-    } else if (activeTab === "Lab/Medical Records") {
+    } else if (activeTab === "Lab/Medical Records" && filterKey !== "type") {
       setFilterSort(prev => ({
         ...prev,
         records: { ...prev.records, [filterKey]: value }
@@ -276,17 +279,6 @@ const PetPatientManagement = () => {
 
   const applyRecordsFilterSort = (recordsList) => {
     let filtered = recordsList;
-
-    // Apply type filter
-    if (filterSort.records.type) {
-      filtered = filtered.filter(record => {
-        if (!record.type) return false;
-        const recordType = record.type.trim().toLowerCase();
-        const filterType = filterSort.records.type.trim().toLowerCase();
-        // Match exact text or check if the record type contains the filter term
-        return recordType === filterType || recordType.includes(filterType);
-      });
-    }
 
     // Apply status filter
     if (filterSort.records.status) {
@@ -486,10 +478,16 @@ const PetPatientManagement = () => {
   );
 
   const filteredRecords = applyRecordsFilterSort(
-    records.filter(r =>
-      r.petName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.owner?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    records.filter(record => {
+      const type = String(record.type || "").toLowerCase();
+      const isSelectedType = activeRecordType === "Lab"
+        ? type.includes("lab")
+        : type.includes("medical");
+      return isSelectedType && (
+        record.petName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        record.owner?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    })
   );
 
   const handleDelete = async (id, type) => {
@@ -627,10 +625,12 @@ const PetPatientManagement = () => {
     setSelectedRecord(null);
     setSearchQuery("");
     
-    // Refresh records when switching to Lab/Medical Records tab
-    if (tab === "Lab/Medical Records") {
-      fetchMedicalRecords();
-    }
+  };
+
+  const handleRecordTypeChange = (type) => {
+    setActiveRecordType(type);
+    setSelectedRecord(null);
+    setSearchQuery("");
   };
 
   const handleAddButtonClick = () => {
@@ -660,7 +660,7 @@ const PetPatientManagement = () => {
 
   return (
     <div className="flex flex-col h-screen bg-[#FBFBFB] dark:bg-[#101010] p-4 gap-4 relative">
-      <Header title="Customer & Pet Management" />
+      <Header title={recordsMode ? "Records Management" : "Customer & Pet Management"} />
 
       {/* Toasts */}
       {successMessage && (
@@ -672,22 +672,30 @@ const PetPatientManagement = () => {
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4 relative">
-        {["Pet Owners", "Pets", "Lab/Medical Records"].map(tab => (
+        {(recordsMode ? ["Laboratory Records", "Medical Records"] : ["Pet Owners", "Pets"]).map(tab => {
+          const isActive = recordsMode
+            ? activeRecordType === (tab === "Laboratory Records" ? "Lab" : "Medical")
+            : activeTab === tab;
+
+          return (
           <button
             key={tab}
-            onClick={() => handleTabChange(tab)}
+            onClick={() => recordsMode
+              ? handleRecordTypeChange(tab === "Laboratory Records" ? "Lab" : "Medical")
+              : handleTabChange(tab)}
             className={`relative px-5 py-2 font-semibold text-md transition-colors ${
-              activeTab === tab
+              isActive
                 ? "text-[#A9E6FF]"
                 : "text-gray-600 dark:text-gray-300 hover:text-[#A9E6FF] dark:hover:text-[#3BAFDA]"
             }`}
           >
             {tab}
-            {activeTab === tab && (
+            {isActive && (
               <span className="absolute bottom-0 left-0 w-full h-1 bg-[#5EE6FE] dark:bg-[#3BAFDA] rounded-t-lg" />
             )}
           </button>
-        ))}
+          );
+        })}
       </div>
 
       <div className="flex-1 flex gap-4 min-h-0">
@@ -721,6 +729,7 @@ const PetPatientManagement = () => {
           <div className="mb-4">
             <FilterSort 
               activeTab={activeTab}
+              hideRecordTypeFilter={recordsMode}
               onFilterChange={handleFilterChange}
               onSortChange={handleSortChange}
               currentFilters={

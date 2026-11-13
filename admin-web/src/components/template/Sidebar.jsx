@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"; 
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, Users, Calendar, Brain, FileBarChart, Settings, LogOut, Edit, MoreVertical, Lock, Eye, EyeOff, Check, Circle } from "lucide-react";
+import { Home, Users, Calendar, ClipboardList, FileBarChart, Settings, LogOut, Edit, MoreVertical, Lock, Eye, EyeOff, Check, Circle, ScrollText } from "lucide-react";
 import api from "../../api/axios.js";
 import { useAuth } from "../../context/authContext.jsx";
 
@@ -31,10 +31,12 @@ const Sidebar = () => {
   const menuItems = [
     { name: "Dashboard", icon: <Home size={18} />, path: "/admin/dashboard" },
     { name: "Customer & Pet Management", icon: <Users size={18} />, path: "/admin/pet-management" },
-    { name: "Appointments & Visits", icon: <Calendar size={18} />, path: "/admin/appointments" },
+    { name: "Appointments & Vet Schedules", icon: <Calendar size={18} />, path: "/admin/appointments" },
+    { name: "Records Management", icon: <ClipboardList size={18} />, path: "/admin/records" },
     { name: "Content Management", icon: <Edit size={18} />, path: "/admin/content-manager" },
     { name: "Reports", icon: <FileBarChart size={18} />, path: "/admin/reports" },
     { name: "User Management", icon: <Settings size={18} />, path: "/admin/settings" },
+    { name: "Audit Log", icon: <ScrollText size={18} />, path: "/admin/audit-log" },
   ];
 
   // Password validation

@@ -7,6 +7,7 @@ import CalendarTab from "../components/appointments/CalendarTab";
 import AppointmentsTab from "../components/appointments/AppointmentsTab";
 import VisitsTab from "../components/appointments/VisitsTab";
 import RequestsTab from "../components/appointments/RequestsTab";
+import VetSchedulesTab from "../components/appointments/VetSchedulesTab";
 import AppointmentRequestModal from "../components/appointments/AppointmentRequestModal";
 import AppointmentDetailsModal from "../components/appointments/AppointmentDetailsModal";
 import DeleteConfirmationModal from "../components/appointments/DeleteConfirmationModal";
@@ -483,6 +484,9 @@ const AppointmentsVisits = () => {
             handleViewRequest={handleViewRequest}
           />
         );
+      case "Vet Schedules":
+        if (isVet) return null;
+        return <VetSchedulesTab />;
       default:
         return null;
     }
@@ -490,7 +494,7 @@ const AppointmentsVisits = () => {
 
   return (
     <div className="flex flex-col h-screen bg-[#FBFBFB] p-6 font-sans">
-      <Header title="Appointments & Visits" />
+      <Header title="Appointments, Visits & Vet Schedules" />
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-2 relative">
@@ -498,7 +502,7 @@ const AppointmentsVisits = () => {
           "Calendar",
           "Visits",
           "Appointments",
-          ...(isVet ? [] : ["Requests"]),
+          ...(isVet ? [] : ["Requests", "Vet Schedules"]),
         ].map(tab => (
           <button
             key={tab}
