@@ -20,6 +20,12 @@ export const errorHandler = (error, req, res, next) => {
     });
   }
 
+  if (Number.isInteger(error.status) && error.status >= 400 && error.status < 500) {
+    return res.status(error.status).json({
+      message: error.message,
+    });
+  }
+
   return res.status(500).json({
     message: "An unexpected server error occurred.",
   });

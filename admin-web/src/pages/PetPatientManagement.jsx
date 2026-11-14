@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios"; 
+import { useAuth } from "../context/authContext.jsx";
 import { PlusCircle } from "lucide-react";
 import Header from "../components/template/Header";
 import AddOwnerModal from "../components/petpatient-management/AddOwnerModal";
@@ -19,7 +20,6 @@ import LabRecordPreviewModal from "../components/records-management/LabRecordPre
 import FilterSort from "../components/petpatient-management/FilterSort";
 import LaboratoryRecordsWorkspace from "../components/records-management/LaboratoryRecordsWorkspace";
 import MedicalHistoryWorkspace from "../components/records-management/MedicalHistoryWorkspace";
-import { mockLabPets, mockLabRecords } from "../components/records-management/mockLabRecords";
 
 const resolveAdminPetImage = (pet) => {
   if (!pet) return "/images/sad-dog.png";
@@ -53,6 +53,9 @@ const isRecordUploaded = (record) => {
 
 const PetPatientManagement = ({ recordsMode = false }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isVet = user?.role === "vet";
+  const isAdmin = user?.role === "admin";
   const [activeTab, setActiveTab] = useState(recordsMode ? "Lab/Medical Records" : "Pet Owners");
   const [activeRecordType, setActiveRecordType] = useState("Lab");
   const [selectedOwner, setSelectedOwner] = useState(null);
@@ -74,11 +77,8 @@ const PetPatientManagement = ({ recordsMode = false }) => {
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const [petOwners, setPetOwners] = useState([]);
-  const [pets, setPets] = useState(() => recordsMode ? mockLabPets : []);
-  const [records, setRecords] = useState(() => recordsMode ? mockLabRecords : []);
-
-  // Check if user is veterinarian (role 3)
-  const [isVet, setIsVet] = useState(false);
+  const [pets, setPets] = useState([]);
+  const [records, setRecords] = useState([]);
 
   // Filter and Sort State
   const [filterSort, setFilterSort] = useState({
@@ -88,17 +88,13 @@ const PetPatientManagement = ({ recordsMode = false }) => {
   });
 
   useEffect(() => {
-    // Check user role from localStorage.
-    const userRole = localStorage.getItem('userRole') || 2; // Default to admin if not found
-    setIsVet(userRole === '3');
-
-    if (!recordsMode || activeRecordType === "Medical") {
+    if (!recordsMode) {
       fetchOwnersAndPets();
     }
-  }, [recordsMode, activeRecordType]);
+  }, [recordsMode]);
 
   useEffect(() => {
-    if (recordsMode && activeRecordType !== "Medical") return undefined;
+    if (recordsMode) return undefined;
 
     const userId = localStorage.getItem("userId");
 
@@ -128,7 +124,7 @@ const PetPatientManagement = ({ recordsMode = false }) => {
       socket.off("owner_updated", handleOwnerUpdated);
       socket.off("owner_profile_updated", handleOwnerUpdated);
     };
-  }, [recordsMode, activeRecordType]);
+  }, [recordsMode]);
 
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -667,22 +663,6 @@ const PetPatientManagement = ({ recordsMode = false }) => {
     }
   };
 
-  const handleMockLabRecordSave = (updatedRecord) => {
-    setRecords((currentRecords) => {
-      const exists = currentRecords.some((record) => record.id === updatedRecord.id);
-      return exists
-        ? currentRecords.map((record) => record.id === updatedRecord.id ? updatedRecord : record)
-        : [updatedRecord, ...currentRecords];
-    });
-    setSuccessMessage("Mock lab record saved for this session.");
-  };
-
-  const handleMockLabRecordDelete = (recordToDelete) => {
-    setRecords((currentRecords) => currentRecords.filter((record) => record.id !== recordToDelete.id));
-    setSelectedRecord((currentRecord) => currentRecord?.id === recordToDelete.id ? null : currentRecord);
-    setSuccessMessage("Mock lab record removed.");
-  };
-
   return (
     <div className={`flex flex-col h-screen p-4 gap-4 relative ${
       recordsMode ? "bg-[#F6F7FB]" : "bg-[#FBFBFB] dark:bg-[#101010]"
@@ -727,24 +707,19 @@ const PetPatientManagement = ({ recordsMode = false }) => {
 
       {recordsMode && activeRecordType === "Lab" ? (
         <LaboratoryRecordsWorkspace
-          records={filteredRecords}
-          allRecords={records}
-          pets={mockLabPets}
-          selectedRecord={selectedRecord}
-          setSelectedRecord={setSelectedRecord}
-          canManageRecords={!isVet}
-          onSaveRecord={handleMockLabRecordSave}
-          onDeleteRecord={handleMockLabRecordDelete}
+          canManageRecords={isAdmin}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           statusFilter={filterSort.records.status}
           onStatusFilterChange={(value) => handleFilterChange("status", value)}
+          setSuccessMessage={setSuccessMessage}
+          setErrorMessage={setErrorMessage}
         />
       ) : recordsMode ? (
         <MedicalHistoryWorkspace
-          pets={pets}
-          labRecords={records.filter((record) => String(record.type || "").toLowerCase().includes("lab"))}
-          canManageRecords={!isVet}
+          canManageRecords={isAdmin}
+          setSuccessMessage={setSuccessMessage}
+          setErrorMessage={setErrorMessage}
         />
       ) : <div className="flex-1 flex gap-4 min-h-0">
         {/* Main Tables */}
@@ -760,7 +735,7 @@ const PetPatientManagement = ({ recordsMode = false }) => {
             />
 
             {/* Hide Add button for veterinarians */}
-            {!isVet && (
+            {isAdmin && (
               <button
                 className="ml-auto flex items-center gap-2 bg-[#5EE6FE] hover:bg-[#40c6e3] text-white px-3 py-2 rounded-lg transition"
                 onClick={handleAddButtonClick}
@@ -845,7 +820,7 @@ const PetPatientManagement = ({ recordsMode = false }) => {
       </div>}
 
       {/* Add/Edit Modals - Only show for non-veterinarians */}
-      {!isVet && (
+      {isAdmin && (
         <>
           <AddOwnerModal
             isOpen={isAddOwnerModalOpen}

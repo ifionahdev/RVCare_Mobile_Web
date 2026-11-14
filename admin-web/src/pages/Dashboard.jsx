@@ -128,7 +128,7 @@ export default function AdminDashboard() {
             </div>
             <CalendarDays size={19} className="text-[#078c9d]" />
           </div>
-          <div className="mt-5 space-y-4">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {upcomingAppointments.map((appointment) => {
               const veterinarian = appointment.veterinarian?.account;
               const vetName = veterinarian
@@ -136,22 +136,22 @@ export default function AdminDashboard() {
                 : appointment.vetName ?? "Veterinarian not assigned";
 
               return (
-                <div key={appointment.appointmentId ?? appointment.id} className="flex gap-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0">
-                  <div className="min-w-[78px] rounded-lg bg-[#eaf6f8] px-2 py-2 text-center text-xs font-bold text-[#078c9d]">
+                <div key={appointment.appointmentId ?? appointment.id} className="flex min-w-0 items-center gap-3 rounded-xl bg-slate-50 p-3">
+                  <div className="min-w-[78px] shrink-0 rounded-lg bg-[#eaf6f8] px-2 py-2 text-center text-xs font-bold text-[#078c9d]">
                     {appointment.timeslot?.display ?? appointment.timeslot ?? "--"}
                   </div>
-                  <div>
-                    <p className="text-sm font-bold">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold">
                       {appointment.pet?.petName ?? appointment.petName ?? "Unknown pet"}
                       <span className="font-normal text-slate-500"> - {appointment.service?.serviceName ?? appointment.service ?? "Service"}</span>
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">{vetName}</p>
+                    <p className="mt-1 truncate text-xs text-slate-500">{vetName}</p>
                   </div>
                 </div>
               );
             })}
             {!loading && !error && upcomingAppointments.length === 0 && (
-              <p className="py-4 text-center text-sm text-slate-500">No upcoming appointments today.</p>
+              <p className="py-4 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3">No upcoming appointments today.</p>
             )}
           </div>
         </section>

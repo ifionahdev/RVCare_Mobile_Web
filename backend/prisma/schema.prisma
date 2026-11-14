@@ -123,11 +123,11 @@ model MedicalHistory {
 }
 
 model LabResult {
-  labResultId    Int      @id @default(autoincrement()) @map("lab_result_id")
-  visitId        Int      @map("visit_id")
-  testTypeId     Int      @map("test_type_id")
-  interpretation String?  @db.VarChar(255)
-  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
+  labResultId    Int             @id @default(autoincrement()) @map("lab_result_id")
+  visitId        Int             @map("visit_id")
+  testTypeId     Int             @map("test_type_id")
+  interpretation String?         @db.VarChar(255)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.DateTime(0)
 
   testType        LabTestType      @relation(fields: [testTypeId], references: [testTypeId], onUpdate: Restrict, map: "tbl_lab_result_tbl_lab_test_type_FK")
   visit           Visit            @relation(fields: [visitId], references: [visitId], onUpdate: Restrict, map: "tbl_lab_result_tbl_visit_FK")
@@ -523,4 +523,9 @@ enum VisitType {
   Follow_up   @map("Follow-up")
 
   @@map("tbl_visit_type")
+}
+
+enum LabResultStatus {
+  Pending
+  Final
 }

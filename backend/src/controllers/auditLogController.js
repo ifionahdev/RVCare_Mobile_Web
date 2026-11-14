@@ -11,6 +11,8 @@ const tableNames = {
   tbl_admin: "Administrators",
   tbl_appointment: "Appointments",
   tbl_content_video: "Videos",
+  tbl_lab_result: "Lab results",
+  tbl_medical_history: "Medical history",
   tbl_medical_record: "Medical records",
   tbl_pet: "Pets",
   tbl_pet_care_category: "Pet care categories",

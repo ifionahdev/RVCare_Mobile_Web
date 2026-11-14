@@ -195,12 +195,237 @@ const TEST_PETS = [
   },
 ] as const;
 
+const RECORD_TEST_TYPES = [
+  {
+    code: "CBC",
+    name: "Complete blood count",
+    parameters: [
+      { name: "Hemoglobin", unit: "g/dL", refRangeText: "12.0-18.0", displayOrder: 1 },
+      { name: "White blood cells", unit: "10^3/uL", refRangeText: "6.0-17.0", displayOrder: 2 },
+      { name: "Red blood cells", unit: "10^6/uL", refRangeText: "5.5-8.5", displayOrder: 3 },
+      { name: "Platelets", unit: "10^3/uL", refRangeText: "200-500", displayOrder: 4 },
+    ],
+  },
+  {
+    code: "UA",
+    name: "Urinalysis",
+    parameters: [
+      { name: "Specific gravity", unit: "", refRangeText: "1.015-1.045", displayOrder: 1 },
+      { name: "pH", unit: "", refRangeText: "5.5-7.5", displayOrder: 2 },
+      { name: "Protein", unit: "", refRangeText: "Negative", displayOrder: 3 },
+    ],
+  },
+] as const;
+
+const RECORD_SEEDS = [
+  {
+    petName: "Whiskers",
+    vetUsername: "vet@gmail.com",
+    serviceName: "Check-up",
+    date: dateOnly(2026, 10, 28),
+    time: new Date(Date.UTC(2026, 9, 28, 10, 15)),
+    visitType: "Walk_in" as const,
+    history: {
+      weightKg: 4.75,
+      temperature: 38.6,
+      heartRate: 118,
+      findings: "Routine wellness exam; alert and responsive with normal hydration.",
+      assessment: "Clinically stable. No acute concerns identified.",
+      treatmentPlan: "Continue current diet and routine preventive care.",
+      instructions: "Return for an annual wellness examination or sooner if symptoms develop.",
+    },
+    lab: {
+      code: "CBC",
+      interpretation: "Values are within the expected reference ranges.",
+      values: [
+        { name: "Hemoglobin", value: 14.5, textValue: null },
+        { name: "White blood cells", value: 9.8, textValue: null },
+        { name: "Red blood cells", value: 6.4, textValue: null },
+        { name: "Platelets", value: 285, textValue: null },
+      ],
+    },
+  },
+  {
+    petName: "Buddy",
+    vetUsername: "vet2@gmail.com",
+    serviceName: "Check-up",
+    date: dateOnly(2026, 10, 30),
+    time: new Date(Date.UTC(2026, 9, 30, 11, 0)),
+    visitType: "Walk_in" as const,
+    history: {
+      weightKg: 12.4,
+      temperature: 38.8,
+      heartRate: 104,
+      findings: "Owner reports increased thirst; patient is bright and comfortable.",
+      assessment: "Mildly increased thirst. Urinalysis requested for screening.",
+      treatmentPlan: "Collect a fresh urine sample and review results with the owner.",
+      instructions: "Ensure fresh water is available and monitor drinking and urination.",
+    },
+    lab: {
+      code: "UA",
+      interpretation: "Screening values are unremarkable; correlate with clinical signs.",
+      values: [
+        { name: "Specific gravity", value: 1.03, textValue: null },
+        { name: "pH", value: 6.5, textValue: null },
+        { name: "Protein", value: null, textValue: "Negative" },
+      ],
+    },
+  },
+] as const;
+
 //FAKER SEEDING FUNCTIONS
 const FAKE_OWNERS = 15;
 const FAKE_APPOINTMENTS = 60;
 
 const toDateOnly = (d: Date) =>
   new Date(`${d.toLocaleDateString("en-CA", { timeZone: "Asia/Manila" })}T00:00:00.000Z`);
+
+async function seedRecords(ownerId: number) {
+  const testTypes = new Map<string, number>();
+
+  for (const testTypeSeed of RECORD_TEST_TYPES) {
+    const testType = await prisma.labTestType.upsert({
+      where: { code: testTypeSeed.code },
+      update: { name: testTypeSeed.name, isActive: true, isDeleted: false },
+      create: {
+        code: testTypeSeed.code,
+        name: testTypeSeed.name,
+        isActive: true,
+        isDeleted: false,
+      },
+    });
+    testTypes.set(testType.code, testType.testTypeId);
+
+    for (const parameterSeed of testTypeSeed.parameters) {
+      const current = await prisma.labTestParameter.findFirst({
+        where: { testTypeId: testType.testTypeId, name: parameterSeed.name },
+      });
+      const data = {
+        testTypeId: testType.testTypeId,
+        name: parameterSeed.name,
+        unit: parameterSeed.unit || null,
+        refRangeText: parameterSeed.refRangeText,
+        displayOrder: parameterSeed.displayOrder,
+        isDeleted: false,
+      };
+      if (current) {
+        await prisma.labTestParameter.update({
+          where: { parameterId: current.parameterId },
+          data,
+        });
+      } else {
+        await prisma.labTestParameter.create({ data });
+      }
+    }
+  }
+
+  for (const seed of RECORD_SEEDS) {
+    const pet = await prisma.pet.findFirstOrThrow({
+      where: { ownerId, petName: seed.petName, isDeleted: false },
+    });
+    const veterinarianAccount = await prisma.account.findUniqueOrThrow({
+      where: { username: seed.vetUsername },
+      include: { veterinarian: true },
+    });
+    if (!veterinarianAccount.veterinarian) {
+      throw new Error(`Veterinarian profile is missing for ${seed.vetUsername}`);
+    }
+    const service = await prisma.service.findFirstOrThrow({
+      where: { serviceName: seed.serviceName },
+    });
+
+    const visitData = {
+      vetId: veterinarianAccount.veterinarian.vetId,
+      petId: pet.petId,
+      serviceId: service.serviceId,
+      visitType: seed.visitType,
+      visitDate: seed.date,
+      visitTime: seed.time,
+      status: "Completed" as const,
+      isDeleted: false,
+    };
+    const currentVisit = await prisma.visit.findFirst({
+      where: {
+        vetId: visitData.vetId,
+        petId: visitData.petId,
+        serviceId: visitData.serviceId,
+        visitDate: visitData.visitDate,
+        visitType: visitData.visitType,
+      },
+    });
+    const visit = currentVisit
+      ? await prisma.visit.update({
+          where: { visitId: currentVisit.visitId },
+          data: visitData,
+        })
+      : await prisma.visit.create({ data: visitData });
+
+    const historyData = {
+      visitId: visit.visitId,
+      weightKg: seed.history.weightKg,
+      temperature: seed.history.temperature,
+      heartRate: seed.history.heartRate,
+      findings: seed.history.findings,
+      assessment: seed.history.assessment,
+      treatmentPlan: seed.history.treatmentPlan,
+      instructions: seed.history.instructions,
+    };
+    const currentHistory = await prisma.medicalHistory.findFirst({
+      where: { visitId: visit.visitId },
+    });
+    if (currentHistory) {
+      await prisma.medicalHistory.update({
+        where: { historyId: currentHistory.historyId },
+        data: historyData,
+      });
+    } else {
+      await prisma.medicalHistory.create({ data: historyData });
+    }
+
+    const testTypeId = testTypes.get(seed.lab.code);
+    if (!testTypeId) throw new Error(`Lab test type ${seed.lab.code} was not seeded.`);
+    const currentLabResult = await prisma.labResult.findFirst({
+      where: { visitId: visit.visitId, testTypeId },
+    });
+    const labResult = currentLabResult
+      ? await prisma.labResult.update({
+          where: { labResultId: currentLabResult.labResultId },
+          data: { interpretation: seed.lab.interpretation, createdAt: seed.date },
+        })
+      : await prisma.labResult.create({
+          data: {
+            visitId: visit.visitId,
+            testTypeId,
+            interpretation: seed.lab.interpretation,
+            createdAt: seed.date,
+          },
+        });
+
+    for (const valueSeed of seed.lab.values) {
+      const parameter = await prisma.labTestParameter.findFirstOrThrow({
+        where: { testTypeId, name: valueSeed.name, isDeleted: false },
+      });
+      const currentValue = await prisma.labResultValue.findFirst({
+        where: { labResultId: labResult.labResultId, parameterId: parameter.parameterId },
+      });
+      const valueData = {
+        labResultId: labResult.labResultId,
+        parameterId: parameter.parameterId,
+        value: valueSeed.value,
+        textValue: valueSeed.textValue,
+        isDeleted: false,
+      };
+      if (currentValue) {
+        await prisma.labResultValue.update({
+          where: { valueId: currentValue.valueId },
+          data: valueData,
+        });
+      } else {
+        await prisma.labResultValue.create({ data: valueData });
+      }
+    }
+  }
+}
 
 async function seedFakeData() {
   faker.seed(42); // same data every run; remove for random data
@@ -390,7 +615,12 @@ async function main() {
     if (exists) {
       await prisma.pet.update({
         where: { petId: exists.petId },
-        data: { dateOfBirth: p.dateOfBirth },
+        data: {
+          breedId: breed.breedId,
+          gender: p.gender,
+          dateOfBirth: p.dateOfBirth,
+          isDeleted: false,
+        },
       });
     } else {
       await prisma.pet.create({
@@ -410,6 +640,7 @@ async function main() {
   });
 
   await seedVeterinarianSchedules(adminAccount.accountId);
+  await seedRecords(customerOwnerId);
 
   const publicationStatuses = ["Draft", "Published", "Archived"] as const;
   for (const statusName of publicationStatuses) {
@@ -541,7 +772,7 @@ async function main() {
   }
 
   console.log(
-    "Seed complete: roles, accounts, schedules, time off, timeslots, services, breeds, pets, content",
+    "Seed complete: roles, accounts, schedules, time off, timeslots, services, breeds, pets, records, content",
   );
 }
 
