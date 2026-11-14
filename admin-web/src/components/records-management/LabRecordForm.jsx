@@ -3,6 +3,9 @@ import { Plus, Trash2 } from "lucide-react";
 
 const emptyResult = () => ({ parameter: "", result: "", unit: "", referenceRange: "" });
 const formatVisitId = (id) => `VIS-${String(id ?? "").padStart(4, "0")}`;
+const isVisitCompleted = (visit) => (
+  visit.status === "Completed" || visit.appointmentStatus === "Completed"
+);
 const formatVisitDate = (date) => {
   if (!date) return "";
   const parsed = new Date(`${date}T00:00:00`);
@@ -12,8 +15,8 @@ const formatVisitDate = (date) => {
 const createForm = (record) => ({
   petId: record?.petID ? String(record.petID) : "",
   visitId: record?.visitId ? String(record.visitId) : "",
+  appointmentId: record?.appointmentId ? String(record.appointmentId) : "",
   testType: record?.recordTitle || "",
-  status: record?.recordStatus?.toLowerCase() === "pending" ? "Pending" : "Final",
   interpretation: record?.interpretation || "",
   attachment: null,
   results: Array.isArray(record?.results) && record.results.length > 0
@@ -25,6 +28,7 @@ const LabRecordForm = ({
   record,
   pets,
   visits,
+  appointments = [],
   testTypes,
   onCancel,
   onSave,
@@ -37,12 +41,30 @@ const LabRecordForm = ({
   }, [record]);
 
   const selectedPetVisits = useMemo(
-    () => visits.filter(
-      (visit) => String(visit.petId) === formData.petId && visit.status === "Completed",
-    ),
-    [visits, formData.petId],
+    () => [
+      ...visits
+        .filter((visit) => String(visit.petId) === formData.petId && isVisitCompleted(visit))
+        .map((visit) => ({
+          ...visit,
+          source: "visit",
+          selectionValue: `visit:${visit.id}`,
+        })),
+      ...appointments
+        .filter((appointment) => String(appointment.petId) === formData.petId)
+        .map((appointment) => ({
+          ...appointment,
+          source: "appointment",
+          selectionValue: `appointment:${appointment.appointmentId}`,
+        })),
+    ],
+    [visits, appointments, formData.petId],
   );
-  const selectedVisit = visits.find((visit) => String(visit.id) === formData.visitId);
+  const selectedVisitValue = formData.appointmentId
+    ? `appointment:${formData.appointmentId}`
+    : formData.visitId
+      ? `visit:${formData.visitId}`
+      : "";
+  const selectedVisit = selectedPetVisits.find((visit) => visit.selectionValue === selectedVisitValue);
 
   const updateField = (field, value) => {
     setFormData((current) => ({ ...current, [field]: value }));
@@ -105,6 +127,7 @@ const LabRecordForm = ({
                   ...current,
                   petId: event.target.value,
                   visitId: "",
+                  appointmentId: "",
                 }))}
                 className={inputClass}
               >
@@ -117,17 +140,18 @@ const LabRecordForm = ({
               </select>
             </label>
             <label>
-              <span className={labelClass}>Linked visit *</span>
+              <span className={labelClass}>Linked visit or appointment *</span>
               <select
                 required
-                value={formData.visitId}
+                value={selectedVisitValue}
                 disabled={!formData.petId || selectedPetVisits.length === 0}
                 onChange={(event) => {
-                  const visit = selectedPetVisits.find((item) => String(item.id) === event.target.value);
+                  const selected = selectedPetVisits.find((item) => item.selectionValue === event.target.value);
                   setFormData((current) => ({
                     ...current,
-                    visitId: event.target.value,
-                    petId: visit ? String(visit.petId) : current.petId,
+                    visitId: selected?.source === "visit" ? String(selected.id) : "",
+                    appointmentId: selected?.source === "appointment" ? String(selected.appointmentId) : "",
+                    petId: selected ? String(selected.petId) : current.petId,
                   }));
                 }}
                 className={inputClass}
@@ -136,17 +160,19 @@ const LabRecordForm = ({
                   {!formData.petId
                     ? "Select a pet first"
                     : selectedPetVisits.length
-                      ? "Select a completed visit"
-                      : "No completed visits available"}
+                      ? "Select a completed visit or appointment"
+                      : "No completed visits or appointments available"}
                 </option>
                 {selectedPetVisits.map((visit) => (
-                  <option key={visit.id} value={visit.id}>
-                    {formatVisitId(visit.id)} · {visit.date}
+                  <option key={visit.selectionValue} value={visit.selectionValue}>
+                    {visit.source === "appointment"
+                      ? `APT-${String(visit.id).padStart(4, "0")}`
+                      : formatVisitId(visit.id)} · {visit.date}
                   </option>
                 ))}
               </select>
               {formData.petId && selectedPetVisits.length === 0 && (
-                <span className="mt-1 block text-xs text-amber-700">This pet has no completed visits yet.</span>
+                <span className="mt-1 block text-xs text-amber-700">This pet has no completed visits or appointments available.</span>
               )}
             </label>
           </div>
@@ -218,8 +244,7 @@ const LabRecordForm = ({
                     <input
                       key={field}
                       required={
-                        (formData.status === "Final" || hasResultData)
-                        && (field === "parameter" || field === "result")
+                        hasResultData && (field === "parameter" || field === "result")
                       }
                       aria-label={`${placeholder} ${index + 1}`}
                       value={result[field]}
@@ -284,27 +309,15 @@ const LabRecordForm = ({
       </div>
 
       <aside className="rounded-2xl bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800">Record settings</h3>
-        <label className="mt-4 block">
-          <span className={labelClass}>Result status *</span>
-          <select
-            required
-            value={formData.status}
-            onChange={(event) => updateField("status", event.target.value)}
-            className={inputClass}
-          >
-            <option value="Final">Final</option>
-            <option value="Pending">Pending</option>
-          </select>
-        </label>
+        <h3 className="text-sm font-semibold text-slate-800">Automatic status</h3>
         <div className="mt-4 rounded-xl bg-cyan-50 p-3">
           <h4 className="text-sm font-semibold text-cyan-700">Check before saving</h4>
           <p className="mt-2 text-xs leading-relaxed text-slate-600">
-            Confirm the selected patient, collection date, units and reference ranges.
+            Confirm the selected patient, collection date, result values, units and reference ranges.
           </p>
         </div>
         <p className="mt-4 text-xs leading-relaxed text-slate-500">
-          A pending result can be saved and completed when the laboratory report is available.
+          Status is determined automatically: records with result values are uploaded, and records without them remain pending.
         </p>
       </aside>
     </div>

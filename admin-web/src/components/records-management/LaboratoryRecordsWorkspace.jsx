@@ -29,6 +29,7 @@ const LaboratoryRecordsWorkspace = ({
   const [workspace, setWorkspace] = useState({
     pets: [],
     visits: [],
+    appointments: [],
     labRecords: [],
     labTypes: [],
   });
@@ -50,6 +51,7 @@ const LaboratoryRecordsWorkspace = ({
       setWorkspace({
         pets: data.pets ?? [],
         visits: data.visits ?? [],
+        appointments: data.availableAppointments ?? [],
         labRecords: data.labRecords ?? [],
         labTypes: data.labTypes ?? [],
       });
@@ -128,9 +130,10 @@ const LaboratoryRecordsWorkspace = ({
     setSaving(true);
     try {
       const payload = {
-        visitId: Number(formData.visitId),
+        ...(formData.appointmentId
+          ? { appointmentId: Number(formData.appointmentId) }
+          : { visitId: Number(formData.visitId) }),
         testType: formData.testType,
-        status: formData.status,
         interpretation: formData.interpretation,
         results: formData.results,
       };
@@ -201,6 +204,7 @@ const LaboratoryRecordsWorkspace = ({
           record={editingRecord}
           pets={workspace.pets}
           visits={workspace.visits}
+          appointments={workspace.appointments}
           testTypes={workspace.labTypes}
           onCancel={backToList}
           onSave={handleSave}
@@ -270,7 +274,16 @@ const LaboratoryRecordsWorkspace = ({
                 <div><p className="text-xs font-medium text-slate-400">Patient</p><p className="mt-1 text-sm text-slate-700">{activeRecord.petName || "Patient not listed"}</p></div>
                 <div><p className="text-xs font-medium text-slate-400">Owner</p><p className="mt-1 text-sm text-slate-700">{activeRecord.owner || "Owner not listed"}</p></div>
                 <div><p className="text-xs font-medium text-slate-400">Veterinarian</p><p className="mt-1 text-sm text-slate-700">{activeRecord.veterinarian || "Not listed"}</p></div>
-                <div><p className="text-xs font-medium text-slate-400">Visit</p><p className="mt-1 text-sm text-slate-700">VIS-{String(activeRecord.visitId).padStart(4, "0")}</p></div>
+                <div>
+                  <p className="text-xs font-medium text-slate-400">
+                    {activeRecord.appointmentId ? "Appointment" : "Visit"}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {activeRecord.appointmentId
+                      ? `APT-${String(activeRecord.appointmentId).padStart(4, "0")}`
+                      : `VIS-${String(activeRecord.visitId).padStart(4, "0")}`}
+                  </p>
+                </div>
               </div>
 
               <h4 className="mt-5 text-sm font-semibold text-slate-800">Lab results</h4>

@@ -15,6 +15,11 @@ const formatDate = (value) => {
 };
 
 const formatVisitId = (id) => `VIS-${String(id ?? "").padStart(4, "0")}`;
+const formatRecordSource = (history) => (
+  history.appointmentId
+    ? `APT-${String(history.appointmentId).padStart(4, "0")}`
+    : formatVisitId(history.visitId)
+);
 
 const MedicalHistoryWorkspace = ({
   canManageRecords,
@@ -24,8 +29,8 @@ const MedicalHistoryWorkspace = ({
   const [workspace, setWorkspace] = useState({
     pets: [],
     visits: [],
+    appointments: [],
     medicalHistories: [],
-    labRecords: [],
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -47,8 +52,8 @@ const MedicalHistoryWorkspace = ({
       setWorkspace({
         pets: data.pets ?? [],
         visits: data.visits ?? [],
+        appointments: data.availableAppointments ?? [],
         medicalHistories: data.medicalHistories ?? [],
-        labRecords: data.labRecords ?? [],
       });
       setSelectedHistory((current) => current
         ? (data.medicalHistories ?? []).find((history) => history.id === current.id) ?? null
@@ -79,8 +84,8 @@ const MedicalHistoryWorkspace = ({
       .filter((history) => !typeFilter || history.serviceType === typeFilter)
       .filter((history) => (
         !query
-        || formatVisitId(history.visitId).toLowerCase().includes(query)
-        || String(history.visitId).includes(query)
+        || formatRecordSource(history).toLowerCase().includes(query)
+        || String(history.visitId ?? history.appointmentId).includes(query)
         || history.petName?.toLowerCase().includes(query)
         || history.owner?.toLowerCase().includes(query)
         || history.assessment?.toLowerCase().includes(query)
@@ -114,9 +119,6 @@ const MedicalHistoryWorkspace = ({
   const patientHistories = currentPet
     ? histories.filter((history) => String(history.petId) === String(currentPet.petID || currentPet.id))
     : [];
-  const patientLabRecords = currentPet
-    ? workspace.labRecords.filter((record) => String(record.petID) === String(currentPet.petID || currentPet.id))
-    : [];
   const latestVisit = [...patientVisits].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))[0];
 
   const openForm = (history = null) => {
@@ -133,7 +135,9 @@ const MedicalHistoryWorkspace = ({
     setSaving(true);
     try {
       const payload = {
-        visitId: Number(formData.visitId),
+        ...(formData.appointmentId
+          ? { appointmentId: Number(formData.appointmentId) }
+          : { visitId: Number(formData.visitId) }),
         weight: formData.weight,
         temperature: formData.temperature,
         heartRate: formData.heartRate,
@@ -161,7 +165,18 @@ const MedicalHistoryWorkspace = ({
         return;
       }
       const savedHistory = data?.medicalHistories?.find((history) => history.id === response.data.id);
-      setSelectedHistory(savedHistory ?? null);
+      const savedHistoryWithStatus = savedHistory
+        ? { ...savedHistory, recordStatus: formData.recordStatus }
+        : null;
+      if (savedHistoryWithStatus) {
+        setWorkspace((current) => ({
+          ...current,
+          medicalHistories: current.medicalHistories.map((history) => (
+            history.id === savedHistoryWithStatus.id ? savedHistoryWithStatus : history
+          )),
+        }));
+      }
+      setSelectedHistory(savedHistoryWithStatus);
       setScreen(savedHistory ? "details" : "list");
       setEditingHistory(null);
       setSuccessMessage(editingHistory ? "Medical history updated successfully." : "Medical history added successfully.");
@@ -203,7 +218,7 @@ const MedicalHistoryWorkspace = ({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold text-slate-800">
-              {editingHistory ? "Edit medical history" : "Add medical history"}
+              {editingHistory ? "Edit medical record" : "Add medical record"}
             </h2>
             <p className="mt-1 text-sm text-slate-500">Medical History / Record entry</p>
           </div>
@@ -214,6 +229,8 @@ const MedicalHistoryWorkspace = ({
         <MedicalHistoryForm
           pets={workspace.pets}
           visits={workspace.visits}
+          appointments={workspace.appointments}
+          medicalHistories={workspace.medicalHistories}
           initialHistory={editingHistory}
           onCancel={backToList}
           onSave={handleSave}
@@ -229,7 +246,7 @@ const MedicalHistoryWorkspace = ({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold text-slate-800">Medical history details</h2>
-            <p className="mt-1 text-sm text-slate-500">Medical History / {formatVisitId(currentHistory.visitId)}</p>
+            <p className="mt-1 text-sm text-slate-500">Medical History / {formatRecordSource(currentHistory)}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={backToList} className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-600 hover:bg-slate-200">
@@ -253,7 +270,7 @@ const MedicalHistoryWorkspace = ({
               <div>
                 <h3 className="text-lg font-semibold text-slate-800">{currentHistory.serviceType || "Patient visit"}</h3>
                 <p className="mt-1 text-sm text-slate-500">
-                  {formatVisitId(currentHistory.visitId)} · {formatDate(currentHistory.date)} · {currentHistory.veterinarian || "Veterinarian not listed"}
+                  {formatRecordSource(currentHistory)} · {formatDate(currentHistory.date)} · {currentHistory.veterinarian || "Veterinarian not listed"}
                 </p>
               </div>
               <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
@@ -301,7 +318,7 @@ const MedicalHistoryWorkspace = ({
               </section>
             )}
           </section>
-          {renderPatientSummary(currentPet, patientLabRecords.length, patientHistories.length, latestVisit, currentHistory)}
+          {renderPatientSummary(currentPet, patientHistories.length, latestVisit, currentHistory)}
         </div>
       </div>
     );
@@ -375,7 +392,7 @@ const MedicalHistoryWorkspace = ({
                     }`}
                   >
                     <td className="px-3 py-3 text-sm text-slate-700">
-                      <span className="block font-semibold">{formatVisitId(history.visitId)}</span>
+                      <span className="block font-semibold">{formatRecordSource(history)}</span>
                       <span className="block text-slate-500">{history.petName || "Patient not listed"}</span>
                     </td>
                     <td className="px-3 py-3 text-sm text-slate-600">{history.serviceType || history.visitType || "Visit"}</td>
@@ -416,13 +433,13 @@ const MedicalHistoryWorkspace = ({
             </div>
           </div>
         </section>
-        {renderPatientSummary(currentPet, patientLabRecords.length, patientHistories.length, latestVisit, currentHistory)}
+        {renderPatientSummary(currentPet, patientHistories.length, latestVisit, currentHistory)}
       </div>
     </div>
   );
 };
 
-const renderPatientSummary = (pet, labCount, historyCount, latestVisit, selectedHistory) => (
+const renderPatientSummary = (pet, historyCount, latestVisit, selectedHistory) => (
   <aside className="rounded-2xl bg-white p-4 shadow-sm">
     <p className="text-sm text-slate-400">Selected patient</p>
     {pet || selectedHistory ? (
@@ -439,8 +456,7 @@ const renderPatientSummary = (pet, labCount, historyCount, latestVisit, selected
         </div>
         <div className="mt-4 rounded-xl bg-slate-50 p-3">
           <h4 className="text-sm font-semibold text-slate-800">Patient record summary</h4>
-          <p className="mt-2 text-sm text-slate-600">{labCount} lab records</p>
-          <p className="text-sm text-slate-600">{historyCount} medical history records</p>
+          <p className="mt-2 text-sm text-slate-600">{historyCount} medical history records</p>
           <p className="text-sm text-slate-600">
             Latest visit: {latestVisit ? formatDate(latestVisit.date) : "No visits"}
           </p>
@@ -449,10 +465,10 @@ const renderPatientSummary = (pet, labCount, historyCount, latestVisit, selected
           <div className="mt-3 rounded-xl border border-cyan-100 bg-cyan-50 p-3">
             <h4 className="text-sm font-semibold text-slate-800">Selected medical record</h4>
             <p className="mt-2 text-sm font-medium text-slate-700">
-              {formatVisitId(selectedHistory.visitId)} · {selectedHistory.serviceType || "Patient visit"}
+              {formatRecordSource(selectedHistory)} · {selectedHistory.serviceType || "Patient visit"}
             </p>
             <p className="mt-1 text-xs text-slate-600">
-              {formatDate(selectedHistory.date)} · {(selectedHistory.status || "Visit").replace(/_/g, " ")}
+              {formatDate(selectedHistory.date)} · {selectedHistory.recordStatus || "Draft"}
             </p>
           </div>
         )}

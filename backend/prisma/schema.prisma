@@ -72,11 +72,13 @@ model Appointment {
   lastUpdated   DateTime          @default(now()) @updatedAt @map("last_updated") @db.DateTime(0)
   isDeleted     Boolean           @default(false) @map("is_deleted")
 
-  timeslot     Timeslot     @relation(fields: [timeslotId], references: [timeslotId], onUpdate: Restrict, map: "tbl_appointment_tbl_timeslot_FK")
-  veterinarian Veterinarian @relation(fields: [vetId], references: [vetId], onUpdate: Restrict, map: "tbl_appointment_tbl_veterinarian_FK")
-  pet          Pet          @relation(fields: [petId], references: [petId], onUpdate: Restrict, map: "tbl_appointment_tbl_pet_FK")
-  service      Service      @relation(fields: [serviceId], references: [serviceId], onUpdate: Restrict, map: "tbl_appointment_tbl_service_FK")
-  visits       Visit?
+  timeslot       Timeslot        @relation(fields: [timeslotId], references: [timeslotId], onUpdate: Restrict, map: "tbl_appointment_tbl_timeslot_FK")
+  veterinarian   Veterinarian    @relation(fields: [vetId], references: [vetId], onUpdate: Restrict, map: "tbl_appointment_tbl_veterinarian_FK")
+  pet            Pet             @relation(fields: [petId], references: [petId], onUpdate: Restrict, map: "tbl_appointment_tbl_pet_FK")
+  service        Service         @relation(fields: [serviceId], references: [serviceId], onUpdate: Restrict, map: "tbl_appointment_tbl_service_FK")
+  visits         Visit?
+  medicalHistory MedicalHistory?
+  labResults     LabResult[]
 
   @@index([vetId, scheduledDate, timeslotId], map: "tbl_appointment_index_booked")
   @@index([petId], map: "tbl_appointment_tbl_pet_FK")
@@ -106,7 +108,8 @@ model AuditLog {
 
 model MedicalHistory {
   historyId     Int      @id @default(autoincrement()) @map("record_id")
-  visitId       Int      @map("visit_id")
+  visitId       Int?     @map("visit_id")
+  appointmentId Int?     @unique(map: "tbl_medical_history_appointment_id_key") @map("appointment_id")
   weightKg      Decimal? @map("weight_kg") @db.Decimal(5, 2)
   temperature   Decimal? @map("temperature") @db.Decimal(4, 1)
   heartRate     Int?     @map("heart_rate")
@@ -115,7 +118,8 @@ model MedicalHistory {
   treatmentPlan Json?    @map("treatment_plan")
   instructions  Json?    @map("instructions")
 
-  visit       Visit        @relation(fields: [visitId], references: [visitId], onUpdate: Restrict, map: "tbl_medical_record_tbl_visit_FK")
+  visit       Visit?       @relation(fields: [visitId], references: [visitId], onUpdate: Restrict, map: "tbl_medical_record_tbl_visit_FK")
+  appointment Appointment? @relation(fields: [appointmentId], references: [appointmentId], onDelete: Restrict, onUpdate: Restrict, map: "tbl_medical_history_tbl_appointment_FK")
   attachments Attachment[]
 
   @@index([visitId], map: "tbl_medical_record_tbl_visit_FK")
@@ -123,18 +127,21 @@ model MedicalHistory {
 }
 
 model LabResult {
-  labResultId    Int             @id @default(autoincrement()) @map("lab_result_id")
-  visitId        Int             @map("visit_id")
-  testTypeId     Int             @map("test_type_id")
-  interpretation String?         @db.VarChar(255)
-  createdAt      DateTime        @default(now()) @map("created_at") @db.DateTime(0)
+  labResultId    Int      @id @default(autoincrement()) @map("lab_result_id")
+  visitId        Int?     @map("visit_id")
+  appointmentId  Int?     @map("appointment_id")
+  testTypeId     Int      @map("test_type_id")
+  interpretation String?  @db.VarChar(255)
+  createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
 
   testType        LabTestType      @relation(fields: [testTypeId], references: [testTypeId], onUpdate: Restrict, map: "tbl_lab_result_tbl_lab_test_type_FK")
-  visit           Visit            @relation(fields: [visitId], references: [visitId], onUpdate: Restrict, map: "tbl_lab_result_tbl_visit_FK")
+  visit           Visit?           @relation(fields: [visitId], references: [visitId], onUpdate: Restrict, map: "tbl_lab_result_tbl_visit_FK")
+  appointment     Appointment?     @relation(fields: [appointmentId], references: [appointmentId], onDelete: Restrict, onUpdate: Restrict, map: "tbl_lab_result_tbl_appointment_FK")
   attachments     Attachment[]
   labResultValues LabResultValue[]
 
   @@index([visitId], map: "tbl_lab_result_tbl_visit_FK")
+  @@index([appointmentId], map: "tbl_lab_result_tbl_appointment_FK")
   @@map("tbl_lab_result")
 }
 

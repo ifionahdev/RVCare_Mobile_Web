@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 const createInitialForm = (history) => ({
   petId: history?.petId ? String(history.petId) : "",
   visitId: history?.visitId ? String(history.visitId) : "",
+  appointmentId: history?.appointmentId ? String(history.appointmentId) : "",
+  recordStatus: history?.recordStatus || "Draft",
   weight: history?.weight ?? "",
   temperature: history?.temperature ?? "",
   heartRate: history?.heartRate ?? "",
@@ -13,9 +15,20 @@ const createInitialForm = (history) => ({
   attachment: null,
 });
 
+const isVisitCompleted = (visit) => (
+  visit.status === "Completed" || visit.appointmentStatus === "Completed"
+);
+const formatVisitDate = (date) => {
+  if (!date) return "";
+  const parsed = new Date(`${date}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? date : parsed.toLocaleDateString("en-US");
+};
+
 const MedicalHistoryForm = ({
   pets,
   visits,
+  appointments = [],
+  medicalHistories = [],
   initialHistory,
   onCancel,
   onSave,
@@ -28,25 +41,59 @@ const MedicalHistoryForm = ({
   }, [initialHistory]);
 
   const petVisits = useMemo(
-    () => visits.filter((visit) => (
-      String(visit.petId) === formData.petId
-      && (!visit.hasMedicalHistory || String(visit.id) === String(initialHistory?.visitId))
-    )),
-    [visits, formData.petId, initialHistory?.visitId],
+    () => {
+      const hasHistoryOnDate = (candidate) => medicalHistories.some((history) => (
+        String(history.petId) === String(candidate.petId)
+        && history.date === candidate.date
+      ));
+
+      return [
+        ...visits
+          .filter((visit) => {
+            const isCurrentVisit = String(visit.id) === String(initialHistory?.visitId);
+            return String(visit.petId) === formData.petId
+              && isVisitCompleted(visit)
+              && (!visit.hasMedicalHistory || isCurrentVisit)
+              && (!hasHistoryOnDate(visit) || isCurrentVisit);
+          })
+          .map((visit) => ({
+            ...visit,
+            source: "visit",
+            selectionValue: `visit:${visit.id}`,
+          })),
+        ...appointments
+          .filter((appointment) => {
+            const isCurrentAppointment = String(appointment.appointmentId)
+              === String(initialHistory?.appointmentId);
+            return String(appointment.petId) === formData.petId
+              && (!hasHistoryOnDate(appointment) || isCurrentAppointment);
+          })
+          .map((appointment) => ({
+            ...appointment,
+            source: "appointment",
+            selectionValue: `appointment:${appointment.appointmentId}`,
+          })),
+      ];
+    },
+    [
+      visits,
+      appointments,
+      medicalHistories,
+      formData.petId,
+      initialHistory?.id,
+      initialHistory?.visitId,
+      initialHistory?.appointmentId,
+    ],
   );
-  const selectedVisit = visits.find((visit) => String(visit.id) === formData.visitId);
+  const selectedVisitValue = formData.appointmentId
+    ? `appointment:${formData.appointmentId}`
+    : formData.visitId
+      ? `visit:${formData.visitId}`
+      : "";
+  const selectedVisit = petVisits.find((visit) => visit.selectionValue === selectedVisitValue);
 
   const updateField = (field, value) => {
     setFormData((current) => ({ ...current, [field]: value }));
-  };
-
-  const handleVisitChange = (visitId) => {
-    const visit = visits.find((item) => String(item.id) === visitId);
-    setFormData((current) => ({
-      ...current,
-      visitId,
-      petId: visit ? String(visit.petId) : current.petId,
-    }));
   };
 
   const handleSubmit = (event) => {
@@ -56,6 +103,7 @@ const MedicalHistoryForm = ({
 
   const labelClass = "mb-1 block text-xs font-semibold text-slate-600";
   const fieldClass = "w-full rounded-md border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 outline-none focus:border-cyan-400";
+  const readOnlyInputClass = `${fieldClass} read-only:bg-slate-50`;
   const textAreaClass = `${fieldClass} min-h-[76px] resize-y`;
 
   return (
@@ -72,6 +120,7 @@ const MedicalHistoryForm = ({
                 ...current,
                 petId: event.target.value,
                 visitId: "",
+                appointmentId: "",
               }))}
               className={fieldClass}
             >
@@ -84,33 +133,63 @@ const MedicalHistoryForm = ({
             </select>
           </label>
           <label>
-            <span className={labelClass}>Visit *</span>
+            <span className={labelClass}>Linked visit or appointment *</span>
             <select
               required
-              value={formData.visitId}
-              onChange={(event) => handleVisitChange(event.target.value)}
+              value={selectedVisitValue}
+              disabled={!formData.petId || petVisits.length === 0}
+              onChange={(event) => {
+                const selected = petVisits.find((visit) => visit.selectionValue === event.target.value);
+                setFormData((current) => ({
+                  ...current,
+                  visitId: selected?.source === "visit" ? String(selected.id) : "",
+                  appointmentId: selected?.source === "appointment" ? String(selected.appointmentId) : "",
+                  petId: selected ? String(selected.petId) : current.petId,
+                }));
+              }}
               className={fieldClass}
             >
-              <option value="">Select a visit</option>
+              <option value="">
+                {!formData.petId
+                  ? "Select a pet first"
+                  : petVisits.length
+                    ? "Select a completed visit or appointment"
+                    : "No eligible visits or appointments"}
+              </option>
               {petVisits.map((visit) => (
-                <option key={visit.id} value={visit.id}>
-                  VIS-{String(visit.id).padStart(4, "0")} · {visit.serviceType} · {visit.date}
+                <option key={visit.selectionValue} value={visit.selectionValue}>
+                  {visit.source === "appointment" ? "APT" : "VIS"}-{String(visit.id).padStart(4, "0")} · {visit.serviceType} · {visit.date}
                 </option>
               ))}
             </select>
             {formData.petId && petVisits.length === 0 && (
-              <span className="mt-1 block text-xs text-amber-700">No eligible visits are available. Create a visit or choose one without an existing medical history.</span>
+              <span className="mt-1 block text-xs text-amber-700">No completed visit or appointment is available on a date without an existing medical history for this pet.</span>
             )}
           </label>
         </div>
 
-        {selectedVisit && (
-          <div className="mt-3 grid gap-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-600 sm:grid-cols-3">
-            <div><span className="block text-xs text-slate-400">Visit type</span>{selectedVisit.visitType}</div>
-            <div><span className="block text-xs text-slate-400">Veterinarian</span>{selectedVisit.veterinarian}</div>
-            <div><span className="block text-xs text-slate-400">Visit status</span>{selectedVisit.status?.replace(/_/g, " ")}</div>
-          </div>
-        )}
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label>
+            <span className={labelClass}>Visit type *</span>
+            <input
+              required
+              readOnly
+              value={selectedVisit?.visitType || ""}
+              placeholder="Select a linked visit or appointment"
+              className={readOnlyInputClass}
+            />
+          </label>
+          <label>
+            <span className={labelClass}>Veterinarian *</span>
+            <input
+              required
+              readOnly
+              value={selectedVisit?.veterinarian || ""}
+              placeholder="Select a linked visit or appointment"
+              className={readOnlyInputClass}
+            />
+          </label>
+        </div>
 
         <h3 className="mb-3 mt-5 text-sm font-semibold text-slate-800">Clinical findings</h3>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -132,7 +211,9 @@ const MedicalHistoryForm = ({
               />
             </label>
           ))}
-          <label className="sm:col-span-3">
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label>
             <span className={labelClass}>Chief complaint & findings *</span>
             <textarea
               required
@@ -142,7 +223,7 @@ const MedicalHistoryForm = ({
               className={textAreaClass}
             />
           </label>
-          <label className="sm:col-span-3">
+          <label>
             <span className={labelClass}>Assessment / Diagnosis *</span>
             <textarea
               required
@@ -152,7 +233,7 @@ const MedicalHistoryForm = ({
               className={textAreaClass}
             />
           </label>
-          <label className="sm:col-span-3">
+          <label>
             <span className={labelClass}>Treatment & care plan *</span>
             <textarea
               required
@@ -162,7 +243,7 @@ const MedicalHistoryForm = ({
               className={textAreaClass}
             />
           </label>
-          <label className="sm:col-span-3">
+          <label>
             <span className={labelClass}>Follow-up instructions</span>
             <textarea
               value={formData.followUp}
@@ -201,6 +282,29 @@ const MedicalHistoryForm = ({
 
       <aside className="rounded-2xl bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-800">Record settings</h3>
+        <label className="mt-4 block">
+          <span className={labelClass}>Visit date *</span>
+          <input
+            required
+            readOnly
+            value={formatVisitDate(selectedVisit?.date)}
+            placeholder="Select a linked visit or appointment"
+            className={readOnlyInputClass}
+          />
+        </label>
+        <label className="mt-4 block">
+          <span className={labelClass}>Record status *</span>
+          <select
+            required
+            value={formData.recordStatus}
+            onChange={(event) => updateField("recordStatus", event.target.value)}
+            className={fieldClass}
+          >
+            <option value="Draft">Draft</option>
+            <option value="Completed">Completed</option>
+          </select>
+          <span className="mt-1 block text-xs text-slate-500">Frontend only; this status is not saved to the database.</span>
+        </label>
         <div className="mt-4 rounded-xl bg-cyan-50 p-3">
           <h4 className="text-sm font-semibold text-cyan-700">Clinical record checklist</h4>
           <p className="mt-2 text-xs leading-relaxed text-slate-600">
