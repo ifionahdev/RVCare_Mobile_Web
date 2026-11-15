@@ -17,6 +17,7 @@ const createForm = (record) => ({
   visitId: record?.visitId ? String(record.visitId) : "",
   appointmentId: record?.appointmentId ? String(record.appointmentId) : "",
   testType: record?.recordTitle || "",
+  recordStatus: record?.recordStatus || "Pending",
   interpretation: record?.interpretation || "",
   attachment: null,
   results: Array.isArray(record?.results) && record.results.length > 0
@@ -309,16 +310,29 @@ const LabRecordForm = ({
       </div>
 
       <aside className="rounded-2xl bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-800">Automatic status</h3>
+        <h3 className="text-sm font-semibold text-slate-800">Lab record status</h3>
+        <label className="mt-4 block">
+          <span className={labelClass}>Status *</span>
+          <select
+            form="lab-record-form"
+            required
+            value={formData.recordStatus}
+            onChange={(event) => updateField("recordStatus", event.target.value)}
+            className={inputClass}
+          >
+            <option value="Pending">Pending</option>
+            <option value="Final">Final</option>
+          </select>
+          <span className="mt-1 block text-xs text-slate-500">
+            Select Final when the lab results are ready.
+          </span>
+        </label>
         <div className="mt-4 rounded-xl bg-cyan-50 p-3">
           <h4 className="text-sm font-semibold text-cyan-700">Check before saving</h4>
           <p className="mt-2 text-xs leading-relaxed text-slate-600">
             Confirm the selected patient, collection date, result values, units and reference ranges.
           </p>
         </div>
-        <p className="mt-4 text-xs leading-relaxed text-slate-500">
-          Status is determined automatically: records with result values are uploaded, and records without them remain pending.
-        </p>
       </aside>
     </div>
   );

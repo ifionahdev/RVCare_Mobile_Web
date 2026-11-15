@@ -145,6 +145,7 @@ const MedicalHistoryWorkspace = ({
         weight: formData.weight,
         temperature: formData.temperature,
         heartRate: formData.heartRate,
+        recordStatus: formData.recordStatus,
         complaint: formData.complaint,
         assessment: formData.assessment,
         treatment: formData.treatment,
@@ -169,18 +170,7 @@ const MedicalHistoryWorkspace = ({
         return;
       }
       const savedHistory = data?.medicalHistories?.find((history) => history.id === response.data.id);
-      const savedHistoryWithStatus = savedHistory
-        ? { ...savedHistory, recordStatus: formData.recordStatus }
-        : null;
-      if (savedHistoryWithStatus) {
-        setWorkspace((current) => ({
-          ...current,
-          medicalHistories: current.medicalHistories.map((history) => (
-            history.id === savedHistoryWithStatus.id ? savedHistoryWithStatus : history
-          )),
-        }));
-      }
-      setSelectedHistory(savedHistoryWithStatus);
+      setSelectedHistory(savedHistory ?? null);
       setScreen(savedHistory ? "details" : "list");
       setEditingHistory(null);
       setSuccessMessage(editingHistory ? "Medical history updated successfully." : "Medical history added successfully.");

@@ -107,6 +107,7 @@ model AuditLog {
 model MedicalHistory {
   historyId     Int      @id @default(autoincrement()) @map("record_id")
   visitId       Int      @map("visit_id")
+  status        MedicalHistoryStatus @default(Draft)
   weightKg      Decimal? @map("weight_kg") @db.Decimal(5, 2)
   temperature   Decimal? @map("temperature") @db.Decimal(4, 1)
   heartRate     Int?     @map("heart_rate")
@@ -126,6 +127,7 @@ model LabResult {
   labResultId    Int      @id @default(autoincrement()) @map("lab_result_id")
   visitId        Int      @map("visit_id")
   testTypeId     Int      @map("test_type_id")
+  status         LabResultStatus @default(Pending)
   interpretation String?  @db.VarChar(255)
   createdAt      DateTime @default(now()) @map("created_at") @db.DateTime(0)
 
@@ -528,4 +530,11 @@ enum VisitType {
 enum LabResultStatus {
   Pending
   Final
+}
+
+enum MedicalHistoryStatus {
+  Draft
+  Completed
+
+  @@map("tbl_medical_history_status")
 }

@@ -145,7 +145,7 @@ const MedicalHistoryForm = ({
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_278px]">
-      <form onSubmit={handleSubmit} className="max-h-full overflow-y-auto rounded-2xl bg-white p-4 shadow-sm">
+      <form id="medical-history-form" onSubmit={handleSubmit} className="max-h-full overflow-y-auto rounded-2xl bg-white p-4 shadow-sm">
         <h3 className="mb-3 text-sm font-semibold text-slate-800">Patient & visit information</h3>
         <div className="grid gap-3 sm:grid-cols-2">
           <label>
@@ -332,6 +332,7 @@ const MedicalHistoryForm = ({
         <label className="mt-4 block">
           <span className={labelClass}>Record status *</span>
           <select
+            form="medical-history-form"
             required
             value={formData.recordStatus}
             onChange={(event) => updateField("recordStatus", event.target.value)}
@@ -340,7 +341,9 @@ const MedicalHistoryForm = ({
             <option value="Draft">Draft</option>
             <option value="Completed">Completed</option>
           </select>
-          <span className="mt-1 block text-xs text-slate-500">Frontend only; this status is not saved to the database.</span>
+          <span className="mt-1 block text-xs text-slate-500">
+            Select Completed when the medical record is finalized.
+          </span>
         </label>
         <div className="mt-4 rounded-xl bg-cyan-50 p-3">
           <h4 className="text-sm font-semibold text-cyan-700">Clinical record checklist</h4>

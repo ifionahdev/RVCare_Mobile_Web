@@ -165,6 +165,7 @@ const medicalHistoryDto = (history, visit) => {
     petName: pet.petName,
     owner: ownerNameFor(pet),
     ownerId: pet.owner.accountId,
+    recordStatus: history.status,
     serviceType: visit.service.serviceName,
     date: dateOnly(visit.visitDate),
     time: timeOnly(visit.visitTime),
@@ -196,8 +197,6 @@ const labResultDto = (labResult, visit) => {
   const attachments = labResult.attachments
     .filter((item) => !item.isDeleted)
     .map(attachmentDto);
-  const hasResults = values.length > 0;
-
   return {
     id: labResult.labResultId,
     type: "lab",
@@ -210,8 +209,8 @@ const labResultDto = (labResult, visit) => {
     testTypeId: labResult.testTypeId,
     uploadedOn: labResult.createdAt,
     createdAt: labResult.createdAt,
-    recordStatus: hasResults ? "final" : "pending",
-    isUploaded: hasResults,
+    recordStatus: labResult.status,
+    isUploaded: labResult.status === "Final",
     interpretation: labResult.interpretation ?? "",
     results: values,
     attachments,
@@ -387,6 +386,9 @@ export const getRecordsWorkspace = async (_req, res, next) => {
   }
 };
 
+const medicalHistoryStatuses = new Set(["Draft", "Completed"]);
+const labResultStatuses = new Set(["Pending", "Final"]);
+
 const parseMedicalHistory = (payload) => {
   const visitId = payload.visitId == null || payload.visitId === ""
     ? null
@@ -397,10 +399,15 @@ const parseMedicalHistory = (payload) => {
   if (Boolean(visitId) === Boolean(appointmentId)) {
     throw httpError(400, "Select a visit or completed appointment.");
   }
+  const recordStatus = payload.recordStatus ?? "Draft";
+  if (!medicalHistoryStatuses.has(recordStatus)) {
+    throw httpError(400, "Select a valid medical record status.");
+  }
 
   return {
     visitId,
     appointmentId,
+    recordStatus,
     weightKg: readOptionalNumber(payload.weight, "Weight", 999.99),
     temperature: readOptionalNumber(payload.temperature, "Temperature", 99.9),
     heartRate: (() => {
@@ -420,6 +427,7 @@ const parseMedicalHistory = (payload) => {
 
 const medicalHistoryData = (input, source) => ({
   visitId: source.visitId,
+  status: input.recordStatus,
   weightKg: input.weightKg,
   temperature: input.temperature,
   heartRate: input.heartRate,
@@ -563,6 +571,7 @@ const ensureNoMedicalHistoryOnVisitDate = async (tx, source, excludedHistoryId) 
 
 const historySnapshot = (history) => ({
   visitId: history.visitId,
+  status: history.status,
   weightKg: history.weightKg == null ? null : String(history.weightKg),
   temperature: history.temperature == null ? null : String(history.temperature),
   heartRate: history.heartRate,
@@ -713,10 +722,15 @@ const normalizeLabInput = (payload) => {
   if (Boolean(visitId) === Boolean(appointmentId)) {
     throw httpError(400, "Select a visit or completed appointment.");
   }
+  const status = payload.status ?? "Pending";
+  if (!labResultStatuses.has(status)) {
+    throw httpError(400, "Select a valid lab result status.");
+  }
   const results = payload?.results ?? [];
   return {
     visitId,
     appointmentId,
+    status,
     testType: readText(payload.testType, "Test type", { required: true, maxLength: 100 }),
     interpretation: readText(payload.interpretation, "Interpretation", { maxLength: 255 }),
     results: results.map((item, index) => {
@@ -785,6 +799,7 @@ const saveLabValues = async (tx, labResultId, testTypeId, results) => {
 const labSnapshot = (labResult) => ({
   visitId: labResult.visitId,
   testTypeId: labResult.testTypeId,
+  status: labResult.status,
   interpretation: labResult.interpretation,
 });
 
@@ -800,6 +815,7 @@ export const createLabResult = async (req, res, next) =>
         data: {
           visitId: source.visitId,
           testTypeId: testType.testTypeId,
+          status: input.status,
           interpretation: input.interpretation || null,
         },
       });
@@ -844,6 +860,7 @@ export const updateLabResult = async (req, res, next) =>
         data: {
           visitId: source.visitId,
           testTypeId: testType.testTypeId,
+          status: input.status,
           interpretation: input.interpretation || null,
         },
       });

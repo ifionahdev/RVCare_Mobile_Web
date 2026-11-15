@@ -134,6 +134,7 @@ const LaboratoryRecordsWorkspace = ({
           ? { appointmentId: Number(formData.appointmentId) }
           : { visitId: Number(formData.visitId) }),
         testType: formData.testType,
+        status: formData.recordStatus,
         interpretation: formData.interpretation,
         results: formData.results,
       };
