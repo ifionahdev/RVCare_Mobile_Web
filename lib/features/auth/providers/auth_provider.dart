@@ -96,4 +96,15 @@ class AuthProvider extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  void updateUserProfile({
+    required String firstName,
+    required String lastName,
+  }) {
+    final user = _user;
+    if (user == null) return;
+
+    _user = {...user, 'firstName': firstName, 'lastName': lastName};
+    notifyListeners();
+  }
 }

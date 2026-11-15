@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import multer from "multer";
 import { prisma } from "../config/prisma.js";
 import { createAuditLog } from "../services/auditLogService.js";
+import { generateRecordPdf } from "../services/recordPdfService.js";
 
 const uploadDirectory = fileURLToPath(new URL("../../uploads/records/", import.meta.url));
 const maxAttachmentSize = 10 * 1024 * 1024;
@@ -381,6 +382,213 @@ export const getRecordsWorkspace = async (_req, res, next) => {
         })),
       })),
     });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const customerVisitWhere = (accountId) => ({
+  isDeleted: false,
+  pet: {
+    is: {
+      isDeleted: false,
+      breed: { is: { isDeleted: false } },
+      owner: {
+        is: {
+          accountId,
+          isDeleted: false,
+          account: { is: { isDeleted: false } },
+        },
+      },
+    },
+  },
+});
+
+const customerRecordVisitInclude = {
+  pet: {
+    include: {
+      breed: { select: { breedName: true, species: true } },
+      owner: {
+        include: {
+          account: { select: { firstName: true, lastName: true } },
+        },
+      },
+    },
+  },
+  service: { select: { serviceName: true } },
+  veterinarian: {
+    include: {
+      account: { select: { firstName: true, lastName: true } },
+    },
+  },
+};
+
+const recordPetDto = (pet) => ({
+  name: pet.petName,
+  details: `${pet.breed.breedName} · ${pet.breed.species}`,
+});
+
+const customerRecordDto = (type, record, visit) => ({
+  id: record.historyId ?? record.labResultId,
+  type,
+  title:
+    type === "medical"
+      ? `${visit.service.serviceName} medical record`
+      : record.testType.name,
+  date: dateOnly(type === "medical" ? visit.visitDate : record.createdAt),
+  visitDate: dateOnly(visit.visitDate),
+  pet: recordPetDto(visit.pet),
+});
+
+const customerRecordPdfData = (type, record, visit) => {
+  const pet = visit.pet;
+  const ownerName = displayName(pet.owner.account);
+  const visitData = {
+    type,
+    recordId: record.historyId ?? record.labResultId,
+    recordDate: dateOnly(type === "medical" ? visit.visitDate : record.createdAt),
+    visitDate: dateOnly(visit.visitDate),
+    visitTime: timeOnly(visit.visitTime),
+    petName: pet.petName,
+    species: pet.breed.species,
+    breed: pet.breed.breedName,
+    ownerName,
+    serviceName: visit.service.serviceName,
+    veterinarianName: displayName(visit.veterinarian.account),
+  };
+
+  if (type === "medical") {
+    return {
+      ...visitData,
+      weight: record.weightKg == null ? "" : String(record.weightKg),
+      temperature: record.temperature == null ? "" : String(record.temperature),
+      heartRate: record.heartRate == null ? "" : String(record.heartRate),
+      findings: record.findings,
+      assessment: record.assessment,
+      treatmentPlan: record.treatmentPlan,
+      instructions: record.instructions,
+    };
+  }
+
+  return {
+    ...visitData,
+    type: "laboratory",
+    interpretation: record.interpretation ?? "",
+    results: record.labResultValues
+      .filter((value) => !value.isDeleted && !value.parameter.isDeleted)
+      .map((value) => ({
+        parameter: value.parameter.name,
+        result: value.textValue ?? (value.value == null ? "" : String(value.value)),
+        unit: value.parameter.unit ?? "",
+        referenceRange: value.parameter.refRangeText ?? "",
+      })),
+  };
+};
+
+export const getMyRecords = async (req, res, next) => {
+  try {
+    const visitWhere = customerVisitWhere(req.user.accountId);
+    const [medicalRecords, labRecords] = await Promise.all([
+      prisma.medicalHistory.findMany({
+        where: {
+          status: "Completed",
+          visit: { is: visitWhere },
+        },
+        include: {
+          visit: { include: customerRecordVisitInclude },
+        },
+        orderBy: { historyId: "desc" },
+      }),
+      prisma.labResult.findMany({
+        where: {
+          status: "Final",
+          testType: { is: { isDeleted: false } },
+          visit: { is: visitWhere },
+        },
+        include: {
+          visit: { include: customerRecordVisitInclude },
+          testType: { select: { name: true } },
+          labResultValues: {
+            include: { parameter: true },
+            orderBy: { valueId: "asc" },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
+    const records = [
+      ...medicalRecords.map((record) =>
+        customerRecordDto("medical", record, record.visit),
+      ),
+      ...labRecords.map((record) =>
+        customerRecordDto("laboratory", record, record.visit),
+      ),
+    ].sort((left, right) => right.date.localeCompare(left.date));
+
+    return res.json({ records });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const downloadMyRecordPdf = async (req, res, next) => {
+  try {
+    const recordId = readId(req.params.recordId, "Record ID");
+    const recordType = req.params.recordType;
+    if (!["medical", "laboratory"].includes(recordType)) {
+      throw httpError(400, "Record type must be medical or laboratory.");
+    }
+
+    const visitWhere = customerVisitWhere(req.user.accountId);
+    const record =
+      recordType === "medical"
+        ? await prisma.medicalHistory.findFirst({
+            where: {
+              historyId: recordId,
+              status: "Completed",
+              visit: { is: visitWhere },
+            },
+            include: {
+              visit: { include: customerRecordVisitInclude },
+            },
+          })
+        : await prisma.labResult.findFirst({
+            where: {
+              labResultId: recordId,
+              status: "Final",
+              testType: { is: { isDeleted: false } },
+              visit: { is: visitWhere },
+            },
+            include: {
+              visit: { include: customerRecordVisitInclude },
+              testType: { select: { name: true } },
+              labResultValues: {
+                include: { parameter: true },
+                orderBy: { valueId: "asc" },
+              },
+            },
+          });
+
+    if (!record) throw httpError(404, "Record not found.");
+
+    const pdf = await generateRecordPdf(
+      customerRecordPdfData(recordType, record, record.visit),
+    );
+    const petName = record.visit.pet.petName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "pet";
+    const filename = `${petName}-${recordType}-record-${recordId}.pdf`;
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Length": String(pdf.length),
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    return res.status(200).send(pdf);
   } catch (error) {
     return next(error);
   }

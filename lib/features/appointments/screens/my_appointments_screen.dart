@@ -83,21 +83,10 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
     return ['incoming', 'confirmed', 'approved', 'upcoming'].contains(status);
   }
 
-  bool _isPast(Map<String, dynamic> appointment) {
-    if (_isCancelled(appointment) || _isPending(appointment)) return false;
-    return [
-      'completed',
-      'missed',
-      'rejected',
-      'past',
-    ].contains(_status(appointment));
-  }
-
   @override
   Widget build(BuildContext context) {
     final upcoming = _selectedTab == 0;
     final pending = _selectedTab == 1;
-    final past = _selectedTab == 2;
     final upcomingAppointments = _appointments.where(_isUpcoming);
     final pendingAppointments = _appointments.where(_isPending);
 
@@ -134,8 +123,7 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
                 children: [
                   _tab('Upcoming · ${upcomingAppointments.length}', 0),
                   _tab('Pending · ${pendingAppointments.length}', 1),
-                  _tab('Past', 2),
-                  _tab('Cancelled', 3),
+                  _tab('Cancelled', 2),
                 ],
               ),
             ),
@@ -159,13 +147,6 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
               if (pendingAppointments.isEmpty)
                 _emptyAppointmentsCard('No pending appointments'),
               for (final appointment in pendingAppointments) ...[
-                _backendAppointmentCard(appointment),
-                const SizedBox(height: 12),
-              ],
-            ] else if (past) ...[
-              if (_appointments.where(_isPast).isEmpty)
-                _emptyAppointmentsCard('No past appointments'),
-              for (final appointment in _appointments.where(_isPast)) ...[
                 _backendAppointmentCard(appointment),
                 const SizedBox(height: 12),
               ],
@@ -267,7 +248,11 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
   // ------------------------------------------------------ appointment card
 
   Widget _backendAppointmentCard(Map<String, dynamic> appointment) {
-    final date = DateTime.parse(appointment['scheduledDate'] as String);
+    final scheduledDate = (appointment['scheduledDate'] as String).substring(
+      0,
+      10,
+    );
+    final date = DateTime.parse(scheduledDate);
     final pet = appointment['pet'] as Map<String, dynamic>;
     final service = appointment['service'] as Map<String, dynamic>;
     final timeslot = appointment['timeslot'] as Map<String, dynamic>;
@@ -304,6 +289,13 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
       footerText: 'APT-${appointment['appointmentId']}',
       reference: 'APT-${appointment['appointmentId']}',
       appointmentId: appointment['appointmentId'] as int,
+      scheduledDate: scheduledDate,
+      appointmentDateTime: DateTime.parse(
+        '${scheduledDate}T${timeslot['startTime']}:00+08:00',
+      ).toLocal(),
+      petId: appointment['petId'] as int,
+      serviceId: appointment['serviceId'] as int,
+      veterinarianId: appointment['vetId'] as int,
     );
   }
 
@@ -320,25 +312,38 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
     required String footerText,
     String? reference,
     int? appointmentId,
+    String? scheduledDate,
+    DateTime? appointmentDateTime,
+    int? petId,
+    int? serviceId,
+    int? veterinarianId,
   }) {
     final confirmed = status == 'Confirmed';
 
     return InkWell(
-      onTap: () => Navigator.push<void>(
-        context,
-        MaterialPageRoute<void>(
-          builder: (_) => AppointmentDetailsScreen(
-            date: '$weekday, $month $dayNumber',
-            procedure: title,
-            pet: pet,
-            time: _formatTime(startTime),
-            veterinarian: veterinarian,
-            status: status,
-            reference: reference,
-            appointmentId: appointmentId,
+      onTap: () async {
+        await Navigator.push<void>(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => AppointmentDetailsScreen(
+              date: '$weekday, $month $dayNumber',
+              procedure: title,
+              pet: pet,
+              time: _formatTime(startTime),
+              veterinarian: veterinarian,
+              status: status,
+              reference: reference,
+              appointmentId: appointmentId,
+              scheduledDate: scheduledDate,
+              appointmentDateTime: appointmentDateTime,
+              petId: petId,
+              serviceId: serviceId,
+              veterinarianId: veterinarianId,
+            ),
           ),
-        ),
-      ),
+        );
+        if (mounted) await _loadAppointments();
+      },
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),

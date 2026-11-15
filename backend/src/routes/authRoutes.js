@@ -19,6 +19,11 @@ const loginLimiter = rateLimit({
 
 router.post("/login", loginLimiter, login);
 router.get("/me", authenticate, me);
-router.put("/change-password", authenticate, requireRole("admin", "vet"), changePassword);
+router.put(
+  "/change-password",
+  authenticate,
+  requireRole("admin", "vet", "customer"),
+  changePassword,
+);
 
 export default router;

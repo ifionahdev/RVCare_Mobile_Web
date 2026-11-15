@@ -18,6 +18,7 @@ class RecommendedSchedulesScreen extends StatefulWidget {
     required this.serviceId,
     this.preferredVetId,
     this.algorithmDate,
+    this.rescheduleAppointmentId,
   });
 
   final String pet;
@@ -29,6 +30,7 @@ class RecommendedSchedulesScreen extends StatefulWidget {
   final int serviceId;
   final int? preferredVetId;
   final String? algorithmDate;
+  final int? rescheduleAppointmentId;
 
   @override
   State<RecommendedSchedulesScreen> createState() =>
@@ -42,6 +44,7 @@ class _RecommendedSchedulesScreenState
   List<_RecommendedSchedule> _schedules = const [];
   Object? _error;
   bool _isLoading = true;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -113,7 +116,11 @@ class _RecommendedSchedulesScreenState
           vetId: suggestion.veterinarianId,
         );
         final slot = slots
-            .where((candidate) => candidate.startTime == suggestion.startTime)
+            .where(
+              (candidate) =>
+                  candidate.startTime == suggestion.startTime &&
+                  !candidate.isBooked,
+            )
             .firstOrNull;
         if (slot == null) continue;
         final vet = vets
@@ -146,6 +153,47 @@ class _RecommendedSchedulesScreenState
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _continueWithSchedule(_RecommendedSchedule schedule) async {
+    if (widget.rescheduleAppointmentId != null) {
+      if (_isSubmitting) return;
+      setState(() => _isSubmitting = true);
+      try {
+        await context.read<AppointmentService>().rescheduleAppointment(
+          appointmentId: widget.rescheduleAppointmentId!,
+          scheduledDate: schedule.isoDate,
+          timeslotId: schedule.timeslotId,
+        );
+        if (!mounted) return;
+        Navigator.popUntil(context, (route) => route.isFirst);
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      } finally {
+        if (mounted) setState(() => _isSubmitting = false);
+      }
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => AppointmentSummaryScreen(
+          pet: widget.pet,
+          procedure: widget.procedure,
+          veterinarian: schedule.veterinarian,
+          time: schedule.time.split(' - ').first,
+          date: schedule.date,
+          petId: widget.petId,
+          serviceId: widget.serviceId,
+          vetId: schedule.veterinarianId,
+          timeslotId: schedule.timeslotId,
+          scheduledDate: schedule.isoDate,
+        ),
+      ),
+    );
   }
 
   @override
@@ -320,31 +368,23 @@ class _RecommendedSchedulesScreenState
               ),
             ),
             AppointmentBottomButton(
-              label: 'Continue with Selected Time',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => AppointmentSummaryScreen(
-                    pet: widget.pet,
-                    procedure: widget.procedure,
-                    veterinarian: selectedSchedule.veterinarian,
-                    time: selectedSchedule.time.split(' - ').first,
-                    date: selectedSchedule.date,
-                    petId: widget.petId,
-                    serviceId: widget.serviceId,
-                    vetId: selectedSchedule.veterinarianId,
-                    timeslotId: selectedSchedule.timeslotId,
-                    scheduledDate: selectedSchedule.isoDate,
-                  ),
-                ),
-              ),
+              label: widget.rescheduleAppointmentId != null
+                  ? (_isSubmitting
+                        ? 'Saving...'
+                        : 'Reschedule to Selected Time')
+                  : 'Continue with Selected Time',
+              onTap: _isSubmitting
+                  ? null
+                  : () => _continueWithSchedule(selectedSchedule),
             ),
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: TextButton(
                 onPressed: () {
                   Navigator.pop(context);
-                  Navigator.pop(context);
+                  if (widget.rescheduleAppointmentId == null) {
+                    Navigator.pop(context);
+                  }
                 },
                 child: const Text(
                   'Choose Another Schedule',

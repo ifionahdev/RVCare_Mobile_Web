@@ -3,12 +3,22 @@ import {
   findAppointmentById,
   findRecentPendingAppointments,
   updateAppointmentSchedule,
+  cancelAppointment as cancelAppointmentRecord,
+  findBookedTimeslotIds,
+  findTimeslotById,
   findTodaysUpcomingAppointments,
 } from "../models/appointmentModel.js";
 import { findOwnerPet } from "../models/petModel.js";
 import { findFirstAvailableVeterinarian } from "../models/vetModel.js";
 import { findCustomerByAccount } from "../models/customerModel.js";
 import { emitAppointmentChanged } from "../realtime.js";
+import { BOOKING_DAYS } from "../scheduling/ctr.js";
+import {
+  appointmentStartDateTime,
+  isCancellationAllowed,
+  isRescheduleAllowed,
+  isWithinBookingWindow,
+} from "./appointmentPolicy.js";
 
 export class AppointmentServiceError extends Error {
   constructor(message, statusCode) {
@@ -136,7 +146,6 @@ export const rescheduleOwnerAppointment = async ({
   role,
   scheduledDate,
   timeslotId,
-  vetId,
 }) => {
   const parsedAppointmentId = parsePositiveInteger(
     appointmentId,
@@ -145,10 +154,6 @@ export const rescheduleOwnerAppointment = async ({
   const parsedTimeslotId = parsePositiveInteger(
     timeslotId,
     "Invalid time slot.",
-  );
-  const parsedVetId = parseOptionalPositiveInteger(
-    vetId,
-    "Invalid veterinarian.",
   );
   const parsedScheduledDate = parseDate(
     scheduledDate,
@@ -162,17 +167,89 @@ export const rescheduleOwnerAppointment = async ({
     return null;
   }
 
+  const now = new Date();
+  if (!isRescheduleAllowed(appointment, now)) {
+    throw new AppointmentServiceError(
+      "Appointments can only be rescheduled at least 24 hours before the visit.",
+      409,
+    );
+  }
+  const scheduledDateValue = parsedScheduledDate.toISOString().slice(0, 10);
+  if (!isWithinBookingWindow(scheduledDateValue, now, BOOKING_DAYS)) {
+    throw new AppointmentServiceError(
+      "Choose a date within the available booking window.",
+      400,
+    );
+  }
+  const timeslot = await findTimeslotById(parsedTimeslotId);
+  if (!timeslot) {
+    throw new AppointmentServiceError("Invalid time slot.", 400);
+  }
+  const targetAppointment = {
+    scheduledDate: parsedScheduledDate,
+    timeslot,
+  };
+  if (appointmentStartDateTime(targetAppointment) <= now) {
+    throw new AppointmentServiceError("Choose a future time slot.", 400);
+  }
+  const bookedTimeslots = await findBookedTimeslotIds({
+    scheduledDate: parsedScheduledDate,
+    vetId: appointment.vetId,
+    excludeAppointmentId: parsedAppointmentId,
+  });
+  if (bookedTimeslots.some((booked) => booked.timeslotId === parsedTimeslotId)) {
+    throw new AppointmentServiceError(
+      "That time slot is no longer available for your veterinarian.",
+      409,
+    );
+  }
+
   await updateAppointmentSchedule({
     appointmentId: parsedAppointmentId,
     scheduledDate: parsedScheduledDate,
     timeslotId: parsedTimeslotId,
-    vetId: parsedVetId,
     accountId,
   });
 
   emitAppointmentChanged(appointment.pet.owner.accountId, {
     type: "rescheduled",
     appointmentId,
+  });
+
+  return appointment;
+};
+
+export const cancelOwnerAppointment = async ({
+  appointmentId,
+  accountId,
+  role,
+}) => {
+  const parsedAppointmentId = parsePositiveInteger(
+    appointmentId,
+    "Invalid appointment id.",
+  );
+  const appointment = await getAppointment(parsedAppointmentId, {
+    accountId,
+    role,
+  });
+  if (!appointment) return null;
+
+  if (!isCancellationAllowed(appointment)) {
+    throw new AppointmentServiceError(
+      appointment.status === "Upcoming"
+        ? "Confirmed appointments cannot be cancelled within 3 days of the visit."
+        : "This appointment can no longer be cancelled.",
+      409,
+    );
+  }
+
+  await cancelAppointmentRecord({
+    appointmentId: parsedAppointmentId,
+    accountId,
+  });
+  emitAppointmentChanged(appointment.pet.owner.accountId, {
+    type: "cancelled",
+    appointmentId: parsedAppointmentId,
   });
 
   return appointment;

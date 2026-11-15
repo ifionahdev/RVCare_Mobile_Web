@@ -178,6 +178,7 @@ export const recommend = (request, schedule, now) => {
           a.workload - b.workload ||
           a.vetId - b.vetId,
       ));
+    break;
   }
 
   return ranked

@@ -217,9 +217,20 @@ export const changePassword = async (req, res, next) => {
     }
 
     const password = await bcrypt.hash(newPassword, 12);
-    await prisma.account.update({
-      where: { accountId: req.user.accountId },
-      data: { password },
+    await prisma.$transaction(async (tx) => {
+      await tx.account.update({
+        where: { accountId: req.user.accountId },
+        data: { password },
+      });
+      if (req.user.role === "customer") {
+        await tx.activityLog.create({
+          data: {
+            accountId: req.user.accountId,
+            action: "PASSWORD_CHANGED",
+            source: "mobile",
+          },
+        });
+      }
     });
 
     return res.json({ message: "Password changed successfully." });

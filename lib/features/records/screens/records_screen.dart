@@ -1,6 +1,9 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../data/records_service.dart';
 import '../models/pet_record.dart';
 import 'record_details_screen.dart';
 
@@ -34,47 +37,15 @@ class RecordsScreen extends StatefulWidget {
 }
 
 class _RecordsScreenState extends State<RecordsScreen> {
-  static const _pet = RecordPet(
-    name: 'Luna',
-    details: 'Golden Retriever · 2 yrs, 4 mos',
-  );
-
-  // TODO: replace the placeholder PDF links with the real files.
-  static const _records = [
-    PetRecord(
-      title: 'Mild Ear Infection',
-      date: 'Oct 10, 2026',
-      type: PetRecordType.medical,
-      pdfUrl: 'https://rvcare.example/records/mild-ear-infection.pdf',
-    ),
-    PetRecord(
-      title: 'Annual Rabies Vaccination',
-      date: 'Sep 22, 2026',
-      type: PetRecordType.medical,
-      pdfUrl: 'https://rvcare.example/records/annual-rabies-vaccination.pdf',
-    ),
-    PetRecord(
-      title: 'Complete Blood Count (CBC)',
-      date: 'Oct 12, 2026',
-      type: PetRecordType.laboratory,
-      pdfUrl: 'https://rvcare.example/records/cbc.pdf',
-      isNew: true,
-    ),
-    // Sample entry so the banner reads "2 new laboratory reports".
-    PetRecord(
-      title: 'Urinalysis',
-      date: 'Oct 12, 2026',
-      type: PetRecordType.laboratory,
-      pdfUrl: 'https://rvcare.example/records/urinalysis.pdf',
-      isNew: true,
-    ),
-  ];
-
+  late Future<List<PetRecord>> _recordsFuture;
   _RecordFilter _filter = _RecordFilter.all;
+  final Set<String> _downloadingRecords = {};
 
-  int get _newLabCount => _records
-      .where((r) => r.type == PetRecordType.laboratory && r.isNew)
-      .length;
+  @override
+  void initState() {
+    super.initState();
+    _recordsFuture = context.read<RecordsService>().fetchMyRecords();
+  }
 
   void _openRecord(PetRecord record) {
     final callback = widget.onOpenRecord;
@@ -85,92 +56,174 @@ class _RecordsScreenState extends State<RecordsScreen> {
     Navigator.push<void>(
       context,
       MaterialPageRoute<void>(
-        builder: (_) => RecordDetailsScreen(record: record, pet: _pet),
+        builder: (_) => RecordDetailsScreen(record: record, pet: record.pet),
       ),
     );
   }
 
+  String _downloadKey(PetRecord record) =>
+      '${record.type.apiValue}-${record.id}';
+
+  Future<void> _download(PetRecord record) async {
+    final key = _downloadKey(record);
+    if (_downloadingRecords.contains(key)) return;
+    setState(() => _downloadingRecords.add(key));
+    try {
+      final saved = await context.read<RecordsService>().downloadRecord(record);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            saved ? 'PDF saved successfully.' : 'PDF download was cancelled.',
+          ),
+        ),
+      );
+    } on DioException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(RecordsService.readableError(error))),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(RecordsService.readableError(error))),
+      );
+    } finally {
+      if (mounted) setState(() => _downloadingRecords.remove(key));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final visible = _records.where(_filter.matches).toList();
-
     return SafeArea(
       bottom: false,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-        children: [
-          const Text(
-            'Record',
-            style: TextStyle(
-              fontSize: 34,
-              height: 1.05,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.heading,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Uploaded files for ${_pet.name}',
-            style: const TextStyle(fontSize: 14, color: AppTheme.muted),
-          ),
-          const SizedBox(height: 18),
-          const RecordPetCard(pet: _pet, showChevron: true),
-          const SizedBox(height: 18),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _RecordFilter.values.map((f) {
-                final selected = f == _filter;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: ChoiceChip(
-                    label: Text(f.label),
-                    selected: selected,
-                    onSelected: (_) => setState(() => _filter = f),
-                    selectedColor: _teal,
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: AppTheme.border),
-                    showCheckmark: false,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    labelStyle: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: selected ? Colors.white : const Color(0xFF536568),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          if (_newLabCount > 0) ...[
-            const SizedBox(height: 14),
-            _LaboratoryBanner(
-              count: _newLabCount,
-              onTap: () => setState(() => _filter = _RecordFilter.laboratory),
-            ),
-          ],
-          const SizedBox(height: 16),
-          if (visible.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
-              child: Center(
-                child: Text(
-                  'No records yet.',
-                  style: TextStyle(color: AppTheme.muted),
+      child: FutureBuilder<List<PetRecord>>(
+        future: _recordsFuture,
+        builder: (context, snapshot) {
+          final records = snapshot.data ?? const <PetRecord>[];
+          final visible = records.where(_filter.matches).toList();
+          final labCount = records
+              .where((record) => record.type == PetRecordType.laboratory)
+              .length;
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            children: [
+              const Text(
+                'Records',
+                style: TextStyle(
+                  fontSize: 34,
+                  height: 1.05,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.heading,
                 ),
               ),
-            ),
-          for (var i = 0; i < visible.length; i++) ...[
-            if (i > 0) const SizedBox(height: 12),
-            _RecordCard(
-              record: visible[i],
-              onView: () => _openRecord(visible[i]),
-              onDownload: () => confirmAndOpenPdf(context, visible[i]),
-            ),
-          ],
+              const SizedBox(height: 8),
+              const Text(
+                'Medical and laboratory records for your pets.',
+                style: TextStyle(fontSize: 14, color: AppTheme.muted),
+              ),
+              const SizedBox(height: 18),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _RecordFilter.values.map((filter) {
+                    final selected = filter == _filter;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: ChoiceChip(
+                        label: Text(filter.label),
+                        selected: selected,
+                        onSelected: (_) => setState(() => _filter = filter),
+                        selectedColor: _teal,
+                        backgroundColor: Colors.white,
+                        side: const BorderSide(color: AppTheme.border),
+                        showCheckmark: false,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        labelStyle: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: selected
+                              ? Colors.white
+                              : const Color(0xFF536568),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              if (snapshot.connectionState == ConnectionState.waiting)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 48),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (snapshot.hasError)
+                _RecordsLoadError(
+                  message: RecordsService.readableError(snapshot.error!),
+                  onRetry: () => setState(
+                    () => _recordsFuture = context
+                        .read<RecordsService>()
+                        .fetchMyRecords(),
+                  ),
+                )
+              else ...[
+                if (labCount > 0) ...[
+                  const SizedBox(height: 14),
+                  _LaboratoryBanner(
+                    count: labCount,
+                    onTap: () =>
+                        setState(() => _filter = _RecordFilter.laboratory),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                if (visible.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: Text(
+                        'No records yet.',
+                        style: TextStyle(color: AppTheme.muted),
+                      ),
+                    ),
+                  ),
+                for (var i = 0; i < visible.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 12),
+                  _RecordCard(
+                    record: visible[i],
+                    isDownloading: _downloadingRecords.contains(
+                      _downloadKey(visible[i]),
+                    ),
+                    onView: () => _openRecord(visible[i]),
+                    onDownload: () => _download(visible[i]),
+                  ),
+                ],
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _RecordsLoadError extends StatelessWidget {
+  const _RecordsLoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 30),
+      child: Column(
+        children: [
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 10),
+          OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
         ],
       ),
     );
@@ -186,8 +239,8 @@ class _LaboratoryBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = count == 1
-        ? '1 new laboratory report is available'
-        : '$count new laboratory reports are available';
+        ? '1 laboratory report is available'
+        : '$count laboratory reports are available';
 
     return Material(
       color: const Color(0xFFE0F2F6),
@@ -240,11 +293,13 @@ class _LaboratoryBanner extends StatelessWidget {
 class _RecordCard extends StatelessWidget {
   const _RecordCard({
     required this.record,
+    required this.isDownloading,
     required this.onView,
     required this.onDownload,
   });
 
   final PetRecord record;
+  final bool isDownloading;
   final VoidCallback onView;
   final VoidCallback onDownload;
 
@@ -262,7 +317,7 @@ class _RecordCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Uploaded ${record.date}',
+            'Recorded ${record.date}',
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w800,
@@ -278,6 +333,29 @@ class _RecordCard extends StatelessWidget {
               fontWeight: FontWeight.w800,
               color: AppTheme.heading,
             ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              const Icon(Icons.pets_outlined, size: 17, color: AppTheme.muted),
+              const SizedBox(width: 6),
+              Text(
+                record.pet.name,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.heading,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  record.pet.details,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, color: AppTheme.muted),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           Row(
@@ -298,7 +376,7 @@ class _RecordCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               OutlinedButton(
-                onPressed: onDownload,
+                onPressed: isDownloading ? null : onDownload,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.heading,
                   minimumSize: const Size(62, 40),
@@ -306,10 +384,19 @@ class _RecordCard extends StatelessWidget {
                   side: const BorderSide(color: AppTheme.border),
                   shape: const StadiumBorder(),
                 ),
-                child: const Text(
-                  'Download',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
+                child: isDownloading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text(
+                        'Download',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
               ),
             ],
           ),

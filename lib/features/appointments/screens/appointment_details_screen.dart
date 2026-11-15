@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../data/appointment_service.dart';
 import 'reschedule_appointment_screen.dart';
 
 class AppointmentDetailsScreen extends StatelessWidget {
@@ -14,6 +16,11 @@ class AppointmentDetailsScreen extends StatelessWidget {
     required this.status,
     this.reference,
     this.appointmentId,
+    this.scheduledDate,
+    this.appointmentDateTime,
+    this.petId,
+    this.serviceId,
+    this.veterinarianId,
   });
 
   final String date;
@@ -26,6 +33,11 @@ class AppointmentDetailsScreen extends StatelessWidget {
   /// Optional booking reference, e.g. APT-20261104-01.
   final String? reference;
   final int? appointmentId;
+  final String? scheduledDate;
+  final DateTime? appointmentDateTime;
+  final int? petId;
+  final int? serviceId;
+  final int? veterinarianId;
 
   // Shared with MyAppointmentsScreen so both screens look consistent.
   static const Color _pageBg = Color(0xFFF4F9FC);
@@ -58,13 +70,57 @@ class AppointmentDetailsScreen extends StatelessWidget {
       ),
     );
     if (confirmed == true && context.mounted) {
-      Navigator.pop(context);
+      try {
+        await context.read<AppointmentService>().cancelAppointment(
+          appointmentId: appointmentId!,
+        );
+        if (context.mounted) Navigator.pop(context);
+      } catch (error) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isPast = status == 'Completed';
+    final now = DateTime.now();
+    final appointmentStart = appointmentDateTime;
+    final timeUntilAppointment = appointmentStart?.difference(now);
+    final activeStatus = const {
+      'pending',
+      'upcoming',
+      'approved',
+      'confirmed',
+      'incoming',
+    }.contains(status.toLowerCase());
+    final approvedStatus = const {
+      'upcoming',
+      'approved',
+      'confirmed',
+      'incoming',
+    }.contains(status.toLowerCase());
+    final hasRescheduleDetails =
+        appointmentId != null &&
+        scheduledDate != null &&
+        petId != null &&
+        serviceId != null &&
+        veterinarianId != null;
+    final canReschedule =
+        activeStatus &&
+        hasRescheduleDetails &&
+        timeUntilAppointment != null &&
+        timeUntilAppointment >= const Duration(hours: 24);
+    final canCancel =
+        activeStatus &&
+        appointmentId != null &&
+        timeUntilAppointment != null &&
+        timeUntilAppointment > Duration.zero &&
+        (!approvedStatus || timeUntilAppointment >= const Duration(days: 3));
+    final isPast =
+        status.toLowerCase() == 'completed' ||
+        (appointmentStart != null && !appointmentStart.isAfter(now));
 
     return Scaffold(
       backgroundColor: _pageBg,
@@ -78,9 +134,13 @@ class AppointmentDetailsScreen extends StatelessWidget {
             if (!isPast) ...[const SizedBox(height: 12), _buildReminder()],
             const SizedBox(height: 12),
             _buildDetailsCard(),
-            if (!isPast) ...[
+            if (canReschedule || canCancel) ...[
               const SizedBox(height: 20),
-              _buildActions(context),
+              _buildActions(
+                context,
+                canReschedule: canReschedule,
+                canCancel: canCancel,
+              ),
             ],
           ],
         ),
@@ -330,6 +390,9 @@ class AppointmentDetailsScreen extends StatelessWidget {
     if (onDark) return (Colors.white, _confirmedGreen);
     switch (status) {
       case 'Confirmed':
+      case 'Upcoming':
+      case 'Approved':
+      case 'Incoming':
         return (_confirmedBg, _confirmedGreen);
       case 'Pending':
         return (_pendingBg, _pendingOrange);
@@ -340,62 +403,73 @@ class AppointmentDetailsScreen extends StatelessWidget {
 
   // ---------------------------------------------------------------- actions
 
-  Widget _buildActions(BuildContext context) {
+  Widget _buildActions(
+    BuildContext context, {
+    required bool canReschedule,
+    required bool canCancel,
+  }) {
     return Column(
       children: [
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.push<void>(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => RescheduleAppointmentScreen(
-                    date: date,
-                    procedure: procedure,
-                    pet: pet,
-                    time: time,
-                    veterinarian: veterinarian,
-                    appointmentId: appointmentId,
+        if (canReschedule)
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.push<void>(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => RescheduleAppointmentScreen(
+                      date: date,
+                      scheduledDate: scheduledDate!,
+                      procedure: procedure,
+                      pet: pet,
+                      time: time,
+                      veterinarian: veterinarian,
+                      appointmentId: appointmentId!,
+                      petId: petId!,
+                      serviceId: serviceId!,
+                      veterinarianId: veterinarianId!,
+                      reference: reference,
+                    ),
                   ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryDark,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryDark,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Reschedule Appointment',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
               ),
             ),
-            child: const Text(
-              'Reschedule Appointment',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-            ),
           ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: OutlinedButton(
-            onPressed: () => _cancelAppointment(context),
-            style: OutlinedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFFC62828),
-              side: const BorderSide(color: Color(0xFFF0C4C4)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        if (canReschedule && canCancel) const SizedBox(height: 10),
+        if (canCancel)
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton(
+              onPressed: () => _cancelAppointment(context),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFFC62828),
+                side: const BorderSide(color: Color(0xFFF0C4C4)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Cancel Appointment',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
               ),
             ),
-            child: const Text(
-              'Cancel Appointment',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-            ),
           ),
-        ),
       ],
     );
   }

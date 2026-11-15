@@ -5,6 +5,8 @@ import {
   deleteLabResult,
   deleteMedicalHistory,
   downloadRecordAttachment,
+  downloadMyRecordPdf,
+  getMyRecords,
   getRecordsWorkspace,
   updateLabResult,
   updateMedicalHistory,
@@ -16,6 +18,12 @@ import { requireRole } from "../middleware/role.js";
 const router = Router();
 
 router.use(authenticate);
+router.get("/mine", requireRole("customer"), getMyRecords);
+router.get(
+  "/mine/:recordType/:recordId/pdf",
+  requireRole("customer"),
+  downloadMyRecordPdf,
+);
 router.get("/workspace", requireRole("admin", "vet"), getRecordsWorkspace);
 router.get("/attachments/:attachmentId", requireRole("admin", "vet"), downloadRecordAttachment);
 router.post(

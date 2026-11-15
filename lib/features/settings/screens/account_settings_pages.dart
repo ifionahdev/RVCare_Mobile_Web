@@ -1,7 +1,11 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../data/settings_service.dart';
 
 const _settingsBackground = Color(0xFFF4F8F8);
 const _settingsHeading = Color(0xFF202D3E);
@@ -22,18 +26,17 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
   late final TextEditingController _firstName;
   late final TextEditingController _lastName;
   late final TextEditingController _birthday;
+  bool _isLoading = true;
+  bool _isSaving = false;
+  String? _loadError;
 
   @override
   void initState() {
     super.initState();
-    final user = context.read<AuthProvider>().user ?? {};
-    _firstName = TextEditingController(
-      text: user['firstName']?.toString() ?? '',
-    );
-    _lastName = TextEditingController(text: user['lastName']?.toString() ?? '');
-    _birthday = TextEditingController(
-      text: user['birthday']?.toString() ?? user['dob']?.toString() ?? '',
-    );
+    _firstName = TextEditingController();
+    _lastName = TextEditingController();
+    _birthday = TextEditingController();
+    unawaited(_loadProfile());
   }
 
   @override
@@ -44,8 +47,54 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
     super.dispose();
   }
 
+  Future<void> _loadProfile() async {
+    try {
+      final profile = await context.read<SettingsService>().fetchMyProfile();
+      if (!mounted) return;
+      setState(() {
+        _firstName.text = profile.firstName;
+        _lastName.text = profile.lastName;
+        _birthday.text = _displayBirthday(profile.dateOfBirth);
+        _isLoading = false;
+      });
+    } on DioException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = SettingsService.readableError(error);
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error.toString().replaceFirst('Exception: ', '');
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _displayBirthday(DateTime? date) {
+    if (date == null) return '';
+    return '${date.month.toString().padLeft(2, '0')} / '
+        '${date.day.toString().padLeft(2, '0')} / ${date.year}';
+  }
+
+  DateTime? _selectedBirthday() {
+    if (_birthday.text.trim().isEmpty) return null;
+    final parts = _birthday.text.split('/');
+    if (parts.length != 3) return null;
+    final month = int.tryParse(parts[0].trim());
+    final day = int.tryParse(parts[1].trim());
+    final year = int.tryParse(parts[2].trim());
+    if (month == null || day == null || year == null) return null;
+    final date = DateTime(year, month, day);
+    if (date.year != year || date.month != month || date.day != day) {
+      return null;
+    }
+    return date;
+  }
+
   Future<void> _selectBirthday() async {
-    final initialDate = DateTime.tryParse(_birthday.text) ?? DateTime(2000);
+    final initialDate = _selectedBirthday() ?? DateTime(2000);
     final date = await showDatePicker(
       context: context,
       initialDate: initialDate,
@@ -54,19 +103,67 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
     );
     if (date == null) return;
     setState(() {
-      _birthday.text =
-          '${date.month.toString().padLeft(2, '0')} / '
-          '${date.day.toString().padLeft(2, '0')} / ${date.year}';
+      _birthday.text = _displayBirthday(date);
     });
   }
 
-  void _save() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profile updates are not connected yet.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  Future<void> _save() async {
+    final firstName = _firstName.text.trim();
+    final lastName = _lastName.text.trim();
+    final birthday = _selectedBirthday();
+    if (firstName.isEmpty ||
+        lastName.isEmpty ||
+        (_birthday.text.trim().isNotEmpty && birthday == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter valid names and a valid birthday.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      await context.read<SettingsService>().updateMyProfile(
+        firstName: firstName,
+        lastName: lastName,
+        dateOfBirth: birthday == null
+            ? null
+            : '${birthday.year.toString().padLeft(4, '0')}-'
+                  '${birthday.month.toString().padLeft(2, '0')}-'
+                  '${birthday.day.toString().padLeft(2, '0')}',
+      );
+      if (!mounted) return;
+      context.read<AuthProvider>().updateUserProfile(
+        firstName: firstName,
+        lastName: lastName,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Personal information updated.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on DioException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(SettingsService.readableError(error)),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -75,7 +172,8 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       title: 'Personal information',
       bottomAction: _SettingsPrimaryButton(
         label: 'Save changes',
-        onPressed: _save,
+        onPressed: _isLoading || _isSaving || _loadError != null ? null : _save,
+        isLoading: _isSaving,
       ),
       children: [
         const _SettingsIntro(
@@ -83,6 +181,13 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
           description: 'Keep your pet-owner information up to date.',
         ),
         const SizedBox(height: 26),
+        if (_isLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (_loadError != null)
+          _SettingsNotice(
+            icon: Icons.error_outline_rounded,
+            message: _loadError!,
+          ),
         const _SettingsSectionLabel('PET OWNER DETAILS'),
         const SizedBox(height: 16),
         _SettingsFormField(
@@ -195,6 +300,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final _newPassword = TextEditingController();
   final _confirmPassword = TextEditingController();
   final _obscure = [true, true, true];
+  bool _isSaving = false;
 
   @override
   void dispose() {
@@ -204,24 +310,66 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     super.dispose();
   }
 
-  void _updatePassword() {
+  Future<void> _updatePassword() async {
     String? message;
     if (_currentPassword.text.isEmpty ||
         _newPassword.text.isEmpty ||
         _confirmPassword.text.isEmpty) {
       message = 'Enter your current password and both new password fields.';
     } else if (_newPassword.text.length < 8 ||
-        !RegExp(r'[A-Za-z]').hasMatch(_newPassword.text) ||
-        !RegExp(r'\d').hasMatch(_newPassword.text)) {
-      message = 'Use at least 8 characters, including a letter and a number.';
+        _newPassword.text.length > 72 ||
+        !RegExp(r'[A-Z]').hasMatch(_newPassword.text) ||
+        !RegExp(r'\d').hasMatch(_newPassword.text) ||
+        !RegExp(r'[^A-Za-z0-9]').hasMatch(_newPassword.text)) {
+      message = 'Use 8–72 characters, including an uppercase letter, a number, and a special character.';
+    } else if (_newPassword.text == _currentPassword.text) {
+      message = 'Choose a password different from your current password.';
     } else if (_newPassword.text != _confirmPassword.text) {
       message = 'The new passwords do not match.';
-    } else {
-      message = 'Password changes are not connected yet.';
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
-    );
+    if (message != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      await context.read<SettingsService>().changePassword(
+        currentPassword: _currentPassword.text,
+        newPassword: _newPassword.text,
+        confirmPassword: _confirmPassword.text,
+      );
+      if (!mounted) return;
+      _currentPassword.clear();
+      _newPassword.clear();
+      _confirmPassword.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password changed successfully.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on DioException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(SettingsService.readableError(error)),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -230,7 +378,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       title: 'Change password',
       bottomAction: _SettingsPrimaryButton(
         label: 'Update password',
-        onPressed: _updatePassword,
+        onPressed: _isSaving ? null : _updatePassword,
+        isLoading: _isSaving,
       ),
       children: [
         const SizedBox(height: 24),
@@ -269,9 +418,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             children: [
               _SettingsSectionLabel('PASSWORD MUST HAVE'),
               SizedBox(height: 14),
-              _PasswordRequirement('At least 8 characters'),
+              _PasswordRequirement('Between 8 and 72 characters'),
               SizedBox(height: 12),
-              _PasswordRequirement('A letter and a number'),
+              _PasswordRequirement(
+                'An uppercase letter, a number, and a special character',
+              ),
+              SizedBox(height: 12),
+              _PasswordRequirement('Different from your current password'),
               SizedBox(height: 12),
               _PasswordRequirement('Both new passwords must match'),
             ],
@@ -283,8 +436,54 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   }
 }
 
-class ActivityLogScreen extends StatelessWidget {
+class ActivityLogScreen extends StatefulWidget {
   const ActivityLogScreen({super.key});
+
+  @override
+  State<ActivityLogScreen> createState() => _ActivityLogScreenState();
+}
+
+class _ActivityLogScreenState extends State<ActivityLogScreen> {
+  late Future<List<AccountActivity>> _activityFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _activityFuture = context.read<SettingsService>().fetchActivity();
+  }
+
+  String _dateHeading(DateTime date) {
+    const months = [
+      'JANUARY',
+      'FEBRUARY',
+      'MARCH',
+      'APRIL',
+      'MAY',
+      'JUNE',
+      'JULY',
+      'AUGUST',
+      'SEPTEMBER',
+      'OCTOBER',
+      'NOVEMBER',
+      'DECEMBER',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  String _timeLabel(DateTime date) {
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = date.hour < 12 ? 'AM' : 'PM';
+    return '$hour:$minute $period';
+  }
+
+  IconData _activityIcon(String title) {
+    final normalized = title.toLowerCase();
+    if (normalized.contains('sign')) return Icons.login_rounded;
+    if (normalized.contains('password')) return Icons.lock_outline_rounded;
+    if (normalized.contains('delete')) return Icons.delete_outline_rounded;
+    return Icons.manage_accounts_outlined;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -296,51 +495,71 @@ class ActivityLogScreen extends StatelessWidget {
           'A timeline of sign-ins and changes to your account.',
           style: TextStyle(color: _settingsMuted, fontSize: 14, height: 1.4),
         ),
-        const SizedBox(height: 8),
-        const Text(
-          'Example activity · 1–3 November 2026',
-          style: TextStyle(color: _settingsMuted, fontSize: 12),
-        ),
         const SizedBox(height: 26),
-        const _SettingsSectionLabel('3 NOVEMBER 2026'),
-        const SizedBox(height: 12),
-        const _ActivityCard(
-          icon: Icons.tune_rounded,
-          title: 'Preferences saved',
-          detail: 'Notification choices updated',
-          time: '10:25 AM',
-        ),
-        const SizedBox(height: 12),
-        const _ActivityCard(
-          icon: Icons.person_outline_rounded,
-          title: 'Personal information updated',
-          detail: 'Pet-owner profile edited',
-          time: '10:18 AM',
-        ),
-        const SizedBox(height: 12),
-        const _ActivityCard(
-          icon: Icons.login_rounded,
-          title: 'Signed in',
-          detail: 'Raphacare account sign-in',
-          time: '10:02 AM',
-        ),
-        const SizedBox(height: 24),
-        const _SettingsSectionLabel('2 NOVEMBER 2026'),
-        const SizedBox(height: 12),
-        const _ActivityCard(
-          icon: Icons.lock_outline_rounded,
-          title: 'Password updated',
-          detail: 'Account password changed',
-          time: '4:30 PM',
-        ),
-        const SizedBox(height: 24),
-        const _SettingsSectionLabel('1 NOVEMBER 2026'),
-        const SizedBox(height: 12),
-        const _ActivityCard(
-          icon: Icons.login_rounded,
-          title: 'Signed in',
-          detail: 'Raphacare account sign-in',
-          time: '9:10 AM',
+        FutureBuilder<List<AccountActivity>>(
+          future: _activityFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              final error = snapshot.error;
+              final message = error is DioException
+                  ? SettingsService.readableError(error)
+                  : error.toString().replaceFirst('Exception: ', '');
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(message, style: const TextStyle(color: _settingsMuted)),
+                  TextButton(
+                    onPressed: () => setState(
+                      () => _activityFuture = context
+                          .read<SettingsService>()
+                          .fetchActivity(),
+                    ),
+                    child: const Text('Try again'),
+                  ),
+                ],
+              );
+            }
+
+            final activities = snapshot.data ?? const <AccountActivity>[];
+            if (activities.isEmpty) {
+              return const _SettingsNotice(
+                icon: Icons.history_rounded,
+                message: 'No account activity is available yet.',
+              );
+            }
+
+            final children = <Widget>[];
+            DateTime? previousDate;
+            for (final activity in activities) {
+              final date = activity.createdAt.toLocal();
+              final day = DateTime(date.year, date.month, date.day);
+              if (previousDate != day) {
+                if (children.isNotEmpty) {
+                  children.add(const SizedBox(height: 22));
+                }
+                children.add(_SettingsSectionLabel(_dateHeading(day)));
+                children.add(const SizedBox(height: 12));
+                previousDate = day;
+              } else {
+                children.add(const SizedBox(height: 12));
+              }
+              children.add(
+                _ActivityCard(
+                  icon: _activityIcon(activity.title),
+                  title: activity.title,
+                  detail: activity.detail,
+                  time: _timeLabel(date),
+                ),
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
+            );
+          },
         ),
         const SizedBox(height: 24),
       ],
@@ -685,10 +904,15 @@ class _SettingsNotice extends StatelessWidget {
 }
 
 class _SettingsPrimaryButton extends StatelessWidget {
-  const _SettingsPrimaryButton({required this.label, required this.onPressed});
+  const _SettingsPrimaryButton({
+    required this.label,
+    required this.onPressed,
+    this.isLoading = false,
+  });
 
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -704,10 +928,22 @@ class _SettingsPrimaryButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-        ),
+        child: isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
       ),
     );
   }

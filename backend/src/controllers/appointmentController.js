@@ -3,6 +3,7 @@ import {
   createAppointment as createAppointmentRecord,
   getAppointment as getAppointmentRecord,
   rescheduleOwnerAppointment,
+  cancelOwnerAppointment,
   getTodaysUpcomingAppointments,
 } from "../services/appointmentService.js";
 import {
@@ -87,13 +88,29 @@ export const rescheduleAppointment = async (req, res, next) => {
       role: req.user.role,
       scheduledDate,
       timeslotId: req.body?.timeslotId,
-      vetId: req.body?.vetId,
     });
     if (!appointment) {
       return res.status(404).json({ message: "Appointment not found." });
     }
 
     return res.json({ message: "Appointment rescheduled." });
+  } catch (error) {
+    return handleAppointmentError(error, next, res);
+  }
+};
+
+export const cancelAppointment = async (req, res, next) => {
+  try {
+    const appointment = await cancelOwnerAppointment({
+      appointmentId: req.params.appointmentId,
+      accountId: req.user.accountId,
+      role: req.user.role,
+    });
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found." });
+    }
+
+    return res.json({ message: "Appointment cancelled." });
   } catch (error) {
     return handleAppointmentError(error, next, res);
   }

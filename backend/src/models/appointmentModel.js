@@ -22,11 +22,18 @@ const activeAppointmentRelations = {
   },
 };
 
-export const findBookedTimeslotIds = async ({ scheduledDate, vetId }) =>
+export const findBookedTimeslotIds = async ({
+  scheduledDate,
+  vetId,
+  excludeAppointmentId,
+}) =>
   prisma.appointment.findMany({
     where: {
       scheduledDate,
       isDeleted: false,
+      ...(excludeAppointmentId === undefined
+        ? {}
+        : { appointmentId: { not: excludeAppointmentId } }),
       ...activeAppointmentRelations,
       status: {
         notIn: ["Cancelled", "Rejected", "Completed", "Missed"],
@@ -38,6 +45,9 @@ export const findBookedTimeslotIds = async ({ scheduledDate, vetId }) =>
       vetId: true,
     },
   });
+
+export const findTimeslotById = (timeslotId) =>
+  prisma.timeslot.findUnique({ where: { timeslotId } });
 
 const appointmentInclude = {
   pet: {
@@ -192,6 +202,26 @@ export const updateAppointmentSchedule = ({
         timeslotId: updated.timeslotId,
         vetId: updated.vetId,
       },
+    });
+    return updated;
+  });
+
+export const cancelAppointment = ({ appointmentId, accountId }) =>
+  prisma.$transaction(async (tx) => {
+    const current = await tx.appointment.findUniqueOrThrow({
+      where: { appointmentId },
+    });
+    const updated = await tx.appointment.update({
+      where: { appointmentId },
+      data: { status: "Cancelled" },
+    });
+    await createAuditLog(tx, {
+      accountId,
+      action: "Updated",
+      targetTable: "tbl_appointment",
+      targetId: appointmentId,
+      oldValue: { status: current.status },
+      newValue: { status: updated.status },
     });
     return updated;
   });

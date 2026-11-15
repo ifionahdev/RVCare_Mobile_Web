@@ -73,7 +73,7 @@ test("selects the lowest-workload veterinarian per hour for Any", () => {
 test("stops at the nearest date with availability", () => {
   const occupied = [];
   for (const vetId of [1, 2, 3]) {
-    for (let hour = 8; hour < 20; hour++) {
+    for (let hour = 8; hour < 21; hour++) {
       if (hour !== 10) occupied.push(slotKey(vetId, "2026-11-07", hour));
     }
   }

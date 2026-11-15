@@ -76,6 +76,10 @@ class CareArticleScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final readLabel = article.source.isEmpty
+        ? 'Read full article'
+        : 'Read on ${article.source}';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5FAFA),
       body: SafeArea(
@@ -200,13 +204,34 @@ class CareArticleScreen extends StatelessWidget {
                       icon: const Icon(Icons.open_in_new),
                       iconAlignment: IconAlignment.end,
                       label: Text(
-                        _isVideo ? 'Watch on YouTube' : 'Read full article',
+                        _isVideo ? 'Watch on YouTube' : readLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
+                  if (article.url.isNotEmpty && !_isVideo) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _openExternal(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _tealDark,
+                        minimumSize: const Size.fromHeight(48),
+                        side: const BorderSide(color: _tealDark),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(26),
+                        ),
+                      ),
+                      icon: const Icon(Icons.open_in_browser_rounded),
+                      label: const Text(
+                        'Open in browser',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

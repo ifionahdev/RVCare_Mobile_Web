@@ -11,6 +11,7 @@ import {
   getAppointmentPerStatusCount,
   getTodaysUpcoming,
   rescheduleAppointment,
+  cancelAppointment,
 } from "../controllers/appointmentController.js";
 
 const router = Router();
@@ -48,6 +49,12 @@ router.patch(
   authenticate,
   requireRole("customer", "admin"),
   rescheduleAppointment,
+);
+router.patch(
+  "/:appointmentId/cancel",
+  authenticate,
+  requireRole("customer", "admin"),
+  cancelAppointment,
 );
 
 

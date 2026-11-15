@@ -271,15 +271,22 @@ class AppointmentService {
     required int appointmentId,
     required String scheduledDate,
     required int timeslotId,
-    int? vetId,
   }) async {
-    await _apiClient.dio.patch(
-      '/appointments/$appointmentId/reschedule',
-      data: {
-        'scheduledDate': scheduledDate,
-        'timeslotId': timeslotId,
-        ...?vetId == null ? null : {'vetId': vetId},
-      },
-    );
+    try {
+      await _apiClient.dio.patch(
+        '/appointments/$appointmentId/reschedule',
+        data: {'scheduledDate': scheduledDate, 'timeslotId': timeslotId},
+      );
+    } on DioException catch (e) {
+      throw Exception(_message(e, 'Failed to reschedule appointment'));
+    }
+  }
+
+  Future<void> cancelAppointment({required int appointmentId}) async {
+    try {
+      await _apiClient.dio.patch('/appointments/$appointmentId/cancel');
+    } on DioException catch (e) {
+      throw Exception(_message(e, 'Failed to cancel appointment'));
+    }
   }
 }

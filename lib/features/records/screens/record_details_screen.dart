@@ -1,42 +1,15 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../data/records_service.dart';
 import '../models/pet_record.dart';
 
 const _teal = Color(0xFF068A98);
 const _tealDark = Color(0xFF05808A);
 const _mint = Color(0xFFE0F2F1);
 const _bg = Color(0xFFF5FAFA);
-
-/// Asks "You're leaving Raphacare", then opens the record's PDF externally.
-/// Used by both the list screen (Download) and the details screen.
-Future<void> confirmAndOpenPdf(
-  BuildContext context,
-  PetRecord record,
-) async {
-  final confirmed = await showDialog<bool>(
-    context: context,
-    barrierDismissible: false,
-    barrierColor: Colors.black54,
-    builder: (dialogContext) => _LeavingPdfDialog(
-      record: record,
-      onContinue: () => Navigator.pop(dialogContext, true),
-      onStay: () => Navigator.pop(dialogContext, false),
-    ),
-  );
-  if (confirmed != true) return;
-
-  final ok = await launchUrl(
-    Uri.parse(record.pdfUrl),
-    mode: LaunchMode.externalApplication,
-  );
-  if (!ok && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Could not open the PDF.')),
-    );
-  }
-}
 
 /// White rounded card with the pet's avatar, name and details.
 class RecordPetCard extends StatelessWidget {
@@ -99,7 +72,7 @@ class RecordPetCard extends StatelessWidget {
   }
 }
 
-class RecordDetailsScreen extends StatelessWidget {
+class RecordDetailsScreen extends StatefulWidget {
   const RecordDetailsScreen({
     super.key,
     required this.record,
@@ -115,7 +88,45 @@ class RecordDetailsScreen extends StatelessWidget {
   final VoidCallback? onBack;
 
   @override
+  State<RecordDetailsScreen> createState() => _RecordDetailsScreenState();
+}
+
+class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
+  bool _isDownloading = false;
+
+  Future<void> _downloadRecord() async {
+    setState(() => _isDownloading = true);
+    try {
+      final saved = await context.read<RecordsService>().downloadRecord(
+        widget.record,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            saved ? 'PDF saved successfully.' : 'PDF download was cancelled.',
+          ),
+        ),
+      );
+    } on DioException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(RecordsService.readableError(error))),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(RecordsService.readableError(error))),
+      );
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final record = widget.record;
+    final pet = widget.pet;
     final isLab = record.type == PetRecordType.laboratory;
 
     return Scaffold(
@@ -130,7 +141,8 @@ class RecordDetailsScreen extends StatelessWidget {
                   Row(
                     children: [
                       IconButton.outlined(
-                        onPressed: onBack ?? () => Navigator.maybePop(context),
+                        onPressed:
+                            widget.onBack ?? () => Navigator.maybePop(context),
                         icon: const Icon(Icons.chevron_left_rounded),
                         iconSize: 28,
                         style: IconButton.styleFrom(
@@ -174,7 +186,7 @@ class RecordDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Uploaded ${record.date}',
+                    'Recorded ${record.date}',
                     style: const TextStyle(fontSize: 15, color: AppTheme.muted),
                   ),
                   const SizedBox(height: 18),
@@ -214,7 +226,7 @@ class RecordDetailsScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Original document',
+                          'Record PDF',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
@@ -278,7 +290,7 @@ class RecordDetailsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         const Text(
-                          'Download the original PDF to view the complete record.',
+                          'Save an organized PDF of this medical or laboratory record.',
                           style: TextStyle(
                             fontSize: 15,
                             height: 1.35,
@@ -298,11 +310,23 @@ class RecordDetailsScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   FilledButton.icon(
-                    onPressed: () => confirmAndOpenPdf(context, record),
-                    icon: const Icon(Icons.download_rounded, size: 24),
-                    label: const Text(
-                      'Download PDF',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                    onPressed: _isDownloading ? null : _downloadRecord,
+                    icon: _isDownloading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.download_rounded, size: 24),
+                    label: Text(
+                      _isDownloading ? 'Preparing PDF...' : 'Download PDF',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     style: FilledButton.styleFrom(
                       backgroundColor: _tealDark,
@@ -315,7 +339,7 @@ class RecordDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Opens in your browser or PDF app',
+                    'Choose where to save your PDF',
                     style: TextStyle(fontSize: 13, color: AppTheme.muted),
                   ),
                 ],
@@ -353,125 +377,6 @@ class _InfoField extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _LeavingPdfDialog extends StatelessWidget {
-  const _LeavingPdfDialog({
-    required this.record,
-    required this.onContinue,
-    required this.onStay,
-  });
-
-  final PetRecord record;
-  final VoidCallback onContinue;
-  final VoidCallback onStay;
-
-  @override
-  Widget build(BuildContext context) {
-    // Brand name as shown in the design.
-    const appName = 'Raphacare';
-
-    return Dialog(
-      insetPadding: const EdgeInsets.all(24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(34)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(26, 30, 26, 26),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: const BoxDecoration(
-                color: _mint,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.description_outlined,
-                size: 28,
-                color: _teal,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'You’re leaving $appName',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: AppTheme.heading,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'This PDF will open in your browser or another app that supports PDF files.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, height: 1.4, color: AppTheme.muted),
-            ),
-            const SizedBox(height: 18),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF2F8F8),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    record.title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.heading,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'PDF · Uploaded ${record.date}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 13, color: AppTheme.muted),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 22),
-            FilledButton(
-              onPressed: onContinue,
-              style: FilledButton.styleFrom(
-                backgroundColor: _tealDark,
-                minimumSize: const Size.fromHeight(52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-              child: const Text(
-                'Open PDF',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-              ),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: onStay,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.heading,
-                minimumSize: const Size.fromHeight(52),
-                side: const BorderSide(color: AppTheme.border, width: 2),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-              child: const Text(
-                'Stay in app',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

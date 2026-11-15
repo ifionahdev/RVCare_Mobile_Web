@@ -500,6 +500,9 @@ class _FeaturedCard extends StatelessWidget {
       article.displayCategory,
       if (article.readTime.isNotEmpty) article.readTime,
     ].join(' · ');
+    final readLabel = article.source.isEmpty
+        ? 'Read article'
+        : 'Read on ${article.source}';
 
     return Container(
       width: double.infinity,
@@ -564,21 +567,29 @@ class _FeaturedCard extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          FilledButton.icon(
-            onPressed: onTap,
-            icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-            label: Text(
-              _isVideo ? 'Watch video' : 'Read article',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-            ),
-            iconAlignment: IconAlignment.end,
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: _teal,
-              minimumSize: const Size(0, 44),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onTap,
+              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+              label: Text(
+                readLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              iconAlignment: IconAlignment.end,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: _teal,
+                minimumSize: const Size(0, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
               ),
             ),
           ),
@@ -604,6 +615,9 @@ class _GuideTile extends StatelessWidget {
       article.displayCategory,
       if (!_isVideo && article.readTime.isNotEmpty) article.readTime,
     ].join(' · ');
+    final readLabel = article.source.isEmpty
+        ? 'Read article'
+        : 'Read on ${article.source}';
 
     return Material(
       color: Colors.white,
@@ -657,7 +671,7 @@ class _GuideTile extends StatelessWidget {
                         color: AppTheme.muted,
                       ),
                     ),
-                    if (_isVideo && article.channel != null) ...[
+                    if (_isVideo) ...[
                       const SizedBox(height: 6),
                       Row(
                         children: [
@@ -678,21 +692,47 @@ class _GuideTile extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           const Text(
-                            'YouTube',
+                            'Watch on YouTube',
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w800,
                               color: AppTheme.heading,
                             ),
                           ),
+                          if (article.channel != null) ...[
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                '@${article.channel!}',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  color: AppTheme.muted,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ] else if (article.source.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.open_in_new_rounded,
+                            size: 14,
+                            color: _teal,
+                          ),
                           const SizedBox(width: 6),
-                          Flexible(
+                          Expanded(
                             child: Text(
-                              '@${article.channel!}',
+                              readLabel,
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontSize: 12.5,
-                                color: AppTheme.muted,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.heading,
                               ),
                             ),
                           ),
