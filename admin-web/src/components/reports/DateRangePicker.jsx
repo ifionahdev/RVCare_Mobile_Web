@@ -55,10 +55,10 @@ const DateRangePicker = ({ onRangeChange }) => {
         end.setHours(23,59,59,999);
         break;
       case 'Last 7 Days':
-        start.setDate(start.getDate() - 7);
+        start.setDate(start.getDate() - 6);
         break;
       case 'Last 30 Days':
-        start.setDate(start.getDate() - 30);
+        start.setDate(start.getDate() - 29);
         break;
       case 'This Month':
         start.setDate(1);
@@ -132,7 +132,7 @@ const DateRangePicker = ({ onRangeChange }) => {
                   />
                   <button
                     onClick={handleCustomRangeApply}
-                    disabled={!customStart || !customEnd}
+                    disabled={!customStart || !customEnd || customStart > customEnd}
                     className="w-full px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Apply Range

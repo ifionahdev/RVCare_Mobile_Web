@@ -20,19 +20,19 @@ router.get("/workspace", requireRole("admin", "vet"), getRecordsWorkspace);
 router.get("/attachments/:attachmentId", requireRole("admin", "vet"), downloadRecordAttachment);
 router.post(
   "/medical-histories",
-  requireRole("admin"),
+requireRole("admin", "vet"),
   uploadRecordAttachment,
   createMedicalHistory,
 );
 router.put(
   "/medical-histories/:historyId",
-  requireRole("admin"),
+  requireRole("admin", "vet"),
   uploadRecordAttachment,
   updateMedicalHistory,
 );
-router.delete("/medical-histories/:historyId", requireRole("admin"), deleteMedicalHistory);
-router.post("/lab-results", requireRole("admin"), uploadRecordAttachment, createLabResult);
-router.put("/lab-results/:labResultId", requireRole("admin"), uploadRecordAttachment, updateLabResult);
-router.delete("/lab-results/:labResultId", requireRole("admin"), deleteLabResult);
+router.delete("/medical-histories/:historyId", requireRole("admin", "vet"), deleteMedicalHistory);
+router.post("/lab-results", requireRole("admin", "vet"), uploadRecordAttachment, createLabResult);
+router.put("/lab-results/:labResultId", requireRole("admin", "vet"), uploadRecordAttachment, updateLabResult);
+router.delete("/lab-results/:labResultId", requireRole("admin", "vet"), deleteLabResult);
 
 export default router;

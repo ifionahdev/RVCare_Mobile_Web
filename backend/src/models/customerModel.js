@@ -1,13 +1,19 @@
 import {prisma} from '../config/prisma.js';
 
 export const getCustomerCount = async () => 
-    prisma.petOwner.count({ where: { isDeleted: false } });
+    prisma.petOwner.count({
+        where: {
+            isDeleted: false,
+            account: { is: { isDeleted: false } },
+        },
+    });
 
 export const findCustomerByAccount = async (accountId) =>
     prisma.petOwner.findFirst({
         where: {
             accountId,
             isDeleted: false,
+            account: { is: { isDeleted: false } },
         },
     });
 
@@ -21,7 +27,10 @@ export const findActiveCustomersWithPets = () =>
         include: {
             account: true,
             pets: {
-                where: { isDeleted: false },
+                where: {
+                    isDeleted: false,
+                    breed: { is: { isDeleted: false } },
+                },
                 include: { breed: true },
                 orderBy: { petId: "desc" },
             },

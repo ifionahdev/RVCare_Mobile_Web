@@ -25,11 +25,17 @@ export const findVeterinarianScheduleTimeOptions = () =>
     orderBy: { startTime: "asc" },
   });
 
-export const findVeterinarianSchedules = () =>
+export const findVeterinarianSchedules = (vetId) =>
   prisma.veterinarianSchedule.findMany({
     where: {
       isDeleted: false,
-      veterinarian: { isDeleted: false },
+      ...(vetId === undefined ? {} : { vetId }),
+      veterinarian: {
+        is: {
+          isDeleted: false,
+          account: { is: { isDeleted: false } },
+        },
+      },
     },
     include: veterinarianInclude,
     orderBy: [{ vetId: "asc" }, { dayOfWeek: "asc" }],
@@ -150,11 +156,17 @@ export const softDeleteVeterinarianSchedule = (scheduleId, accountId) =>
     });
   });
 
-export const findVeterinarianTimeOff = () =>
+export const findVeterinarianTimeOff = (vetId) =>
   prisma.veterinarianTimeOff.findMany({
     where: {
       isDeleted: false,
-      veterinarian: { isDeleted: false },
+      ...(vetId === undefined ? {} : { vetId }),
+      veterinarian: {
+        is: {
+          isDeleted: false,
+          account: { is: { isDeleted: false } },
+        },
+      },
     },
     include: veterinarianInclude,
     orderBy: [{ date: "asc" }, { vetId: "asc" }],

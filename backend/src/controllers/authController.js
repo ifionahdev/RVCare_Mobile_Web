@@ -5,6 +5,7 @@ import pool from "../config/db.js";
 import { findAccountForLogin, findAccountById } from "../models/accountModel.js";
 import { logActivity } from "../models/activityModel.js";
 import { findProfileId } from "../models/profileModel.js";
+import { prisma } from "../config/prisma.js";
 
 const INVALID_CREDENTIALS = "Invalid username or password";
 
@@ -172,5 +173,57 @@ export const me = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+export const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body ?? {};
+    if (
+      typeof currentPassword !== "string" ||
+      typeof newPassword !== "string" ||
+      typeof confirmPassword !== "string" ||
+      !currentPassword ||
+      !newPassword ||
+      !confirmPassword
+    ) {
+      return res.status(400).json({ message: "All password fields are required." });
+    }
+
+    if (
+      newPassword.length < 8 ||
+      newPassword.length > 72 ||
+      !/[A-Z]/.test(newPassword) ||
+      !/[0-9]/.test(newPassword) ||
+      !/[^A-Za-z0-9]/.test(newPassword)
+    ) {
+      return res.status(400).json({
+        message: "The new password must be at least 8 characters and include an uppercase letter, a number, and a special character.",
+      });
+    }
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: "The new password confirmation does not match." });
+    }
+    if (newPassword === currentPassword) {
+      return res.status(400).json({ message: "Choose a password different from your current password." });
+    }
+
+    const account = await prisma.account.findFirst({
+      where: { accountId: req.user.accountId, isDeleted: false },
+      select: { password: true },
+    });
+    if (!account || !(await bcrypt.compare(currentPassword, account.password))) {
+      return res.status(400).json({ message: "Current password is incorrect." });
+    }
+
+    const password = await bcrypt.hash(newPassword, 12);
+    await prisma.account.update({
+      where: { accountId: req.user.accountId },
+      data: { password },
+    });
+
+    return res.json({ message: "Password changed successfully." });
+  } catch (error) {
+    return next(error);
   }
 };

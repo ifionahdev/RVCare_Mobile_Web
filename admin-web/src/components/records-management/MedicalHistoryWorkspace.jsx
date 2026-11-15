@@ -30,6 +30,8 @@ const MedicalHistoryWorkspace = ({
     pets: [],
     visits: [],
     appointments: [],
+    availableVisits: [],
+    medicalHistoryAppointments: [],
     medicalHistories: [],
   });
   const [loading, setLoading] = useState(true);
@@ -53,6 +55,8 @@ const MedicalHistoryWorkspace = ({
         pets: data.pets ?? [],
         visits: data.visits ?? [],
         appointments: data.availableAppointments ?? [],
+        availableVisits: data.availableMedicalHistoryVisits ?? [],
+        medicalHistoryAppointments: data.availableMedicalHistoryAppointments ?? [],
         medicalHistories: data.medicalHistories ?? [],
       });
       setSelectedHistory((current) => current
@@ -230,6 +234,8 @@ const MedicalHistoryWorkspace = ({
           pets={workspace.pets}
           visits={workspace.visits}
           appointments={workspace.appointments}
+          availableVisits={workspace.availableVisits}
+          availableAppointments={workspace.medicalHistoryAppointments}
           medicalHistories={workspace.medicalHistories}
           initialHistory={editingHistory}
           onCancel={backToList}

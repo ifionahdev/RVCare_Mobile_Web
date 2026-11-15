@@ -5,12 +5,30 @@ export const findPetByOwner = async (id) =>
         where: {
             ownerId: id,
             isDeleted: false,
+            owner: {
+                is: {
+                    isDeleted: false,
+                    account: { is: { isDeleted: false } },
+                },
+            },
+            breed: { is: { isDeleted: false } },
         },
         include: { breed: true },
     });
 
 export const getPetCount = async () =>
-    prisma.pet.count({ where: { isDeleted: false } });
+    prisma.pet.count({
+        where: {
+            isDeleted: false,
+            owner: {
+                is: {
+                    isDeleted: false,
+                    account: { is: { isDeleted: false } },
+                },
+            },
+            breed: { is: { isDeleted: false } },
+        },
+    });
 
 export const findOwnerPet = (petId, ownerId) =>
     prisma.pet.findFirst({

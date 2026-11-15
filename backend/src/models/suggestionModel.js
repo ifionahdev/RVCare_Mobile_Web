@@ -5,7 +5,10 @@ const toDateOnly = (value) => value.toISOString().slice(0, 10);
 
 export const findSuggestionVets = async () => {
   const vets = await prisma.veterinarian.findMany({
-    where: { isDeleted: false },
+    where: {
+      isDeleted: false,
+      account: { is: { isDeleted: false } },
+    },
     select: { vetId: true },
     orderBy: { vetId: "asc" },
   });
@@ -34,6 +37,24 @@ export const findSuggestionSchedule = async ({ fromDate, toDate, vetIds }) => {
           notIn: ["Cancelled", "Rejected", "Completed", "Missed"],
         },
         isDeleted: false,
+        pet: {
+          is: {
+            isDeleted: false,
+            owner: {
+              is: {
+                isDeleted: false,
+                account: { is: { isDeleted: false } },
+              },
+            },
+            breed: { is: { isDeleted: false } },
+          },
+        },
+        veterinarian: {
+          is: {
+            isDeleted: false,
+            account: { is: { isDeleted: false } },
+          },
+        },
       },
       select: {
         vetId: true,

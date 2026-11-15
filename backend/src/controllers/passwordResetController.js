@@ -107,6 +107,7 @@ async function findActiveAccount(email, platform) {
      LEFT JOIN tbl_veterinarian v ON v.account_id = a.account_id
      LEFT JOIN tbl_pet_owner po ON po.account_id = a.account_id
      WHERE a.username = ?
+       AND a.is_deleted = 0
        AND (
          (? = 'web' AND r.role_slug IN ('admin', 'vet'))
          OR

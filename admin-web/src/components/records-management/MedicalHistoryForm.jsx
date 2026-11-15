@@ -23,11 +23,22 @@ const formatVisitDate = (date) => {
   const parsed = new Date(`${date}T00:00:00`);
   return Number.isNaN(parsed.getTime()) ? date : parsed.toLocaleDateString("en-US");
 };
+const dateKey = (value) => {
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    return value.slice(0, 10);
+  }
+  const parsed = value ? new Date(value) : null;
+  return parsed && !Number.isNaN(parsed.getTime())
+    ? parsed.toISOString().slice(0, 10)
+    : "";
+};
 
 const MedicalHistoryForm = ({
   pets,
   visits,
   appointments = [],
+  availableVisits,
+  availableAppointments,
   medicalHistories = [],
   initialHistory,
   onCancel,
@@ -40,15 +51,39 @@ const MedicalHistoryForm = ({
     setFormData(createInitialForm(initialHistory));
   }, [initialHistory]);
 
+  const visitOptions = availableVisits ?? visits;
+  const appointmentOptions = availableAppointments ?? appointments;
+  const currentVisit = initialHistory?.visitId
+    ? visits.find((visit) => String(visit.id) === String(initialHistory.visitId))
+    : null;
+  const currentAppointment = initialHistory?.appointmentId
+    ? appointments.find((appointment) => (
+      String(appointment.appointmentId) === String(initialHistory.appointmentId)
+    ))
+    : null;
+
   const petVisits = useMemo(
     () => {
-      const hasHistoryOnDate = (candidate) => medicalHistories.some((history) => (
-        String(history.petId) === String(candidate.petId)
-        && history.date === candidate.date
-      ));
+      const visitsToShow = currentVisit
+        && !visitOptions.some((visit) => String(visit.id) === String(currentVisit.id))
+        ? [...visitOptions, currentVisit]
+        : visitOptions;
+      const appointmentsToShow = currentAppointment
+        && !appointmentOptions.some((appointment) => (
+          String(appointment.appointmentId) === String(currentAppointment.appointmentId)
+        ))
+        ? [...appointmentOptions, currentAppointment]
+        : appointmentOptions;
+      const hasHistoryOnDate = (candidate) => {
+        const candidateDate = dateKey(candidate.date);
+        return candidateDate && medicalHistories.some((history) => (
+          String(history.petId) === String(candidate.petId)
+          && dateKey(history.date) === candidateDate
+        ));
+      };
 
       return [
-        ...visits
+        ...visitsToShow
           .filter((visit) => {
             const isCurrentVisit = String(visit.id) === String(initialHistory?.visitId);
             return String(visit.petId) === formData.petId
@@ -61,7 +96,7 @@ const MedicalHistoryForm = ({
             source: "visit",
             selectionValue: `visit:${visit.id}`,
           })),
-        ...appointments
+        ...appointmentsToShow
           .filter((appointment) => {
             const isCurrentAppointment = String(appointment.appointmentId)
               === String(initialHistory?.appointmentId);
@@ -76,8 +111,10 @@ const MedicalHistoryForm = ({
       ];
     },
     [
-      visits,
-      appointments,
+      visitOptions,
+      appointmentOptions,
+      currentVisit,
+      currentAppointment,
       medicalHistories,
       formData.petId,
       initialHistory?.id,

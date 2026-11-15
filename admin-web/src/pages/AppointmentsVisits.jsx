@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Header from "../components/template/Header";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/authContext.jsx";
 
 // Import components
 import CalendarTab from "../components/appointments/CalendarTab";
@@ -56,7 +57,8 @@ const AppointmentsVisits = () => {
   const [appointmentToCancel, setAppointmentToCancel] = useState(null);
   const [showStatusWarningModal, setShowStatusWarningModal] = useState(false);
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
-  const isVet = localStorage.getItem("userRole") === "3";
+  const { user } = useAuth();
+  const isVet = user?.role === "vet";
   const navigate = useNavigate();
 
   const fetchAppointmentData = async () => {
@@ -95,7 +97,7 @@ const AppointmentsVisits = () => {
   }, []);
 
   const filteredAppointments = appointments.filter(app => {
-    if (activeTab === "Appointments" && app.status === "Pending") return false;
+    if (!isVet && activeTab === "Appointments" && app.status === "Pending") return false;
     if (activeTab === "Appointments" && statusFilter !== "All" && app.status !== statusFilter)
       return false;
     return (
@@ -485,7 +487,6 @@ const AppointmentsVisits = () => {
           />
         );
       case "Vet Schedules":
-        if (isVet) return null;
         return <VetSchedulesTab />;
       default:
         return null;
@@ -502,7 +503,7 @@ const AppointmentsVisits = () => {
           "Calendar",
           "Visits",
           "Appointments",
-          ...(isVet ? [] : ["Requests", "Vet Schedules"]),
+          ...(isVet ? ["Vet Schedules"] : ["Requests", "Vet Schedules"]),
         ].map(tab => (
           <button
             key={tab}

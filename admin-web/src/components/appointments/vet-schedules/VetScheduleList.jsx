@@ -16,46 +16,55 @@ export default function VetScheduleList({
   onManageTimeOff,
   onEditSchedule,
   onDeleteSchedule,
+  isReadOnly = false,
 }) {
   return (
     <>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold text-gray-800">Vet schedules</h2>
-          <p className="mt-1 text-sm text-gray-500">Manage availability, shifts and time off for your veterinary team.</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {isReadOnly
+              ? "View your assigned availability and time off."
+              : "Manage availability, shifts and time off for your veterinary team."}
+          </p>
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onManageTimeOff}
-            className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-          >
-            Manage time off
-          </button>
-          <button
-            type="button"
-            onClick={onAddSchedule}
-            className="flex items-center gap-2 rounded-lg bg-[#38c7e5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#27b7d5]"
-          >
-            <Plus size={16} /> Add schedule
-          </button>
-        </div>
+        {!isReadOnly && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onManageTimeOff}
+              className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+            >
+              Manage time off
+            </button>
+            <button
+              type="button"
+              onClick={onAddSchedule}
+              className="flex items-center gap-2 rounded-lg bg-[#38c7e5] px-4 py-2 text-sm font-semibold text-white hover:bg-[#27b7d5]"
+            >
+              <Plus size={16} /> Add schedule
+            </button>
+          </div>
+        )}
       </div>
 
-      <div className="mb-4 grid gap-4 md:grid-cols-3">
-        <label className="text-sm font-medium text-gray-600">
-          Veterinarian
-          <select
-            value={selectedVet}
-            onChange={(event) => setSelectedVet(event.target.value)}
-            className="mt-2 block w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 font-normal text-gray-700"
-          >
-            <option value="all">All veterinarians</option>
-            {schedules.map((schedule) => (
-              <option key={schedule.vetId} value={schedule.vetId}>{schedule.name}</option>
-            ))}
-          </select>
-        </label>
+      <div className={`mb-4 grid gap-4 ${isReadOnly ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
+        {!isReadOnly && (
+          <label className="text-sm font-medium text-gray-600">
+            Veterinarian
+            <select
+              value={selectedVet}
+              onChange={(event) => setSelectedVet(event.target.value)}
+              className="mt-2 block w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 font-normal text-gray-700"
+            >
+              <option value="all">All veterinarians</option>
+              {schedules.map((schedule) => (
+                <option key={schedule.vetId} value={schedule.vetId}>{schedule.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="text-sm font-medium text-gray-600">
           Week
           <input
@@ -142,7 +151,7 @@ export default function VetScheduleList({
                                 ))}
                               </ul>
                             )}
-                            {hasSchedule ? (
+                            {hasSchedule && !isReadOnly ? (
                               <div className="mt-1 flex gap-2">
                                 <button
                                   type="button"
@@ -159,7 +168,7 @@ export default function VetScheduleList({
                                   Delete
                                 </button>
                               </div>
-                            ) : (
+                            ) : !hasSchedule && !isReadOnly ? (
                               <button
                                 type="button"
                                 onClick={() => onEditSchedule(null, schedule.vetId, dayIndex)}
@@ -167,16 +176,20 @@ export default function VetScheduleList({
                               >
                                 Add schedule
                               </button>
-                            )}
+                            ) : null}
                           </div>
                         ) : scheduleStatus === "all" ? (
-                          <button
-                            type="button"
-                            onClick={() => onEditSchedule(null, schedule.vetId, dayIndex)}
-                            className="text-sm text-gray-400 hover:text-[#08a9c5]"
-                          >
-                            Add
-                          </button>
+                          !isReadOnly ? (
+                            <button
+                              type="button"
+                              onClick={() => onEditSchedule(null, schedule.vetId, dayIndex)}
+                              className="text-sm text-gray-400 hover:text-[#08a9c5]"
+                            >
+                              Add
+                            </button>
+                          ) : (
+                            <span className="text-sm text-gray-400">—</span>
+                          )
                         ) : (
                           <span className="text-sm text-gray-400">—</span>
                         )}

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import api from "../api/authAxios.js";
 import socket from "../socket.js";
+import { useAuth } from "../context/authContext.jsx";
 
 const appointmentStatuses = [
   { label: "Pending", color: "bg-amber-400" },
@@ -33,6 +34,8 @@ function StatCard({ title, value, icon: Icon, note, accent }) {
 }
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
+  const isVet = user?.role === "vet";
   const [kpis, setKpis] = useState({
     customers: null,
     pets: null,
@@ -49,6 +52,44 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
       setError("");
+      if (isVet) {
+        const response = await api.get("/admin/appointments");
+        const appointments = response.data.cleanedAppointments ?? [];
+        const manilaDateParts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Manila",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).formatToParts(new Date());
+        const manilaDateValues = Object.fromEntries(
+          manilaDateParts.map(({ type, value }) => [type, value]),
+        );
+        const today = `${manilaDateValues.year}-${manilaDateValues.month}-${manilaDateValues.day}`;
+        const todayAppointments = appointments.filter(
+          (appointment) => appointment.date === today,
+        );
+        const uniqueCount = (items, key) =>
+          new Set(items.map((item) => item[key]).filter((value) => value != null)).size;
+
+        setKpis({
+          customers: uniqueCount(appointments, "ownerId"),
+          pets: uniqueCount(appointments, "petId"),
+          pending: appointments.filter((appointment) => appointment.status === "Pending").length,
+          today: todayAppointments.length,
+        });
+        setStatusCounts(
+          appointments.reduce((counts, appointment) => {
+            counts[appointment.status] = (counts[appointment.status] ?? 0) + 1;
+            return counts;
+          }, {}),
+        );
+        setUpcomingAppointments(
+          todayAppointments.filter((appointment) => appointment.status === "Upcoming"),
+        );
+        setRecentAppointments(appointments.slice(0, 6));
+        return;
+      }
+
       const [customers, pets, pending, today, statuses, upcoming, appointments] = await Promise.all([
         api.get("/customers/count"),
         api.get("/pets/count"),
@@ -73,7 +114,7 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isVet]);
 
   useEffect(() => {
     loadDashboard();
@@ -105,15 +146,21 @@ export default function AdminDashboard() {
     <div className="min-h-full bg-[#f6f8fb] text-[#1e293b]">
       <main className="mx-auto max-w-[1550px] space-y-6 px-4 py-7 sm:px-7">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Clinic overview</h1>
-          <p className="mt-1 text-sm text-slate-500">A quick look at appointments and patient records.</p>
+          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+            {isVet ? "Veterinarian dashboard" : "Clinic overview"}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {isVet
+              ? "A quick look at your assigned appointments and patients."
+              : "A quick look at appointments and patient records."}
+          </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard title="Total customers" value={metricValue(kpis.customers)} icon={UsersRound} note="Registered customer accounts" accent="bg-sky-50 text-sky-700" />
-          <StatCard title="Registered pets" value={metricValue(kpis.pets)} icon={PawPrint} note="Active pet profiles" accent="bg-violet-50 text-violet-700" />
-          <StatCard title="Pending requests" value={metricValue(kpis.pending)} icon={Clock3} note="Awaiting clinic review" accent="bg-orange-50 text-orange-700" />
-          <StatCard title="Today's appointments" value={metricValue(kpis.today)} icon={CalendarCheck2} note="Appointments scheduled today" accent="bg-emerald-50 text-emerald-700" />
+          <StatCard title={isVet ? "Assigned customers" : "Total customers"} value={metricValue(kpis.customers)} icon={UsersRound} note={isVet ? "Customers on your appointments" : "Registered customer accounts"} accent="bg-sky-50 text-sky-700" />
+          <StatCard title={isVet ? "Assigned pets" : "Registered pets"} value={metricValue(kpis.pets)} icon={PawPrint} note={isVet ? "Pets on your appointments" : "Active pet profiles"} accent="bg-violet-50 text-violet-700" />
+          <StatCard title="Pending requests" value={metricValue(kpis.pending)} icon={Clock3} note={isVet ? "Your assigned pending appointments" : "Awaiting clinic review"} accent="bg-orange-50 text-orange-700" />
+          <StatCard title="Today's appointments" value={metricValue(kpis.today)} icon={CalendarCheck2} note={isVet ? "Your assigned appointments today" : "Appointments scheduled today"} accent="bg-emerald-50 text-emerald-700" />
         </div>
 
         {error && (
@@ -123,8 +170,12 @@ export default function AdminDashboard() {
         <section className="rounded-2xl border border-[#e1e8ee] bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-base font-extrabold">Upcoming schedule</h2>
-              <p className="mt-1 text-xs text-slate-500">Confirmed appointments</p>
+              <h2 className="text-base font-extrabold">
+                {isVet ? "Your upcoming schedule" : "Upcoming schedule"}
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                {isVet ? "Your confirmed appointments today" : "Confirmed appointments"}
+              </p>
             </div>
             <CalendarDays size={19} className="text-[#078c9d]" />
           </div>
@@ -133,17 +184,19 @@ export default function AdminDashboard() {
               const veterinarian = appointment.veterinarian?.account;
               const vetName = veterinarian
                 ? `Dr. ${veterinarian.firstName} ${veterinarian.lastName}`
-                : appointment.vetName ?? "Veterinarian not assigned";
+                : appointment.vetName ?? (isVet
+                  ? `Dr. ${[user?.firstName, user?.lastName].filter(Boolean).join(" ")}`
+                  : "Veterinarian not assigned");
 
               return (
                 <div key={appointment.appointmentId ?? appointment.id} className="flex min-w-0 items-center gap-3 rounded-xl bg-slate-50 p-3">
                   <div className="min-w-[78px] shrink-0 rounded-lg bg-[#eaf6f8] px-2 py-2 text-center text-xs font-bold text-[#078c9d]">
-                    {appointment.timeslot?.display ?? appointment.timeslot ?? "--"}
+                    {appointment.timeslot?.display ?? appointment.timeslot ?? appointment.time ?? "--"}
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold">
                       {appointment.pet?.petName ?? appointment.petName ?? "Unknown pet"}
-                      <span className="font-normal text-slate-500"> - {appointment.service?.serviceName ?? appointment.service ?? "Service"}</span>
+                      <span className="font-normal text-slate-500"> - {appointment.service?.serviceName ?? appointment.service ?? appointment.serviceType ?? "Service"}</span>
                     </p>
                     <p className="mt-1 truncate text-xs text-slate-500">{vetName}</p>
                   </div>
@@ -158,8 +211,12 @@ export default function AdminDashboard() {
 
         <section className="overflow-hidden rounded-2xl border border-[#e1e8ee] bg-white shadow-sm">
           <div className="border-b border-slate-100 p-5">
-            <h2 className="text-base font-extrabold">Recent appointment requests</h2>
-            <p className="mt-1 text-xs text-slate-500">Latest appointments managed by the clinic</p>
+            <h2 className="text-base font-extrabold">
+              {isVet ? "Your recent appointments" : "Recent appointment requests"}
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              {isVet ? "Latest appointments assigned to you" : "Latest appointments managed by the clinic"}
+            </p>
           </div>
           {loading ? (
             <div className="px-5 py-10 text-center text-sm text-slate-500">Loading appointments...</div>
@@ -184,22 +241,24 @@ export default function AdminDashboard() {
                     return (
                       <tr key={appointment.appointmentId} className="border-t border-slate-100 text-slate-700">
                         <td className="px-5 py-4">
-                          <p className="font-bold">{appointment.pet?.petName ?? "Unknown pet"}</p>
+                          <p className="font-bold">{appointment.pet?.petName ?? appointment.petName ?? "Unknown pet"}</p>
                           <p className="mt-1 text-xs text-slate-500">
-                            {[owner?.firstName, owner?.lastName].filter(Boolean).join(" ") || "Unknown owner"}
+                            {[owner?.firstName, owner?.lastName].filter(Boolean).join(" ") || appointment.owner || "Unknown owner"}
                           </p>
                         </td>
-                        <td className="px-5 py-4">{appointment.service?.serviceName ?? "--"}</td>
+                        <td className="px-5 py-4">{appointment.service?.serviceName ?? appointment.serviceType ?? "--"}</td>
                         <td className="px-5 py-4">
                           {[veterinarian?.firstName, veterinarian?.lastName].filter(Boolean).join(" ")
                             ? `Dr. ${[veterinarian?.firstName, veterinarian?.lastName].filter(Boolean).join(" ")}`
-                            : "Not assigned"}
+                            : appointment.veterinarian || (isVet
+                              ? `Dr. ${[user?.firstName, user?.lastName].filter(Boolean).join(" ")}`
+                              : "Not assigned")}
                         </td>
                         <td className="px-5 py-4">
-                          <p>{appointment.timeslot?.display ?? "--"}</p>
+                          <p>{appointment.timeslot?.display ?? appointment.time ?? "--"}</p>
                           <p className="mt-1 text-xs text-slate-500">
-                            {appointment.scheduledDate
-                              ? new Date(appointment.scheduledDate).toLocaleDateString()
+                            {(appointment.scheduledDate ?? appointment.date)
+                              ? new Date(appointment.scheduledDate ?? appointment.date).toLocaleDateString()
                               : "--"}
                           </p>
                         </td>
@@ -243,7 +302,9 @@ export default function AdminDashboard() {
           </div>
         </section>
 
-        <p className="pb-4 text-xs text-slate-400">RaphaCare clinic administration dashboard.</p>
+        <p className="pb-4 text-xs text-slate-400">
+          {isVet ? "RaphaCare veterinarian dashboard." : "RaphaCare clinic administration dashboard."}
+        </p>
       </main>
     </div>
   );

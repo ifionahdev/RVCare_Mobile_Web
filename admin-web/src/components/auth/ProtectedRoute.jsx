@@ -27,7 +27,7 @@ export default function ProtectedRoute({
     allowedRoles.length > 0 &&
     !allowedRoles.includes(user.role)
   ) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={user.role === "vet" ? "/admin/dashboard" : "/login"} replace />;
   }
 
   return children ?? <Outlet />;

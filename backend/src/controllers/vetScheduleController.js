@@ -178,7 +178,8 @@ export const getVeterinarianScheduleTimeOptions = async (req, res, next) => {
 
 export const getVeterinarianSchedules = async (req, res, next) => {
   try {
-    const schedules = await findVeterinarianSchedules();
+    const vetId = req.user.role === "vet" ? req.user.profileId : undefined;
+    const schedules = await findVeterinarianSchedules(vetId);
     return res.json(schedules.map(scheduleDto));
   } catch (error) {
     return next(error);
@@ -287,7 +288,8 @@ export const deleteVeterinarianSchedule = async (req, res, next) => {
 
 export const getVeterinarianTimeOff = async (req, res, next) => {
   try {
-    const timeOff = await findVeterinarianTimeOff();
+    const vetId = req.user.role === "vet" ? req.user.profileId : undefined;
+    const timeOff = await findVeterinarianTimeOff(vetId);
     return res.json(timeOff.map(timeOffDto));
   } catch (error) {
     return next(error);

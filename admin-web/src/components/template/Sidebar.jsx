@@ -25,7 +25,13 @@ const Sidebar = () => {
   const [changePasswordLoading, setChangePasswordLoading] = useState(false);
   const [changePasswordMessage, setChangePasswordMessage] = useState({ message: "", type: "" });
   const userMenuRef = useRef(null);
-  const userName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Admin";
+  const isVet = user?.role === "vet";
+  const userName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || (isVet ? "Veterinarian" : "Admin");
+  const userInitials = [user?.firstName, user?.lastName]
+    .filter(Boolean)
+    .map((name) => name[0])
+    .join("")
+    .toUpperCase() || (isVet ? "VT" : "AD");
 
   const menuItems = [
     { name: "Dashboard", icon: <Home size={18} />, path: "/admin/dashboard" },
@@ -37,6 +43,11 @@ const Sidebar = () => {
     { name: "User Management", icon: <Settings size={18} />, path: "/admin/settings" },
     { name: "Audit Log", icon: <ScrollText size={18} />, path: "/admin/audit-log" },
   ];
+  const visibleMenuItems = isVet
+    ? menuItems.filter(({ path }) =>
+        ["/admin/dashboard", "/admin/pet-management", "/admin/appointments", "/admin/records"].includes(path),
+      )
+    : menuItems;
 
   // Password validation
   const password = passwordData.newPassword;
@@ -44,7 +55,7 @@ const Sidebar = () => {
   const hasUpper = /[A-Z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
   const hasLength = password.length >= 8;
-  const hasSpecial = /[*\-@\$]/.test(password);
+  const hasSpecial = /[^A-Za-z0-9]/.test(password);
   const matches = password !== "" && password === confirm;
   const allValid = hasUpper && hasNumber && hasLength && hasSpecial && matches;
 
@@ -97,8 +108,7 @@ const Sidebar = () => {
       return;
     }
 
-    const userId = localStorage.getItem("userId");
-    if (!userId) {
+    if (!user?.accountId) {
       setChangePasswordMessage({
         message: "User session not found. Please log in again.",
         type: "error"
@@ -116,7 +126,7 @@ const Sidebar = () => {
         confirmPassword: passwordData.confirmPassword,
       };
 
-      const response = await api.put(`/users/${userId}/change-password`, payload);
+      const response = await api.put("/auth/change-password", payload);
       setChangePasswordMessage({
         message: response.data?.message || "Password changed successfully.",
         type: "success"
@@ -179,8 +189,8 @@ const Sidebar = () => {
 
       {/* Navigation */}
       <ul className="space-y-1 px-4 flex-1">
-        {menuItems.map((item, index) => (
-          <li key={index}>
+        {visibleMenuItems.map((item) => (
+          <li key={item.path}>
             <Link
               to={item.path}
               className={`flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150
@@ -201,13 +211,13 @@ const Sidebar = () => {
         <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-gradient-to-br from-[#5EE6FE] to-[#4CD4EC] rounded-full flex items-center justify-center">
-              <span className="text-white font-medium text-xs">AD</span>
+              <span className="text-white font-medium text-xs">{userInitials}</span>
             </div>
             <div>
               <p className="text-gray-800 font-medium text-sm">
                 {authLoading ? "Loading..." : userName}
               </p>
-              <p className="text-gray-500 text-xs">Administrator</p>
+              <p className="text-gray-500 text-xs">{isVet ? "Veterinarian" : "Administrator"}</p>
             </div>
           </div>
           
@@ -363,7 +373,7 @@ const Sidebar = () => {
                             </div>
                             <div className={itemClass(hasSpecial)}>
                               {hasSpecial ? <Check size={10} className="mt-0.5" /> : <Circle size={10} className="mt-0.5" />}
-                              <span>At least one special character (eg. @, #, $, *)</span>
+                              <span>At least one special character</span>
                             </div>
                             <div className={itemClass(matches)}>
                               {matches ? <Check size={10} className="mt-0.5" /> : <Circle size={10} className="mt-0.5" />}

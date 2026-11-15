@@ -320,13 +320,14 @@ const AddAppointment = () => {
 
   // Filter users based on search
   const filteredUsers = useMemo(() => {
-    if (!searchQuery) return owners;
-    const query = searchQuery.toLowerCase();
-    return owners.filter(user => 
-      `${user.firstName} ${user.lastName}`.toLowerCase().includes(query) ||
-      user.email.toLowerCase().includes(query) ||
-      user.phone.includes(query)
-    );
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return owners;
+    return owners.filter((user) => [
+      user.firstName,
+      user.lastName,
+      user.email,
+      user.phone,
+    ].some((value) => String(value ?? "").toLowerCase().includes(query)));
   }, [searchQuery, owners]);
 
   const handleUserSelect = (user) => {

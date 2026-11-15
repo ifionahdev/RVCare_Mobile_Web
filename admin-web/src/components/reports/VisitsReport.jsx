@@ -58,8 +58,8 @@ const VisitsReport = ({ dateRange }) => {
     return match ? match.count : 0;
   });
 
-  const serviceLabels = visitsData?.topServices?.map((item) => item.service) || ["Consultation", "Vaccination", "Grooming", "Surgery"];
-  const serviceValues = visitsData?.topServices?.map((item) => item.count) || [220, 300, 180, 90];
+  const serviceLabels = visitsData?.topServices?.map((item) => item.service) || [];
+  const serviceValues = visitsData?.topServices?.map((item) => item.count) || [];
 
   const rangeTotal = trendValues.reduce((sum, val) => sum + (val || 0), 0);
   const totalChangePercent = totalVisits > 0 ? Math.round((rangeTotal / totalVisits) * 100) : 0;

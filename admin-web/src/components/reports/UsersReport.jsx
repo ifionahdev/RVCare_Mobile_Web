@@ -83,14 +83,12 @@ const UsersReport = ({ dateRange }) => {
   }
 
   // Get counts by role
-  const clientCount = data.byRole?.find(r => r.roleName === 'Client')?.count || 0;
-  const vetCount = data.byRole?.find(r => r.roleName === 'Veterinarian')?.count || 0;
-  const adminCount = data.byRole?.find(r => r.roleName === 'Administrator')?.count || 0;
+  const adminCount = data.byRole?.find(r => r.roleSlug === 'admin')?.count || 0;
 
   // Prepare registration trend data (last 6 months)
   const registrationTrendData = {
     labels: data.registrationTrend?.map(item => item.month) || 
-            ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+            [],
     datasets: [
       { 
         data: data.registrationTrend?.map(item => item.count) || [],
@@ -104,11 +102,11 @@ const UsersReport = ({ dateRange }) => {
 
   // Prepare user roles data
   const userRolesData = {
-    labels: ["Clients", "Veterinarians", "Admins"],
+    labels: data.byRole?.map(role => role.roleName) || [],
     datasets: [
       { 
-        data: [clientCount, vetCount, adminCount],
-        backgroundColor: ['#3b82f6', '#8b5cf6', '#ec4899'],
+        data: data.byRole?.map(role => role.count) || [],
+        backgroundColor: ['#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'],
         borderWidth: 0
       }
     ]
@@ -138,18 +136,16 @@ const UsersReport = ({ dateRange }) => {
             : `+${newUserPercentage}%`} 
         />
         <StatsCard 
-          title="New This Month" 
+          title="New in Period"
           value={formatNumber(data.kpi?.new || 0)} 
           change={hasSelectedDateRange(dateRange)
             ? formatPercentChange(data.kpi?.new || 0, previousData?.kpi?.new || 0, dateRange)
             : `+${newUserPercentage}%`} 
         />
         <StatsCard 
-          title="Active Now" 
+          title="Active (30 days)"
           value={formatNumber(data.kpi?.active || 0)} 
-          change={hasSelectedDateRange(dateRange)
-            ? formatPercentChange(data.kpi?.active || 0, previousData?.kpi?.active || 0, dateRange)
-            : `${activePercentage}% of clients`} 
+          change={`${activePercentage}% of clients`}
         />
         <StatsCard 
           title="Admins" 

@@ -707,7 +707,7 @@ const PetPatientManagement = ({ recordsMode = false }) => {
 
       {recordsMode && activeRecordType === "Lab" ? (
         <LaboratoryRecordsWorkspace
-          canManageRecords={isAdmin}
+          canManageRecords={isAdmin || isVet}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           statusFilter={filterSort.records.status}
@@ -717,7 +717,7 @@ const PetPatientManagement = ({ recordsMode = false }) => {
         />
       ) : recordsMode ? (
         <MedicalHistoryWorkspace
-          canManageRecords={isAdmin}
+          canManageRecords={isAdmin || isVet}
           setSuccessMessage={setSuccessMessage}
           setErrorMessage={setErrorMessage}
         />

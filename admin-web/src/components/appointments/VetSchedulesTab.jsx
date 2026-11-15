@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../api/authAxios.js";
+import { useAuth } from "../../context/authContext.jsx";
 import { Toast } from "../AlertModal.jsx";
 import VetScheduleEditor from "./vet-schedules/VetScheduleEditor.jsx";
 import VetScheduleList from "./vet-schedules/VetScheduleList.jsx";
@@ -21,12 +22,16 @@ const errorMessage = (error) =>
   error.response?.data?.message ?? error.message ?? "The request failed. Please try again.";
 
 export default function VetSchedulesTab() {
+  const { user } = useAuth();
+  const isVet = user?.role === "vet";
   const [veterinarians, setVeterinarians] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [timeOff, setTimeOff] = useState([]);
   const [timeOptions, setTimeOptions] = useState({ startTimes: [], endTimes: [] });
   const [weekStart, setWeekStart] = useState(defaultWeekStart);
-  const [selectedVet, setSelectedVet] = useState("all");
+  const [selectedVet, setSelectedVet] = useState(
+    isVet ? String(user?.vetId ?? "") : "all",
+  );
   const [scheduleStatus, setScheduleStatus] = useState("all");
   const [view, setView] = useState("schedules");
   const [scheduleDraft, setScheduleDraft] = useState(() => createScheduleDraft());
@@ -36,6 +41,26 @@ export default function VetSchedulesTab() {
   const [toast, setToast] = useState(null);
 
   const refreshData = useCallback(async () => {
+    if (isVet) {
+      const [schedulesResponse, timeOffResponse] = await Promise.all([
+        api.get("/admin/vet-schedules"),
+        api.get("/admin/vet-schedules/time-off"),
+      ]);
+      const vetId = Number(user?.vetId);
+      const veterinarianName = [
+        user?.firstName,
+        user?.lastName,
+      ].filter(Boolean).join(" ");
+      setVeterinarians(
+        Number.isSafeInteger(vetId) && vetId > 0
+          ? [{ vetId, name: veterinarianName ? `Dr. ${veterinarianName}` : "Veterinarian" }]
+          : [],
+      );
+      setSchedules(schedulesResponse.data ?? []);
+      setTimeOff(timeOffResponse.data ?? []);
+      return;
+    }
+
     const [vetsResponse, schedulesResponse, timeOffResponse, timeOptionsResponse] = await Promise.all([
       api.get("/vets"),
       api.get("/admin/vet-schedules"),
@@ -46,7 +71,7 @@ export default function VetSchedulesTab() {
     setSchedules(schedulesResponse.data ?? []);
     setTimeOff(timeOffResponse.data ?? []);
     setTimeOptions(timeOptionsResponse.data ?? { startTimes: [], endTimes: [] });
-  }, []);
+  }, [isVet, user?.firstName, user?.lastName, user?.vetId]);
 
   useEffect(() => {
     let active = true;
@@ -288,7 +313,7 @@ export default function VetSchedulesTab() {
         <p className="rounded-lg bg-white px-4 py-8 text-center text-sm text-gray-500">
           Loading veterinarian schedules...
         </p>
-      ) : view === "editor" ? (
+      ) : view === "editor" && !isVet ? (
         <VetScheduleEditor
           veterinarians={veterinarians}
           schedules={schedules}
@@ -300,7 +325,7 @@ export default function VetSchedulesTab() {
           onSubmit={saveSchedule}
           onCancel={() => setView("schedules")}
         />
-      ) : view === "timeOff" ? (
+      ) : view === "timeOff" && !isVet ? (
         <VetTimeOffManagement
           veterinarians={veterinarians}
           timeOptions={timeOptions}
@@ -332,6 +357,7 @@ export default function VetSchedulesTab() {
           onManageTimeOff={openTimeOff}
           onEditSchedule={openScheduleEditor}
           onDeleteSchedule={deleteSchedule}
+          isReadOnly={isVet}
         />
       )}
       {toast && (

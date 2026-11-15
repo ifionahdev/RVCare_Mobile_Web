@@ -55,7 +55,12 @@ export const getAvailability = async ({ scheduledDate, vetId } = {}) => {
       vetId: parsedVetId,
     }),
     parsedVetId === undefined
-      ? prisma.veterinarian.count({ where: { isDeleted: false } })
+      ? prisma.veterinarian.count({
+          where: {
+            isDeleted: false,
+            account: { is: { isDeleted: false } },
+          },
+        })
       : Promise.resolve(1),
   ]);
 

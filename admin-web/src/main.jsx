@@ -43,11 +43,11 @@ createRoot(document.getElementById("root")).render(
           
           <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Admin-only routes */}
+          {/* Shared veterinarian and administrator workspace */}
           <Route
             path="/admin"
             element={
-              <ProtectedRoute allowedRoles={["admin"]}>
+              <ProtectedRoute allowedRoles={["admin", "vet"]}>
                 <AdminLayout />
               </ProtectedRoute>
             }
@@ -56,13 +56,16 @@ createRoot(document.getElementById("root")).render(
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="pet-management" element={<PetPatientManagement />} />
             <Route path="records" element={<RecordsManagement />} />
-            <Route path="audit-log" element={<AuditLog />} />
             <Route path="appointments" element={<AppointmentsVisits />} />
-            <Route path="appointments/add" element={<AddAppointment />} />
-            <Route path="visits/add" element={<AddVisit />} />
-            <Route path="content-manager" element={<ContentManagement />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="settings" element={<AdminSetting />} />
+
+            <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+              <Route path="audit-log" element={<AuditLog />} />
+              <Route path="appointments/add" element={<AddAppointment />} />
+              <Route path="visits/add" element={<AddVisit />} />
+              <Route path="content-manager" element={<ContentManagement />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="settings" element={<AdminSetting />} />
+            </Route>
           </Route>
 
           {/* Fallback */}

@@ -5,6 +5,27 @@ import { findActiveCustomersWithPets } from "../models/customerModel.js";
 import { sendOwnerCredentials } from "../services/emailService.js";
 import { createAuditLog } from "../services/auditLogService.js";
 
+const activeAppointmentRelations = {
+  pet: {
+    is: {
+      isDeleted: false,
+      breed: { is: { isDeleted: false } },
+      owner: {
+        is: {
+          isDeleted: false,
+          account: { is: { isDeleted: false } },
+        },
+      },
+    },
+  },
+  veterinarian: {
+    is: {
+      isDeleted: false,
+      account: { is: { isDeleted: false } },
+    },
+  },
+};
+
 const normalizePhone = (phone) => {
   const digits = String(phone ?? "").replace(/\D/g, "");
   if (digits.startsWith("63")) return `0${digits.slice(2)}`.slice(0, 11);
@@ -631,7 +652,11 @@ export const getAdminAppointments = async (req, res, next) => {
   try {
     const [appointments, visits] = await Promise.all([
       prisma.appointment.findMany({
-        where: { isDeleted: false },
+        where: {
+          isDeleted: false,
+          ...activeAppointmentRelations,
+          ...(req.user.role === "vet" ? { vetId: req.user.profileId } : {}),
+        },
         include: {
           pet: { include: { owner: { include: { account: true } }, breed: true } },
           service: true,
@@ -641,7 +666,28 @@ export const getAdminAppointments = async (req, res, next) => {
         orderBy: [{ scheduledDate: "desc" }, { appointmentId: "desc" }],
       }),
       prisma.visit.findMany({
-        where: { isDeleted: false },
+        where: {
+          isDeleted: false,
+          ...(req.user.role === "vet" ? { vetId: req.user.profileId } : {}),
+          pet: {
+            is: {
+              isDeleted: false,
+              breed: { is: { isDeleted: false } },
+              owner: {
+                is: {
+                  isDeleted: false,
+                  account: { is: { isDeleted: false } },
+                },
+              },
+            },
+          },
+          veterinarian: {
+            is: {
+              isDeleted: false,
+              account: { is: { isDeleted: false } },
+            },
+          },
+        },
         include: {
           pet: { include: { owner: { include: { account: true } }, breed: true } },
           service: true,
@@ -672,7 +718,12 @@ export const getAppointmentOwners = async (req, res, next) => {
       breed: pet.breed.breedName,
     })));
     const appointments = await prisma.appointment.findMany({
-      where: { isDeleted: false, status: { in: ["Pending", "Upcoming"] }, visits: null },
+      where: {
+        isDeleted: false,
+        status: { in: ["Pending", "Upcoming"] },
+        visits: null,
+        ...activeAppointmentRelations,
+      },
       include: {
         pet: { include: { owner: { include: { account: true } }, breed: true } },
         service: true,
@@ -711,7 +762,11 @@ export const getBookedSlots = async (req, res, next) => {
   try {
     const date = parseDate(req.query.date, true);
     const appointments = await prisma.appointment.findMany({
-      where: { scheduledDate: date, isDeleted: false },
+      where: {
+        scheduledDate: date,
+        isDeleted: false,
+        ...activeAppointmentRelations,
+      },
       include: { timeslot: true },
     });
     return res.json({ bookedSlots: appointments.map((appointment) => appointment.timeslot.startTime) });
@@ -755,11 +810,32 @@ export const assignAppointment = async (req, res, next) => {
     const serviceId = Number(req.body.serviceID ?? req.body.serviceId);
     const timeslot = await parseAppointmentTime(req.body.time ?? req.body.scheduledTime);
     const scheduledDate = parseDate(req.body.date, true);
-    const pet = await prisma.pet.findFirst({ where: { petId, isDeleted: false } });
+    const pet = await prisma.pet.findFirst({
+      where: {
+        petId,
+        isDeleted: false,
+        breed: { is: { isDeleted: false } },
+        owner: {
+          is: {
+            isDeleted: false,
+            account: { is: { isDeleted: false } },
+          },
+        },
+      },
+    });
     if (!pet) return res.status(404).json({ message: "Pet not found." });
-    const veterinarian = await prisma.veterinarian.findFirst({ where: { isDeleted: false } });
+    const veterinarian = await prisma.veterinarian.findFirst({
+      where: { isDeleted: false, account: { is: { isDeleted: false } } },
+    });
     if (!veterinarian) return res.status(400).json({ message: "No active veterinarian is available." });
-    if (await prisma.appointment.findFirst({ where: { scheduledDate, timeslotId: timeslot.timeslotId, isDeleted: false } })) {
+    if (await prisma.appointment.findFirst({
+      where: {
+        scheduledDate,
+        timeslotId: timeslot.timeslotId,
+        isDeleted: false,
+        ...activeAppointmentRelations,
+      },
+    })) {
       return res.status(409).json({ message: "That time slot is already booked." });
     }
     const appointment = await prisma.$transaction(async (tx) => {
@@ -792,6 +868,20 @@ export const makeVisit = async (req, res, next) => {
   try {
     const appointmentId = req.body.appointmentId ? Number(req.body.appointmentId) : null;
     const petId = Number(req.body.petID ?? req.body.petId);
+    const pet = await prisma.pet.findFirst({
+      where: {
+        petId,
+        isDeleted: false,
+        breed: { is: { isDeleted: false } },
+        owner: {
+          is: {
+            isDeleted: false,
+            account: { is: { isDeleted: false } },
+          },
+        },
+      },
+      select: { petId: true },
+    });
     const service = await prisma.service.findFirst({
       where: {
         OR: [
@@ -800,8 +890,10 @@ export const makeVisit = async (req, res, next) => {
         ],
       },
     });
-    const veterinarian = await prisma.veterinarian.findFirst({ where: { isDeleted: false } });
-    if (!petId || !service || !veterinarian) {
+    const veterinarian = await prisma.veterinarian.findFirst({
+      where: { isDeleted: false, account: { is: { isDeleted: false } } },
+    });
+    if (!pet || !service || !veterinarian) {
       return res.status(400).json({ message: "Pet, service, and veterinarian are required." });
     }
     if (appointmentId) {

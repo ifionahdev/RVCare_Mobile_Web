@@ -4,6 +4,7 @@ export const findAllVeterinarians = async () =>
   prisma.veterinarian.findMany({
     where: {
       isDeleted: false,
+      account: { is: { isDeleted: false } },
     },
     include: { account: true },
     orderBy: [
@@ -14,7 +15,7 @@ export const findAllVeterinarians = async () =>
 
 export const findFirstAvailableVeterinarian = () =>
   prisma.veterinarian.findFirst({
-    where: { isDeleted: false },
+    where: { isDeleted: false, account: { is: { isDeleted: false } } },
     select: { vetId: true },
     orderBy: { vetId: "asc" },
   });

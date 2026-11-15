@@ -48,6 +48,24 @@ export const uploadRecordAttachment = (req, res, next) => {
 };
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
+const activePetRelation = {
+  is: {
+    isDeleted: false,
+    breed: { is: { isDeleted: false } },
+    owner: {
+      is: {
+        isDeleted: false,
+        account: { is: { isDeleted: false } },
+      },
+    },
+  },
+};
+const activeVeterinarianRelation = {
+  is: {
+    isDeleted: false,
+    account: { is: { isDeleted: false } },
+  },
+};
 const displayName = (account) =>
   [account?.firstName, account?.lastName].filter(Boolean).join(" ") || "Not listed";
 const dateOnly = (value) => {
@@ -136,24 +154,23 @@ const visitSummary = (visit) => ({
   hasMedicalHistory: visit.medicalRecords.length > 0,
 });
 
-const medicalHistoryDto = (history, { visit, appointment }) => {
-  const pet = visit?.pet ?? appointment.pet;
+const medicalHistoryDto = (history, visit) => {
+  const pet = visit.pet;
   return {
     id: history.historyId,
     type: "medical",
     visitId: history.visitId,
-    appointmentId: history.appointmentId,
     petId: pet.petId,
     petID: pet.petId,
     petName: pet.petName,
     owner: ownerNameFor(pet),
     ownerId: pet.owner.accountId,
-    serviceType: (visit ?? appointment).service.serviceName,
-    date: dateOnly(visit?.visitDate ?? appointment.scheduledDate),
-    time: visit ? timeOnly(visit.visitTime) : timeOnly(appointment.timeslot.startTime),
-    veterinarian: displayName((visit ?? appointment).veterinarian.account),
-    status: visit?.status ?? appointment.status,
-    visitType: visit ? visit.visitType.replace("_", "-") : "Appointment",
+    serviceType: visit.service.serviceName,
+    date: dateOnly(visit.visitDate),
+    time: timeOnly(visit.visitTime),
+    veterinarian: displayName(visit.veterinarian.account),
+    status: visit.status,
+    visitType: visit.visitType.replace("_", "-"),
     weight: history.weightKg == null ? "" : String(history.weightKg),
     temperature: history.temperature == null ? "" : String(history.temperature),
     heartRate: history.heartRate == null ? "" : String(history.heartRate),
@@ -165,9 +182,8 @@ const medicalHistoryDto = (history, { visit, appointment }) => {
   };
 };
 
-const labResultDto = (labResult, { visit, appointment }) => {
-  const source = visit ?? appointment;
-  const pet = visit?.pet ?? appointment.pet;
+const labResultDto = (labResult, visit) => {
+  const pet = visit.pet;
   const values = labResult.labResultValues
     .filter((value) => !value.isDeleted && !value.parameter.isDeleted)
     .map((value) => ({
@@ -186,11 +202,10 @@ const labResultDto = (labResult, { visit, appointment }) => {
     id: labResult.labResultId,
     type: "lab",
     visitId: labResult.visitId,
-    appointmentId: labResult.appointmentId,
     petID: pet.petId,
     petName: pet.petName,
     owner: ownerNameFor(pet),
-    veterinarian: displayName(source.veterinarian.account),
+    veterinarian: displayName(visit.veterinarian.account),
     recordTitle: labResult.testType.name,
     testTypeId: labResult.testTypeId,
     uploadedOn: labResult.createdAt,
@@ -236,7 +251,13 @@ export const getRecordsWorkspace = async (_req, res, next) => {
       prisma.pet.findMany({
         where: {
           isDeleted: false,
-          owner: { is: { isDeleted: false } },
+          owner: {
+            is: {
+              isDeleted: false,
+              account: { is: { isDeleted: false } },
+            },
+          },
+          breed: { is: { isDeleted: false } },
         },
         include: {
           breed: true,
@@ -247,12 +268,8 @@ export const getRecordsWorkspace = async (_req, res, next) => {
       prisma.visit.findMany({
         where: {
           isDeleted: false,
-          pet: {
-            is: {
-              isDeleted: false,
-              owner: { is: { isDeleted: false } },
-            },
-          },
+          pet: activePetRelation,
+          veterinarian: activeVeterinarianRelation,
         },
         include: workspaceVisitInclude,
         orderBy: [{ visitDate: "desc" }, { visitId: "desc" }],
@@ -270,35 +287,37 @@ export const getRecordsWorkspace = async (_req, res, next) => {
       prisma.appointment.findMany({
         where: {
           isDeleted: false,
-          pet: {
-            is: {
-              isDeleted: false,
-              owner: { is: { isDeleted: false } },
-            },
-          },
+          status: "Completed",
+          visits: null,
+          pet: activePetRelation,
+          veterinarian: activeVeterinarianRelation,
         },
         include: {
           pet: { include: { owner: { include: { account: true } } } },
           service: true,
           timeslot: true,
           veterinarian: { include: { account: true } },
-          medicalHistory: {
-            include: { attachments: { where: { isDeleted: false } } },
-          },
-          labResults: {
-            include: {
-              testType: true,
-              labResultValues: {
-                include: { parameter: true },
-                orderBy: { valueId: "asc" },
-              },
-              attachments: { where: { isDeleted: false } },
-            },
-          },
         },
         orderBy: [{ scheduledDate: "desc" }, { appointmentId: "desc" }],
       }),
     ]);
+
+    const medicalHistoryDates = new Set(
+      visits.flatMap((visit) => visit.medicalRecords.map(
+        () => `${visit.petId}:${dateOnly(visit.visitDate)}`,
+      )),
+    );
+    const hasMedicalHistoryForDate = (source) => medicalHistoryDates.has(
+      `${source.petId}:${dateOnly(source.visitDate ?? source.scheduledDate)}`,
+    );
+    const availableMedicalHistoryVisits = visits.filter((visit) => (
+      (visit.status === "Completed" || visit.appointment?.status === "Completed")
+      && visit.medicalRecords.length === 0
+      && !hasMedicalHistoryForDate(visit)
+    ));
+    const availableMedicalHistoryAppointments = availableAppointments.filter(
+      (appointment) => !hasMedicalHistoryForDate(appointment),
+    );
 
     return res.json({
       pets: pets.map((pet) => ({
@@ -314,9 +333,8 @@ export const getRecordsWorkspace = async (_req, res, next) => {
         ownerId: pet.owner.accountId,
       })),
       visits: visits.map(visitSummary),
-      availableAppointments: availableAppointments
-        .filter((appointment) => appointment.status === "Completed")
-        .map((appointment) => ({
+      availableMedicalHistoryVisits: availableMedicalHistoryVisits.map(visitSummary),
+      availableAppointments: availableAppointments.map((appointment) => ({
         id: appointment.appointmentId,
         appointmentId: appointment.appointmentId,
         petId: appointment.petId,
@@ -329,21 +347,28 @@ export const getRecordsWorkspace = async (_req, res, next) => {
         status: appointment.status,
         appointmentStatus: appointment.status,
         visitType: "Appointment",
-        hasMedicalHistory: Boolean(appointment.medicalHistory),
+        hasMedicalHistory: false,
+      })),
+      availableMedicalHistoryAppointments: availableMedicalHistoryAppointments.map((appointment) => ({
+        id: appointment.appointmentId,
+        appointmentId: appointment.appointmentId,
+        petId: appointment.petId,
+        petName: appointment.pet.petName,
+        owner: ownerNameFor(appointment.pet),
+        serviceType: appointment.service.serviceName,
+        date: dateOnly(appointment.scheduledDate),
+        time: appointment.timeslot.display,
+        veterinarian: displayName(appointment.veterinarian.account),
+        status: appointment.status,
+        appointmentStatus: appointment.status,
+        visitType: "Appointment",
+        hasMedicalHistory: false,
       })),
       medicalHistories: visits.flatMap((visit) =>
-        visit.medicalRecords.map((history) => medicalHistoryDto(history, { visit })),
-      ).concat(
-        availableAppointments
-          .filter((appointment) => appointment.medicalHistory)
-          .map((appointment) => medicalHistoryDto(appointment.medicalHistory, { appointment })),
+        visit.medicalRecords.map((history) => medicalHistoryDto(history, visit)),
       ),
       labRecords: visits.flatMap((visit) =>
-        visit.labResults.map((labResult) => labResultDto(labResult, { visit })),
-      ).concat(
-        availableAppointments.flatMap((appointment) =>
-          appointment.labResults.map((labResult) => labResultDto(labResult, { appointment })),
-        ),
+        visit.labResults.map((labResult) => labResultDto(labResult, visit)),
       ),
       labTypes: labTypes.map((type) => ({
         id: type.testTypeId,
@@ -395,7 +420,6 @@ const parseMedicalHistory = (payload) => {
 
 const medicalHistoryData = (input, source) => ({
   visitId: source.visitId,
-  appointmentId: source.appointmentId,
   weightKg: input.weightKg,
   temperature: input.temperature,
   heartRate: input.heartRate,
@@ -441,7 +465,8 @@ const findActiveVisit = async (tx, visitId) => {
     where: {
       visitId,
       isDeleted: false,
-      pet: { is: { isDeleted: false, owner: { is: { isDeleted: false } } } },
+      pet: activePetRelation,
+      veterinarian: activeVeterinarianRelation,
     },
     include: workspaceVisitInclude,
   });
@@ -464,69 +489,70 @@ const findCompletedVisit = async (
   return visit;
 };
 
-const findCompletedAppointment = async (tx, appointmentId) => {
+const findCompletedAppointment = async (tx, appointmentId, recordName) => {
   const appointment = await tx.appointment.findFirst({
     where: {
       appointmentId,
       isDeleted: false,
       status: "Completed",
-      pet: { is: { isDeleted: false, owner: { is: { isDeleted: false } } } },
+      pet: activePetRelation,
+      veterinarian: activeVeterinarianRelation,
     },
+    include: { timeslot: true, visits: true },
   });
   if (!appointment) {
     throw httpError(404, "The selected completed appointment is no longer available.");
   }
-  return {
-    visitId: null,
-    appointmentId: appointment.appointmentId,
-    petId: appointment.petId,
-    date: appointment.scheduledDate,
-    visit: null,
-    appointment,
-  };
+  if (appointment.visits) {
+    return findCompletedVisit(tx, appointment.visits.visitId, recordName, {
+      acceptCompletedAppointment: true,
+    });
+  }
+
+  const [hours, minutes] = appointment.timeslot.startTime.split(":").map(Number);
+  const visit = await tx.visit.create({
+    data: {
+      appointmentId: appointment.appointmentId,
+      vetId: appointment.vetId,
+      petId: appointment.petId,
+      serviceId: appointment.serviceId,
+      visitType: "Appointment",
+      visitDate: appointment.scheduledDate,
+      visitTime: new Date(Date.UTC(1970, 0, 1, hours, minutes)),
+      status: "Completed",
+    },
+    select: { visitId: true },
+  });
+  return findCompletedVisit(tx, visit.visitId, recordName, {
+    acceptCompletedAppointment: true,
+  });
 };
 
 const resolveRecordLink = async (tx, input, recordName) => {
-  if (input.visitId) {
-    const visit = await findCompletedVisit(tx, input.visitId, recordName, {
+  const visit = input.visitId
+    ? await findCompletedVisit(tx, input.visitId, recordName, {
       acceptCompletedAppointment: true,
-    });
-    return {
-      visitId: visit.visitId,
-      appointmentId: null,
-      petId: visit.petId,
-      date: visit.visitDate,
-      visit,
-      appointment: null,
-    };
-  }
-  return findCompletedAppointment(tx, input.appointmentId);
+    })
+    : await findCompletedAppointment(tx, input.appointmentId, recordName);
+  return {
+    visitId: visit.visitId,
+    petId: visit.petId,
+    date: visit.visitDate,
+    visit,
+  };
 };
 
 const ensureNoMedicalHistoryOnVisitDate = async (tx, source, excludedHistoryId) => {
   const existing = await tx.medicalHistory.findFirst({
     where: {
       ...(excludedHistoryId ? { historyId: { not: excludedHistoryId } } : {}),
-      OR: [
-        {
-          visit: {
-            is: {
-              petId: source.petId,
-              visitDate: source.date,
-              isDeleted: false,
-            },
-          },
+      visit: {
+        is: {
+          petId: source.petId,
+          visitDate: source.date,
+          isDeleted: false,
         },
-        {
-          appointment: {
-            is: {
-              petId: source.petId,
-              scheduledDate: source.date,
-              isDeleted: false,
-            },
-          },
-        },
-      ],
+      },
     },
     select: { historyId: true },
   });
@@ -537,7 +563,6 @@ const ensureNoMedicalHistoryOnVisitDate = async (tx, source, excludedHistoryId) 
 
 const historySnapshot = (history) => ({
   visitId: history.visitId,
-  appointmentId: history.appointmentId,
   weightKg: history.weightKg == null ? null : String(history.weightKg),
   temperature: history.temperature == null ? null : String(history.temperature),
   heartRate: history.heartRate,
@@ -606,7 +631,7 @@ export const updateMedicalHistory = async (req, res, next) =>
         where: { historyId },
         include: { visit: { include: { medicalRecords: true } } },
       });
-      if (!current || current.visit?.isDeleted) throw httpError(404, "Medical history record not found.");
+      if (!current || current.visit.isDeleted) throw httpError(404, "Medical history record not found.");
       const source = await resolveRecordLink(tx, input, "Medical history");
       await ensureNoMedicalHistoryOnVisitDate(tx, source, historyId);
 
@@ -759,7 +784,6 @@ const saveLabValues = async (tx, labResultId, testTypeId, results) => {
 
 const labSnapshot = (labResult) => ({
   visitId: labResult.visitId,
-  appointmentId: labResult.appointmentId,
   testTypeId: labResult.testTypeId,
   interpretation: labResult.interpretation,
 });
@@ -775,7 +799,6 @@ export const createLabResult = async (req, res, next) =>
       const created = await tx.labResult.create({
         data: {
           visitId: source.visitId,
-          appointmentId: source.appointmentId,
           testTypeId: testType.testTypeId,
           interpretation: input.interpretation || null,
         },
@@ -820,7 +843,6 @@ export const updateLabResult = async (req, res, next) =>
         where: { labResultId },
         data: {
           visitId: source.visitId,
-          appointmentId: source.appointmentId,
           testTypeId: testType.testTypeId,
           interpretation: input.interpretation || null,
         },
@@ -878,16 +900,14 @@ export const downloadRecordAttachment = async (req, res, next) => {
     const attachment = await prisma.attachment.findFirst({
       where: { attachmentId, isDeleted: false },
       include: {
-        medicalHistory: { include: { visit: true, appointment: true } },
-        labResult: { include: { visit: true, appointment: true } },
+        medicalHistory: { include: { visit: true } },
+        labResult: { include: { visit: true } },
       },
     });
     if (
       !attachment
-      || (attachment.medicalHistory
-        && (attachment.medicalHistory.visit?.isDeleted || attachment.medicalHistory.appointment?.isDeleted))
-      || (attachment.labResult
-        && (attachment.labResult.visit?.isDeleted || attachment.labResult.appointment?.isDeleted))
+      || (attachment.medicalHistory && attachment.medicalHistory.visit.isDeleted)
+      || (attachment.labResult && attachment.labResult.visit.isDeleted)
     ) {
       throw httpError(404, "Record attachment not found.");
     }

@@ -1,11 +1,33 @@
 import { prisma } from "../config/prisma.js";
 import { createAuditLog } from "../services/auditLogService.js";
 
+const activeAppointmentRelations = {
+  pet: {
+    is: {
+      isDeleted: false,
+      breed: { is: { isDeleted: false } },
+      owner: {
+        is: {
+          isDeleted: false,
+          account: { is: { isDeleted: false } },
+        },
+      },
+    },
+  },
+  veterinarian: {
+    is: {
+      isDeleted: false,
+      account: { is: { isDeleted: false } },
+    },
+  },
+};
+
 export const findBookedTimeslotIds = async ({ scheduledDate, vetId }) =>
   prisma.appointment.findMany({
     where: {
       scheduledDate,
       isDeleted: false,
+      ...activeAppointmentRelations,
       status: {
         notIn: ["Cancelled", "Rejected", "Completed", "Missed"],
       },
@@ -44,7 +66,20 @@ export const findOwnerAppointments = async (accountId) => {
   return prisma.appointment.findMany({
     where: {
       isDeleted: false,
-      pet: { owner: { accountId } },
+      ...activeAppointmentRelations,
+      pet: {
+        is: {
+          isDeleted: false,
+          breed: { is: { isDeleted: false } },
+          owner: {
+            is: {
+              accountId,
+              isDeleted: false,
+              account: { is: { isDeleted: false } },
+            },
+          },
+        },
+      },
     },
     include: appointmentInclude,
     orderBy: [{ scheduledDate: "desc" }, { timeslotId: "asc" }],
@@ -74,6 +109,7 @@ export const findAllAppointments = async () => {
     where: {
       isDeleted: false,
       status: { not: "Pending" },
+      ...activeAppointmentRelations,
     },
     select: appointmentListSelect,
     orderBy: [{ scheduledDate: "desc" }, { timeslotId: "asc" }],
@@ -82,7 +118,7 @@ export const findAllAppointments = async () => {
 
 export const findAppointmentById = (appointmentId) =>
   prisma.appointment.findFirst({
-    where: { appointmentId, isDeleted: false },
+    where: { appointmentId, isDeleted: false, ...activeAppointmentRelations },
     include: appointmentInclude,
   });
 
@@ -165,6 +201,7 @@ export const getPendingAppointmentsCount = async () =>
     where: {
       isDeleted: false,
       status: "Pending",
+      ...activeAppointmentRelations,
     },
   });
 
@@ -181,6 +218,7 @@ export const getTodaysAppointmentsCount = () => {
     where: {
       isDeleted: false,
       scheduledDate: getTodayManilaDate(),
+      ...activeAppointmentRelations,
       status: {
         notIn: ["Cancelled", "Pending", "Rejected"],
       }
@@ -204,6 +242,7 @@ export const findTodaysUpcomingAppointments = () => {
       isDeleted: false,
       scheduledDate: getTodayManilaDate(),
       status: "Upcoming",
+      ...activeAppointmentRelations,
     },
     select: todaysUpcomingSelect,
     orderBy: { timeslot: {startTime: "asc"} },
@@ -214,7 +253,7 @@ export const getAppointmentCountPerStatus = async () => {
   const STATUSES = ["Pending", "Upcoming", "Rejected", "Completed", "Missed", "Cancelled"];
   const rows = await prisma.appointment.groupBy({
     by: ["status"],
-    where: { isDeleted: false },
+    where: { isDeleted: false, ...activeAppointmentRelations },
     _count: { _all: true },
   });
 
@@ -228,6 +267,7 @@ export const findRecentPendingAppointments = () =>
     where: {
       isDeleted: false,
       status: "Pending",
+      ...activeAppointmentRelations,
     },
     include: appointmentInclude,
     orderBy: [{ scheduledDate: "desc" }, { timeslotId: "asc" }],

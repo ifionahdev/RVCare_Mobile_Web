@@ -8,15 +8,22 @@ import AppointmentsReport from "../components/reports/AppointmentsReport";
 import UsersReport from "../components/reports/UsersReport";
 import PetsReport from "../components/reports/PetsReport";
 import VisitsReport from "../components/reports/VisitsReport";
-import FeedbacksReport from "../components/reports/FeedbacksReport";
-import LostPetsReport from "../components/reports/LostPetsReport";
 import SuccessToast from "../components/template/SuccessToast.jsx";
 import ErrorToast from "../components/template/ErrorToast.jsx";
 import socket from "../socket";
 import { toApiDate } from "../components/reports/reportComparison";
 
+const getDefaultDateRange = () => {
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  const start = new Date(end);
+  start.setDate(start.getDate() - 29);
+  start.setHours(0, 0, 0, 0);
+  return { start, end };
+};
+
 const Reports = () => {
-  const [dateRange, setDateRange] = useState({ start: null, end: null });
+  const [dateRange, setDateRange] = useState(getDefaultDateRange);
   const [isExporting, setIsExporting] = useState(false);
   const [exportToast, setExportToast] = useState(null);
 
@@ -49,47 +56,49 @@ const Reports = () => {
 
   const handleDateRangeChange = (range) => {
     setDateRange(range);
-    console.log("Date range changed:", range);
   };
 
-  const exportToPDF = async () => {
+  const exportToCsv = async () => {
     setIsExporting(true);
     try {
-      console.log(
-        "📤 Calling:",
-        api.defaults.baseURL + "/admin/reports/export-pdf",
-      );
-
-      const response = await api.post(
-        "/admin/reports/export-pdf",
-        {
+      const response = await api.get("/admin/reports/export-csv", {
+        params: {
           startDate: dateRange.start ? toApiDate(dateRange.start) : null,
           endDate: dateRange.end ? toApiDate(dateRange.end) : null,
         },
-        { responseType: "blob" },
-      );
+        responseType: "blob",
+      });
 
       const url = URL.createObjectURL(response.data);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `raphaVets-reports-${new Date().toISOString().split("T")[0]}.pdf`;
+      a.download = `raphacare-reports-${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 
       setExportToast({
         type: "success",
-        message: "PDF exported successfully!",
+        message: "CSV report downloaded successfully.",
       });
     } catch (error) {
-      console.error("Error exporting PDF:", error);
-      setExportToast({ type: "error", message: "Failed to generate PDF." });
+      console.error("Error exporting report:", error);
+      setExportToast({ type: "error", message: "Failed to export report." });
     } finally {
       setIsExporting(false);
     }
   };
 
   return (
-    <div className="bg-gray-50 dark:bg-[#0B0B0B] p-6">
+    <div className="reports-page bg-gray-50 dark:bg-[#0B0B0B] p-6 print:bg-white print:p-0">
+      <style>{`
+        @media print {
+          [data-report-controls] { display: none !important; }
+          .reports-page { background: #fff !important; color: #111 !important; }
+          .reports-page section { break-inside: avoid; }
+        }
+      `}</style>
       {exportToast?.type === "success" && (
         <SuccessToast
           message={exportToast.message}
@@ -107,7 +116,7 @@ const Reports = () => {
       {/* Header */}
       <Header title="Reports & Analytics" />
 
-      <div className="flex justify-end items-center gap-3 mt-4">
+      <div data-report-controls className="flex justify-end items-center gap-3 mt-4">
         {dateRange.start && dateRange.end && (
           <span className="text-sm text-gray-600 dark:text-gray-400">
             Showing data from: {dateRange.start.toLocaleDateString()} to{" "}
@@ -116,12 +125,19 @@ const Reports = () => {
         )}
         <DateRangePicker onRangeChange={handleDateRangeChange} />
         <button
-          onClick={exportToPDF}
-          disabled={isExporting}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          onClick={() => window.print()}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           <Download size={16} />
-          {isExporting ? "Exporting..." : "Export PDF"}
+          Print / Save PDF
+        </button>
+        <button
+          onClick={exportToCsv}
+          disabled={isExporting}
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+        >
+          <Download size={16} />
+          {isExporting ? "Exporting..." : "Export CSV"}
         </button>
       </div>
 
@@ -131,8 +147,6 @@ const Reports = () => {
         <UsersReport dateRange={dateRange} />
         <PetsReport dateRange={dateRange} />
         <VisitsReport dateRange={dateRange} />
-        <FeedbacksReport dateRange={dateRange} />
-        <LostPetsReport dateRange={dateRange} />
       </div>
     </div>
   );

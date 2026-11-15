@@ -304,7 +304,14 @@ export const getPetCareIcons = async (req, res, next) => {
 export const getPetCareTips = async (req, res, next) => {
   try {
     const tips = await prisma.petCareTip.findMany({
-      where: { isDeleted: false, type: "Article" },
+      where: {
+        isDeleted: false,
+        type: "Article",
+        OR: [
+          { contentCategoryId: null },
+          { contentCategory: { is: { isDeleted: false } } },
+        ],
+      },
       include: tipInclude,
       orderBy: { tipId: "desc" },
     });
@@ -634,6 +641,10 @@ export const getPublishedPetCareContent = async (req, res, next) => {
           isDeleted: false,
           type: "Article",
           publicationStatus: { is: { statusName: "Published" } },
+          OR: [
+            { contentCategoryId: null },
+            { contentCategory: { is: { isDeleted: false } } },
+          ],
         },
         include: tipInclude,
       }),

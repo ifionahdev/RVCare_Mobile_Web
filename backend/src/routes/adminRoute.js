@@ -19,7 +19,7 @@ import {
   updateAppointmentStatuses,
   softDeleteAppointments,
 } from "../controllers/adminController.js";
-import { getReports, exportReportsPdf } from "../controllers/reportsController.js";
+import { getReports, exportReportsCsv } from "../controllers/reportsController.js";
 import { authenticate } from "../middleware/auth.js";
 import { requireRole } from "../middleware/role.js";
 import vetScheduleRoutes from "./vetScheduleRoute.js";
@@ -28,29 +28,29 @@ import auditLogRoutes from "./auditLogRoute.js";
 
 const router = Router();
 
-router.use(authenticate, requireRole("admin"));
+router.use(authenticate);
 router.use("/vet-schedules", vetScheduleRoutes);
-router.use("/settings", accountManagementRoutes);
-router.use("/audit-logs", auditLogRoutes);
-router.get("/owners-with-pets", getOwnersWithPets);
-router.post("/add-owner", addOwner);
-router.put("/update-owner/:accountId", updateOwner);
-router.get("/breeds", getBreeds);
-router.get("/species", getSpecies);
-router.post("/add-pets", addPet);
-router.put("/update-pet/:petId", updatePet);
-router.put("/soft-delete-owner/:accountId", softDeleteOwner);
-router.put("/soft-delete-pet/:petId", softDeletePet);
-router.get("/appointments", getAdminAppointments);
-router.get("/appointments/owners", getAppointmentOwners);
-router.get("/appointments/time", getAppointmentTimes);
-router.get("/appointments/booked-slots", getBookedSlots);
-router.get("/appointments/services", getAppointmentServices);
-router.post("/appointments/assign", assignAppointment);
-router.post("/appointments/make-visit", makeVisit);
-router.patch("/appointments/status", updateAppointmentStatuses);
-router.delete("/appointments", softDeleteAppointments);
-router.get("/reports", getReports);
-router.post("/reports/export-pdf", exportReportsPdf);
+router.use("/settings", requireRole("admin"), accountManagementRoutes);
+router.use("/audit-logs", requireRole("admin"), auditLogRoutes);
+router.get("/owners-with-pets", requireRole("admin", "vet"), getOwnersWithPets);
+router.post("/add-owner", requireRole("admin"), addOwner);
+router.put("/update-owner/:accountId", requireRole("admin"), updateOwner);
+router.get("/breeds", requireRole("admin"), getBreeds);
+router.get("/species", requireRole("admin"), getSpecies);
+router.post("/add-pets", requireRole("admin"), addPet);
+router.put("/update-pet/:petId", requireRole("admin"), updatePet);
+router.put("/soft-delete-owner/:accountId", requireRole("admin"), softDeleteOwner);
+router.put("/soft-delete-pet/:petId", requireRole("admin"), softDeletePet);
+router.get("/appointments", requireRole("admin", "vet"), getAdminAppointments);
+router.get("/appointments/owners", requireRole("admin"), getAppointmentOwners);
+router.get("/appointments/time", requireRole("admin"), getAppointmentTimes);
+router.get("/appointments/booked-slots", requireRole("admin"), getBookedSlots);
+router.get("/appointments/services", requireRole("admin"), getAppointmentServices);
+router.post("/appointments/assign", requireRole("admin"), assignAppointment);
+router.post("/appointments/make-visit", requireRole("admin"), makeVisit);
+router.patch("/appointments/status", requireRole("admin"), updateAppointmentStatuses);
+router.delete("/appointments", requireRole("admin"), softDeleteAppointments);
+router.get("/reports", requireRole("admin"), getReports);
+router.get("/reports/export-csv", requireRole("admin"), exportReportsCsv);
 
 export default router;

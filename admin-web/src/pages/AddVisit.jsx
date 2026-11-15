@@ -294,7 +294,11 @@ const AddVisit = () => {
     setCurrentStep(4); // Go to success page
   };
 
-  const userPets = pets.filter(pet => pet.userId === visitData.user?.id);
+  const userPets = pets.filter(
+    (pet) => Number(pet.userId) === Number(visitData.user?.id)
+      && Number.isFinite(Number(pet.userId))
+      && Number.isFinite(Number(visitData.user?.id))
+  );
   const ownerOptionsForModal = visitData.user
     ? [{
         id: visitData.user.id,
@@ -308,13 +312,14 @@ const AddVisit = () => {
       }));
 
   const filteredUsers = useMemo(() => {
-    if (!searchQuery) return owners;
-    const query = searchQuery.toLowerCase();
-    return owners.filter(user => 
-      `${user.firstName} ${user.lastName}`.toLowerCase().includes(query) ||
-      user.email.toLowerCase().includes(query) ||
-      user.phone.includes(query)
-    );
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return owners;
+    return owners.filter((user) => [
+      user.firstName,
+      user.lastName,
+      user.email,
+      user.phone,
+    ].some((value) => String(value ?? "").toLowerCase().includes(query)));
   }, [searchQuery, owners]);
 
   const steps = [
@@ -406,7 +411,9 @@ const AddVisit = () => {
                   <tbody className="divide-y divide-gray-200">
                     {filteredUsers.map(user => {
                       const todayStr = new Date().toLocaleDateString('en-CA');                 
-                      const userPetCount = pets.filter(pet => pet.userId === user.id).length;
+                      const userPetCount = pets.filter(
+                        (pet) => Number(pet.userId) === Number(user.id)
+                      ).length;
                       const todayAppointments = appointments.filter(
                         app => app.userId === user.id && 
                         app.date === todayStr &&

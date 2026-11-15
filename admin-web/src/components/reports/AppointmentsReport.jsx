@@ -86,7 +86,7 @@ const AppointmentsReport = ({ dateRange }) => {
     labels: data.weeklyTrend?.map(item => item.day.substring(0, 3)) || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     datasets: [
       { 
-        data: data.weeklyTrend?.map(item => item.count) || [12, 19, 14, 22, 18, 25, 30],
+        data: data.weeklyTrend?.map(item => item.count) || [],
         borderColor: '#3b82f6',
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
         tension: 0.4,
@@ -95,17 +95,20 @@ const AppointmentsReport = ({ dateRange }) => {
     ]
   };
 
+  const statusColors = {
+    Completed: "#22c55e",
+    Upcoming: "#3b82f6",
+    Pending: "#eab308",
+    Cancelled: "#ef4444",
+    Rejected: "#f97316",
+    Missed: "#8b5cf6",
+  };
   const statusBreakdownData = {
-    labels: ["Completed", "Upcoming", "Pending", "Cancelled"],
+    labels: data.statusBreakdown?.map(({ statusName }) => statusName) || [],
     datasets: [
       { 
-        data: [
-          data.statusBreakdown?.find(s => s.statusName === 'Completed')?.count || 0,
-          data.statusBreakdown?.find(s => s.statusName === 'Upcoming')?.count || 0,
-          data.statusBreakdown?.find(s => s.statusName === 'Pending')?.count || 0,
-          data.statusBreakdown?.find(s => s.statusName === 'Cancelled')?.count || 0
-        ],
-        backgroundColor: ['#22c55e', '#3b82f6', '#eab308', '#ef4444'],
+        data: data.statusBreakdown?.map(({ count }) => count) || [],
+        backgroundColor: data.statusBreakdown?.map(({ statusName }) => statusColors[statusName] || "#64748b") || [],
         borderWidth: 0
       }
     ]
@@ -117,10 +120,10 @@ const AppointmentsReport = ({ dateRange }) => {
       const ampm = hour >= 12 ? 'PM' : 'AM';
       const displayHour = hour % 12 || 12;
       return `${displayHour}${ampm}`;
-    }) || ["8AM", "10AM", "12PM", "2PM", "4PM"],
+    }) || [],
     datasets: [
       { 
-        data: data.peakHours?.map(item => item.count) || [5, 12, 18, 9, 7],
+        data: data.peakHours?.map(item => item.count) || [],
         backgroundColor: '#3b82f6',
         borderRadius: 6
       }
