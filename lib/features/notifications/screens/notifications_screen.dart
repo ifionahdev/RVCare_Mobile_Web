@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../data/notifications_service.dart';
 
 const _background = Color(0xFFF4F8F8);
 const _heading = Color(0xFF202D3E);
@@ -15,47 +18,101 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final Set<int> _readNotifications = {};
+  List<AppNotification> _notifications = [];
+  bool _isLoading = true;
+  Object? _loadError;
 
-  static const _notifications = [
-    _Notification(
-      id: 1,
-      category: 'PET CARE',
-      title: 'A little care, a lot of love',
-      message:
-          'Explore our ear-cleaning article and video guide for everyday care.',
-      time: '10:30 AM',
-      icon: Icons.menu_book_rounded,
-    ),
-    _Notification(
-      id: 2,
-      category: 'APPOINTMENTS',
-      title: 'Appointment request received',
-      message: 'Your request for Luna is in Bookings. Check there for the latest status.',
-      time: '10:15 AM',
-      icon: Icons.calendar_month_rounded,
-    ),
-    _Notification(
-      id: 3,
-      category: 'RECORDS',
-      title: 'Keep Luna’s records handy',
-      message:
-          'Luna’s latest health records are ready to view in your Records.',
-      time: '9:45 AM',
-      icon: Icons.description_outlined,
-    ),
-  ];
-
-  int get _unreadCount => _notifications.length - _readNotifications.length;
-
-  void _markAllAsRead() {
-    setState(() {
-      _readNotifications.addAll(_notifications.map((item) => item.id));
-    });
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
   }
 
-  void _markAsRead(int id) {
-    setState(() => _readNotifications.add(id));
+  int get _unreadCount =>
+      _notifications.where((notification) => !notification.isRead).length;
+
+  Future<void> _loadNotifications() async {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+    try {
+      final result = await context
+          .read<NotificationsService>()
+          .fetchMyNotifications();
+      if (!mounted) return;
+      setState(() {
+        _notifications = result;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _markAllAsRead() async {
+    try {
+      await context.read<NotificationsService>().markAllRead();
+      if (!mounted) return;
+      setState(() {
+        _notifications = _notifications
+            .map((notification) => notification.markRead())
+            .toList();
+      });
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
+  Future<void> _markAsRead(AppNotification notification) async {
+    if (notification.isRead) return;
+    try {
+      await context.read<NotificationsService>().markRead(notification.id);
+      if (!mounted) return;
+      setState(() {
+        _notifications = _notifications
+            .map((item) => item.id == notification.id ? item.markRead() : item)
+            .toList();
+      });
+    } catch (error) {
+      _showError(error);
+    }
+  }
+
+  void _showError(Object error) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(NotificationsService.readableError(error)),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  String _dateHeading(DateTime value) {
+    const months = [
+      'JANUARY',
+      'FEBRUARY',
+      'MARCH',
+      'APRIL',
+      'MAY',
+      'JUNE',
+      'JULY',
+      'AUGUST',
+      'SEPTEMBER',
+      'OCTOBER',
+      'NOVEMBER',
+      'DECEMBER',
+    ];
+    final date = value.toLocal();
+    final today = DateUtils.dateOnly(DateTime.now());
+    final notificationDate = DateUtils.dateOnly(date);
+    final prefix = notificationDate == today ? 'TODAY · ' : '';
+    return '$prefix${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
   @override
@@ -123,60 +180,117 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Care tips, appointment updates, and records for your pet.',
+                    'Appointment updates and records for your pet.',
                     style: TextStyle(color: _muted, fontSize: 14, height: 1.4),
                   ),
                   const SizedBox(height: 22),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 7,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _mint,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '$_unreadCount unread',
-                          style: const TextStyle(
-                            color: _teal,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
+                  if (_isLoading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 56),
+                      child: Center(
+                        child: CircularProgressIndicator(color: _teal),
+                      ),
+                    )
+                  else if (_loadError != null)
+                    _MessageState(
+                      message: NotificationsService.readableError(_loadError!),
+                      action: _loadNotifications,
+                      actionLabel: 'Try again',
+                    )
+                  else if (_notifications.isEmpty)
+                    const _MessageState(message: 'No notifications yet.')
+                  else ...[
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _mint,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '$_unreadCount unread',
+                            style: const TextStyle(
+                              color: _teal,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
-                      ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: _unreadCount == 0 ? null : _markAllAsRead,
-                        style: TextButton.styleFrom(
-                          foregroundColor: _teal,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        const Spacer(),
+                        TextButton(
+                          onPressed: _unreadCount == 0 ? null : _markAllAsRead,
+                          style: TextButton.styleFrom(
+                            foregroundColor: _teal,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                          child: const Text(
+                            'Mark all as read',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
                         ),
-                        child: const Text(
-                          'Mark all as read',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  const _DateHeading('3 NOVEMBER 2026'),
-                  const SizedBox(height: 12),
-                  for (final notification in _notifications) ...[
-                    _NotificationCard(
-                      notification: notification,
-                      isRead: _readNotifications.contains(notification.id),
-                      onTap: () => _markAsRead(notification.id),
+                      ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
+                    for (
+                      var index = 0;
+                      index < _notifications.length;
+                      index++
+                    ) ...[
+                      if (index == 0 ||
+                          !DateUtils.isSameDay(
+                            _notifications[index - 1].createdAt.toLocal(),
+                            _notifications[index].createdAt.toLocal(),
+                          )) ...[
+                        if (index > 0) const SizedBox(height: 18),
+                        _DateHeading(
+                          _dateHeading(_notifications[index].createdAt),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      _NotificationCard(
+                        notification: _notifications[index],
+                        onTap: () => _markAsRead(_notifications[index]),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                   ],
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MessageState extends StatelessWidget {
+  const _MessageState({required this.message, this.action, this.actionLabel});
+
+  final String message;
+  final VoidCallback? action;
+  final String? actionLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 42),
+      child: Column(
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: _muted),
+          ),
+          if (action != null) ...[
+            const SizedBox(height: 12),
+            TextButton(onPressed: action, child: Text(actionLabel!)),
+          ],
+        ],
       ),
     );
   }
@@ -202,18 +316,23 @@ class _DateHeading extends StatelessWidget {
 }
 
 class _NotificationCard extends StatelessWidget {
-  const _NotificationCard({
-    required this.notification,
-    required this.isRead,
-    required this.onTap,
-  });
+  const _NotificationCard({required this.notification, required this.onTap});
 
-  final _Notification notification;
-  final bool isRead;
+  final AppNotification notification;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final icon = switch (notification.category.toLowerCase()) {
+      'appointments' => Icons.calendar_month_rounded,
+      'records' => Icons.description_outlined,
+      _ => Icons.notifications_active_outlined,
+    };
+    final date = notification.createdAt.toLocal();
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final time =
+        '$hour:${date.minute.toString().padLeft(2, '0')} ${date.hour < 12 ? 'AM' : 'PM'}';
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
@@ -236,7 +355,7 @@ class _NotificationCard extends StatelessWidget {
                   color: _mint,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(notification.icon, color: _teal, size: 22),
+                child: Icon(icon, color: _teal, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -244,7 +363,7 @@ class _NotificationCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      notification.category,
+                      notification.category.toUpperCase(),
                       style: const TextStyle(
                         color: _teal,
                         fontSize: 10,
@@ -272,13 +391,13 @@ class _NotificationCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${notification.time} · ${isRead ? 'Read' : 'Unread'}',
+                      '$time · ${notification.isRead ? 'Read' : 'Unread'}',
                       style: const TextStyle(color: _muted, fontSize: 10),
                     ),
                   ],
                 ),
               ),
-              if (!isRead) ...[
+              if (!notification.isRead) ...[
                 const SizedBox(width: 8),
                 const Padding(
                   padding: EdgeInsets.only(top: 5),
@@ -291,22 +410,4 @@ class _NotificationCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _Notification {
-  const _Notification({
-    required this.id,
-    required this.category,
-    required this.title,
-    required this.message,
-    required this.time,
-    required this.icon,
-  });
-
-  final int id;
-  final String category;
-  final String title;
-  final String message;
-  final String time;
-  final IconData icon;
 }

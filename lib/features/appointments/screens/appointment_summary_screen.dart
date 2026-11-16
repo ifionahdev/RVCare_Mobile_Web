@@ -40,6 +40,7 @@ class AppointmentSummaryScreen extends StatelessWidget {
         context,
         title: 'Booking Summary',
         showBack: true,
+        actionIcon: Icons.receipt_long_outlined,
       ),
       body: SafeArea(
         top: false,

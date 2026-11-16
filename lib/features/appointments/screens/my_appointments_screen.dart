@@ -77,8 +77,26 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
   bool _isCancelled(Map<String, dynamic> appointment) =>
       _status(appointment) == 'cancelled';
 
+  bool _isFutureAppointment(Map<String, dynamic> appointment) {
+    final rawDate = appointment['scheduledDate']?.toString();
+    final timeslot = appointment['timeslot'];
+    final rawTime = timeslot is Map ? timeslot['startTime']?.toString() : null;
+    if (rawDate == null || rawTime == null) return false;
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(rawTime);
+    if (match == null) return false;
+    final date = DateTime.parse(rawDate).toIso8601String().substring(0, 10);
+    final hour = match.group(1)!.padLeft(2, '0');
+    final start = DateTime.parse('${date}T$hour:${match.group(2)!}:00+08:00')
+        .toLocal();
+    return start.isAfter(DateTime.now());
+  }
+
   bool _isUpcoming(Map<String, dynamic> appointment) {
-    if (_isPending(appointment) || _isCancelled(appointment)) return false;
+    if (_isPending(appointment) ||
+        _isCancelled(appointment) ||
+        !_isFutureAppointment(appointment)) {
+      return false;
+    }
     final status = _status(appointment);
     return ['incoming', 'confirmed', 'approved', 'upcoming'].contains(status);
   }
@@ -88,89 +106,103 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
     final upcoming = _selectedTab == 0;
     final pending = _selectedTab == 1;
     final upcomingAppointments = _appointments.where(_isUpcoming);
-    final pendingAppointments = _appointments.where(_isPending);
+    final pendingAppointments = _appointments.where(
+      (appointment) =>
+          _isPending(appointment) && _isFutureAppointment(appointment),
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F9FC),
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-          children: [
-            const Text(
-              'My Appointments',
-              style: TextStyle(
-                color: AppTheme.heading,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                height: 1.15,
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Track bookings for all your pets',
-              style: TextStyle(color: AppTheme.muted, fontSize: 14),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              height: 58,
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE6EEF0),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
+      body: Column(
+        children: [
+          Expanded(
+            child: SafeArea(
+              bottom: false,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
                 children: [
-                  _tab('Upcoming · ${upcomingAppointments.length}', 0),
-                  _tab('Pending · ${pendingAppointments.length}', 1),
-                  _tab('Cancelled', 2),
+                  const Text(
+                    'My Appointments',
+                    style: TextStyle(
+                      color: AppTheme.heading,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Track bookings for all your pets',
+                    style: TextStyle(color: AppTheme.muted, fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    height: 58,
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE6EEF0),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        _tab('Upcoming · ${upcomingAppointments.length}', 0),
+                        _tab('Pending · ${pendingAppointments.length}', 1),
+                        _tab('Cancelled', 2),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (_isLoading)
+                    const Center(child: CircularProgressIndicator())
+                  else if (_loadError != null)
+                    _emptyAppointmentsCard(
+                      'Unable to load appointments. Please try again.',
+                    )
+                  else if (upcoming) ...[
+                    if (upcomingAppointments.isEmpty)
+                      _emptyAppointmentsCard('No upcoming appointments'),
+                    for (final appointment in upcomingAppointments) ...[
+                      _backendAppointmentCard(appointment),
+                      const SizedBox(height: 12),
+                    ],
+                  ] else if (pending) ...[
+                    if (pendingAppointments.isEmpty)
+                      _emptyAppointmentsCard('No pending appointments'),
+                    for (final appointment in pendingAppointments) ...[
+                      _backendAppointmentCard(appointment),
+                      const SizedBox(height: 12),
+                    ],
+                  ] else if (_appointments.any(_isCancelled)) ...[
+                    for (final appointment in _appointments.where(
+                      _isCancelled,
+                    )) ...[
+                      _backendAppointmentCard(appointment),
+                      const SizedBox(height: 12),
+                    ],
+                  ] else
+                    Container(
+                      height: 180,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppTheme.border),
+                      ),
+                      child: const Text(
+                        'No cancelled appointments',
+                        style: TextStyle(color: AppTheme.muted),
+                      ),
+                    ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            if (_isLoading)
-              const Center(child: CircularProgressIndicator())
-            else if (_loadError != null)
-              _emptyAppointmentsCard(
-                'Unable to load appointments. Please try again.',
-              )
-            else if (upcoming) ...[
-              if (upcomingAppointments.isEmpty)
-                _emptyAppointmentsCard('No upcoming appointments'),
-              for (final appointment in upcomingAppointments) ...[
-                _backendAppointmentCard(appointment),
-                const SizedBox(height: 12),
-              ],
-              const SizedBox(height: 16),
-              _bookBanner(),
-            ] else if (pending) ...[
-              if (pendingAppointments.isEmpty)
-                _emptyAppointmentsCard('No pending appointments'),
-              for (final appointment in pendingAppointments) ...[
-                _backendAppointmentCard(appointment),
-                const SizedBox(height: 12),
-              ],
-            ] else if (_appointments.any(_isCancelled)) ...[
-              for (final appointment in _appointments.where(_isCancelled)) ...[
-                _backendAppointmentCard(appointment),
-                const SizedBox(height: 12),
-              ],
-            ] else
-              Container(
-                height: 180,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.border),
-                ),
-                child: const Text(
-                  'No cancelled appointments',
-                  style: TextStyle(color: AppTheme.muted),
-                ),
-              ),
-          ],
-        ),
+          ),
+          if (upcoming)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: _bookBanner(),
+            ),
+        ],
       ),
       bottomNavigationBar: widget.showBottomNavigation
           ? AppBottomNavigation(

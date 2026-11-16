@@ -86,6 +86,8 @@ export default function ChangeDetailsPanel({ entry }) {
 
       <div className="mt-4 rounded-lg bg-gray-50 p-3 text-xs text-gray-500">
         <p>Read-only history · Values recorded in the database audit log</p>
+        <p className="mt-2 break-all">Previous hash: {entry.previousHash || "Legacy entry"}</p>
+        <p className="mt-1 break-all">SHA-256 hash: {entry.hash}</p>
       </div>
     </aside>
   );

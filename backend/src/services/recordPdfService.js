@@ -55,6 +55,7 @@ const ensureRoom = (doc, height = 72) => {
 const addSection = (doc, title) => {
   ensureRoom(doc, 42);
   doc.moveDown(0.75);
+  doc.x = margin;
   doc.fillColor(teal).font("Helvetica-Bold").fontSize(12).text(title);
   const lineY = doc.y + 4;
   doc.moveTo(margin, lineY)
@@ -69,12 +70,16 @@ const addField = (doc, label, value) => {
   const lines = structuredLines(value);
   if (!lines.length) return;
   ensureRoom(doc, 44);
+  doc.x = margin;
   doc.fillColor(muted).font("Helvetica-Bold").fontSize(9).text(label);
   doc.moveDown(0.2);
   doc.fillColor(heading)
     .font("Helvetica")
     .fontSize(10)
-    .text(lines.join("\n"), { width: doc.page.width - margin * 2 });
+    .text(lines.join("\n"), {
+      x: margin,
+      width: doc.page.width - margin * 2,
+    });
   doc.moveDown(0.55);
 };
 
@@ -224,6 +229,7 @@ const addLabResultsTable = (doc, results) => {
     });
     doc.y = y + rowHeight;
   });
+  doc.x = margin;
   doc.moveDown(0.5);
 };
 

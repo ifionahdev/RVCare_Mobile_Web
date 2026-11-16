@@ -206,6 +206,7 @@ class _RecommendedSchedulesScreenState
         context,
         title: 'Check Availability',
         showBack: true,
+        actionIcon: Icons.calendar_month_outlined,
       ),
       body: Column(
         children: [

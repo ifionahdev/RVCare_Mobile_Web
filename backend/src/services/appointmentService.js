@@ -12,6 +12,7 @@ import { findOwnerPet } from "../models/petModel.js";
 import { findFirstAvailableVeterinarian } from "../models/vetModel.js";
 import { findCustomerByAccount } from "../models/customerModel.js";
 import { emitAppointmentChanged } from "../realtime.js";
+import { createCustomerNotification } from "./notificationService.js";
 import { BOOKING_DAYS } from "../scheduling/ctr.js";
 import {
   appointmentStartDateTime,
@@ -112,6 +113,19 @@ export const createAppointment = async ({
     throw new AppointmentServiceError("No veterinarian is available.", 400);
   }
 
+  const timeslot = await findTimeslotById(parsedTimeslotId);
+  if (!timeslot) {
+    throw new AppointmentServiceError("Invalid time slot.", 400);
+  }
+  if (
+    appointmentStartDateTime({
+      scheduledDate: parsedScheduledDate,
+      timeslot,
+    }) <= new Date()
+  ) {
+    throw new AppointmentServiceError("Choose a future time slot.", 400);
+  }
+
   const appointment = await createPendingAppointment({
     petId: parsedPetId,
     serviceId: parsedServiceId,
@@ -124,6 +138,14 @@ export const createAppointment = async ({
   emitAppointmentChanged(accountId, {
     type: "created",
     appointmentId: appointment.appointmentId,
+  });
+  await createCustomerNotification({
+    accountId,
+    category: "appointments",
+    title: "Appointment request received",
+    message: `Your appointment request for ${pet.petName} was submitted.`,
+    relatedType: "appointment",
+    relatedId: appointment.appointmentId,
   });
 
   return appointment;
@@ -215,6 +237,14 @@ export const rescheduleOwnerAppointment = async ({
     type: "rescheduled",
     appointmentId,
   });
+  await createCustomerNotification({
+    accountId: appointment.pet.owner.accountId,
+    category: "appointments",
+    title: "Appointment rescheduled",
+    message: `${appointment.pet.petName}'s appointment has been rescheduled to ${scheduledDateValue}.`,
+    relatedType: "appointment",
+    relatedId: parsedAppointmentId,
+  });
 
   return appointment;
 };
@@ -250,6 +280,14 @@ export const cancelOwnerAppointment = async ({
   emitAppointmentChanged(appointment.pet.owner.accountId, {
     type: "cancelled",
     appointmentId: parsedAppointmentId,
+  });
+  await createCustomerNotification({
+    accountId: appointment.pet.owner.accountId,
+    category: "appointments",
+    title: "Appointment cancelled",
+    message: `${appointment.pet.petName}'s appointment was cancelled.`,
+    relatedType: "appointment",
+    relatedId: parsedAppointmentId,
   });
 
   return appointment;

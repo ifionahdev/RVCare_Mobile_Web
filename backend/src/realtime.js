@@ -43,3 +43,7 @@ export const initializeRealtime = (server) => {
 export const emitAppointmentChanged = (accountId, payload) => {
   io?.to(`account:${accountId}`).emit("appointment:changed", payload);
 };
+
+export const emitNotificationCreated = (accountId, payload) => {
+  io?.to(`account:${accountId}`).emit("notification:created", payload);
+};

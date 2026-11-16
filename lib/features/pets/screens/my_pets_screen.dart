@@ -72,7 +72,11 @@ class _MyPetsScreenState extends State<MyPetsScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: _CircleIconButton(icon: Icons.more_horiz, onPressed: () {}),
+            child: Icon(
+              Icons.pets_outlined,
+              color: AppTheme.primaryDark,
+              size: 22,
+            ),
           ),
         ],
       ),

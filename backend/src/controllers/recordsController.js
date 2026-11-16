@@ -6,6 +6,7 @@ import multer from "multer";
 import { prisma } from "../config/prisma.js";
 import { createAuditLog } from "../services/auditLogService.js";
 import { generateRecordPdf } from "../services/recordPdfService.js";
+import { notifyRecordAvailable } from "../services/notificationService.js";
 
 const uploadDirectory = fileURLToPath(new URL("../../uploads/records/", import.meta.url));
 const maxAttachmentSize = 10 * 1024 * 1024;
@@ -438,6 +439,31 @@ const customerRecordDto = (type, record, visit) => ({
   date: dateOnly(type === "medical" ? visit.visitDate : record.createdAt),
   visitDate: dateOnly(visit.visitDate),
   pet: recordPetDto(visit.pet),
+  details:
+    type === "medical"
+      ? {
+          weight: record.weightKg == null ? "" : String(record.weightKg),
+          temperature:
+            record.temperature == null ? "" : String(record.temperature),
+          heartRate: record.heartRate == null ? "" : String(record.heartRate),
+          findings: jsonText(record.findings),
+          assessment: jsonText(record.assessment),
+          treatmentPlan: jsonText(record.treatmentPlan),
+          instructions: jsonText(record.instructions),
+        }
+      : {
+          interpretation: record.interpretation ?? "",
+          results: record.labResultValues
+            .filter((value) => !value.isDeleted && !value.parameter.isDeleted)
+            .map((value) => ({
+              parameter: value.parameter.name,
+              result:
+                value.textValue ??
+                (value.value == null ? "" : String(value.value)),
+              unit: value.parameter.unit ?? "",
+              referenceRange: value.parameter.refRangeText ?? "",
+            })),
+        },
 });
 
 const customerRecordPdfData = (type, record, visit) => {
@@ -825,10 +851,18 @@ export const createMedicalHistory = async (req, res, next) =>
         targetId: history.historyId,
         newValue: historySnapshot(history),
       });
-      return history;
+      return { history, visitId: source.visitId };
     });
 
-    return res.status(201).json({ id: created.historyId });
+    if (created.history.status === "Completed") {
+      await notifyRecordAvailable({
+        visitId: created.visitId,
+        recordType: "medical",
+        recordId: created.history.historyId,
+      });
+    }
+
+    return res.status(201).json({ id: created.history.historyId });
   });
 
 export const updateMedicalHistory = async (req, res, next) =>
@@ -870,11 +904,22 @@ export const updateMedicalHistory = async (req, res, next) =>
         oldValue: historySnapshot(current),
         newValue: historySnapshot(history),
       });
-      return history;
+      return {
+        history,
+        visitId: source.visitId,
+        wasCompleted: current.status === "Completed",
+      };
     });
 
     await Promise.all(oldAttachments.map((attachment) => removeStoredFile(attachment.storageKey)));
-    return res.json({ id: updated.historyId });
+    if (!updated.wasCompleted && updated.history.status === "Completed") {
+      await notifyRecordAvailable({
+        visitId: updated.visitId,
+        recordType: "medical",
+        recordId: updated.history.historyId,
+      });
+    }
+    return res.json({ id: updated.history.historyId });
   });
 
 export const deleteMedicalHistory = async (req, res, next) =>
@@ -1040,10 +1085,21 @@ export const createLabResult = async (req, res, next) =>
         targetId: created.labResultId,
         newValue: labSnapshot(created),
       });
-      return created;
+      return {
+        labResult: created,
+        visitId: source.visitId,
+      };
     });
 
-    return res.status(201).json({ id: labResult.labResultId });
+    if (labResult.labResult.status === "Final") {
+      await notifyRecordAvailable({
+        visitId: labResult.visitId,
+        recordType: "laboratory",
+        recordId: labResult.labResult.labResultId,
+      });
+    }
+
+    return res.status(201).json({ id: labResult.labResult.labResultId });
   });
 
 export const updateLabResult = async (req, res, next) =>
@@ -1085,11 +1141,22 @@ export const updateLabResult = async (req, res, next) =>
         oldValue: labSnapshot(current),
         newValue: labSnapshot(labResult),
       });
-      return labResult;
+      return {
+        labResult,
+        visitId: source.visitId,
+        wasFinal: current.status === "Final",
+      };
     });
 
     await Promise.all(oldAttachments.map((attachment) => removeStoredFile(attachment.storageKey)));
-    return res.json({ id: updated.labResultId });
+    if (!updated.wasFinal && updated.labResult.status === "Final") {
+      await notifyRecordAvailable({
+        visitId: updated.visitId,
+        recordType: "laboratory",
+        recordId: updated.labResult.labResultId,
+      });
+    }
+    return res.json({ id: updated.labResult.labResultId });
   });
 
 export const deleteLabResult = async (req, res, next) =>

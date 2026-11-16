@@ -174,6 +174,8 @@ export default function AuditLog() {
         "Database table",
         "Record ID",
         "Action",
+        "Previous hash",
+        "SHA-256 hash",
         "Old value",
         "New value",
       ];
@@ -186,6 +188,8 @@ export default function AuditLog() {
         entry.targetTable,
         entry.targetId,
         entry.action,
+        entry.previousHash,
+        entry.hash,
         snapshotForCsv(entry.oldValue),
         snapshotForCsv(entry.newValue),
       ]);

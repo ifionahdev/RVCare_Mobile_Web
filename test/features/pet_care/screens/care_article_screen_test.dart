@@ -24,6 +24,8 @@ void main() {
         home: CareArticleScreen(article: article),
       ),
     );
+    expect(find.text('PET CARE GUIDE'), findsOneWidget);
+    expect(find.text('Health'), findsOneWidget);
     await tester.tap(find.text('Open in browser'));
     await tester.pumpAndSettle();
 

@@ -107,3 +107,24 @@ export async function sendOwnerCredentials(email, password) {
 
   return info;
 }
+
+export async function sendCustomerNotificationEmail(email, title, message) {
+  const info = await transporter.sendMail({
+    from: `"RaphaCare" <${process.env.SMTP_USER}>`,
+    to: email,
+    subject: `RaphaCare: ${title}`,
+    text: [
+      title,
+      "",
+      message,
+      "",
+      "Open the RaphaCare app to view the update.",
+    ].join("\n"),
+  });
+
+  if (!Array.isArray(info.accepted) || !info.accepted.includes(email)) {
+    throw new Error("SMTP server did not accept the notification email.");
+  }
+
+  return info;
+}

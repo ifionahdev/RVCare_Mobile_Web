@@ -93,10 +93,66 @@ const Reports = () => {
   return (
     <div className="reports-page bg-gray-50 dark:bg-[#0B0B0B] p-6 print:bg-white print:p-0">
       <style>{`
+        @page {
+          size: A4 portrait;
+          margin: 14mm;
+        }
+
         @media print {
+          html, body, #root {
+            height: auto !important;
+            overflow: visible !important;
+            background: #fff !important;
+          }
+          .admin-layout {
+            display: block !important;
+            height: auto !important;
+            overflow: visible !important;
+            background: #fff !important;
+          }
+          .admin-layout > aside,
+          [data-report-controls],
+          [data-screen-report-header] {
+            display: none !important;
+          }
+          .admin-layout > main {
+            height: auto !important;
+            overflow: visible !important;
+            padding: 0 !important;
+          }
           [data-report-controls] { display: none !important; }
-          .reports-page { background: #fff !important; color: #111 !important; }
-          .reports-page section { break-inside: avoid; }
+          .reports-page {
+            width: 100% !important;
+            max-width: none !important;
+            background: #fff !important;
+            color: #111 !important;
+          }
+          [data-print-report-header] {
+            display: block !important;
+            border-bottom: 2px solid #0ea5e9;
+            margin-bottom: 22px;
+            padding-bottom: 12px;
+          }
+          #reports-container {
+            display: block !important;
+          }
+          #reports-container > section {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            page-break-before: always;
+            margin-bottom: 0 !important;
+          }
+          #reports-container > section:first-child {
+            page-break-before: auto;
+          }
+          #reports-container section > h2 {
+            color: #1f2937 !important;
+            border-bottom: 1px solid #d1d5db;
+            padding-bottom: 8px;
+          }
+          #reports-container .bg-white {
+            background: #fff !important;
+          }
         }
       `}</style>
       {exportToast?.type === "success" && (
@@ -114,7 +170,24 @@ const Reports = () => {
       <ChartConfig />
 
       {/* Header */}
-      <Header title="Reports & Analytics" />
+      <div data-print-report-header className="hidden">
+        <p className="text-sm font-semibold uppercase tracking-widest text-sky-600">
+          RV Care Clinic Portal
+        </p>
+        <h1 className="mt-1 text-3xl font-bold text-gray-900">Reports &amp; Analytics</h1>
+        <p className="mt-2 text-sm text-gray-600">
+          Consolidated operational report
+          {dateRange.start && dateRange.end
+            ? ` · ${dateRange.start.toLocaleDateString()} – ${dateRange.end.toLocaleDateString()}`
+            : " · All available dates"}
+        </p>
+        <p className="mt-1 text-xs text-gray-500">
+          Generated {new Date().toLocaleString()}
+        </p>
+      </div>
+      <div data-screen-report-header>
+        <Header title="Reports & Analytics" />
+      </div>
 
       <div data-report-controls className="flex justify-end items-center gap-3 mt-4">
         {dateRange.start && dateRange.end && (

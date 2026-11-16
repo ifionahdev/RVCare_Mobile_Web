@@ -234,15 +234,65 @@ class PreferencesScreen extends StatefulWidget {
 
 class _PreferencesScreenState extends State<PreferencesScreen> {
   bool _emailNotifications = true;
-  bool _updateNotifications = false;
+  bool _isLoading = true;
+  bool _isSaving = false;
+  Object? _loadError;
 
-  void _save() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Preference saving is not connected yet.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+    try {
+      final preferences = await context
+          .read<SettingsService>()
+          .fetchNotificationPreferences();
+      if (!mounted) return;
+      setState(() {
+        _emailNotifications = preferences.emailNotifications;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _save() async {
+    final settingsService = context.read<SettingsService>();
+    setState(() => _isSaving = true);
+    try {
+      await settingsService.updateNotificationPreferences(
+        emailNotifications: _emailNotifications,
+      );
+
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Email notification preference saved.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      final message = error is DioException
+          ? SettingsService.readableError(error)
+          : error.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
+    }
   }
 
   @override
@@ -251,7 +301,8 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
       title: 'Preferences',
       bottomAction: _SettingsPrimaryButton(
         label: 'Save preferences',
-        onPressed: _save,
+        onPressed: _isLoading || _isSaving ? null : _save,
+        isLoading: _isSaving,
       ),
       children: [
         const _SettingsIntro(
@@ -262,27 +313,48 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
         const SizedBox(height: 26),
         const _SettingsSectionLabel('NOTIFICATION CHOICES'),
         const SizedBox(height: 14),
-        _PreferenceCard(
-          icon: Icons.mail_outline_rounded,
-          title: 'Email notifications',
-          description: 'Receive appointment reminders and pet-care messages from your clinic by email.',
-          value: _emailNotifications,
-          onChanged: (value) => setState(() => _emailNotifications = value),
-        ),
-        const SizedBox(height: 14),
-        _PreferenceCard(
-          icon: Icons.campaign_outlined,
-          title: 'Update notifications',
-          description: 'Receive news about new app features and Raphacare updates. This is separate from care-related emails.',
-          value: _updateNotifications,
-          onChanged: (value) => setState(() => _updateNotifications = value),
-        ),
-        const SizedBox(height: 20),
-        const _SettingsNotice(
-          icon: Icons.notifications_none_rounded,
-          message: 'You can review messages in Notifications and change these choices here at any time.',
-        ),
-        const SizedBox(height: 28),
+        if (_isLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(color: _settingsTeal),
+            ),
+          )
+        else if (_loadError != null)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _loadError is DioException
+                    ? SettingsService.readableError(_loadError as DioException)
+                    : _loadError.toString(),
+                style: const TextStyle(color: _settingsMuted),
+              ),
+              TextButton(
+                onPressed: _loadPreferences,
+                child: const Text('Try again'),
+              ),
+            ],
+          )
+        else ...[
+          _PreferenceCard(
+            icon: Icons.mail_outline_rounded,
+            title: 'Email notifications',
+            description: 'Receive appointment and pet-record updates from your clinic by email.',
+            value: _emailNotifications,
+            onChanged: (value) {
+              if (!_isSaving) {
+                setState(() => _emailNotifications = value);
+              }
+            },
+          ),
+          const SizedBox(height: 20),
+          const _SettingsNotice(
+            icon: Icons.notifications_none_rounded,
+            message: 'When enabled, appointment and record updates are sent to your email address.',
+          ),
+          const SizedBox(height: 28),
+        ],
       ],
     );
   }
@@ -1099,7 +1171,13 @@ class _PasswordRequirement extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        Text(text, style: const TextStyle(color: _settingsTeal, fontSize: 13)),
+        Expanded(
+          child: Text(
+            text,
+            softWrap: true,
+            style: const TextStyle(color: _settingsTeal, fontSize: 13),
+          ),
+        ),
       ],
     );
   }

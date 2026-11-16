@@ -170,12 +170,7 @@ class AppointmentDetailsScreen extends StatelessWidget {
               ),
             ),
           ),
-          _circleButton(
-            icon: Icons.more_horiz,
-            onTap: () {
-              // TODO: show appointment options.
-            },
-          ),
+          _circleIcon(icon: Icons.event_note_outlined),
         ],
       ),
     );
@@ -194,6 +189,19 @@ class AppointmentDetailsScreen extends StatelessWidget {
           child: Icon(icon, size: 20, color: AppTheme.heading),
         ),
       ),
+    );
+  }
+
+  Widget _circleIcon({required IconData icon}) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.fromBorderSide(BorderSide(color: AppTheme.border)),
+      ),
+      child: Icon(icon, size: 20, color: AppTheme.primaryDark),
     );
   }
 

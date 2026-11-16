@@ -67,6 +67,23 @@ class AccountActivity {
   }
 }
 
+class NotificationPreferences {
+  const NotificationPreferences({required this.emailNotifications});
+
+  final bool emailNotifications;
+
+  factory NotificationPreferences.fromJson(Map<String, dynamic> json) {
+    final emailNotifications = json['emailNotifications'];
+    if (emailNotifications is! bool) {
+      throw const FormatException(
+        'The notification preferences response is invalid.',
+      );
+    }
+
+    return NotificationPreferences(emailNotifications: emailNotifications);
+  }
+}
+
 class SettingsService {
   const SettingsService(this._apiClient);
 
@@ -113,6 +130,28 @@ class SettingsService {
     );
   }
 
+  Future<NotificationPreferences> fetchNotificationPreferences() async {
+    final response = await _apiClient.dio.get<Map<String, dynamic>>(
+      '/customers/me/notification-preferences',
+    );
+    final data = response.data;
+    if (data == null) {
+      throw const FormatException(
+        'The notification preferences response is invalid.',
+      );
+    }
+    return NotificationPreferences.fromJson(data);
+  }
+
+  Future<void> updateNotificationPreferences({
+    required bool emailNotifications,
+  }) async {
+    await _apiClient.dio.put<void>(
+      '/customers/me/notification-preferences',
+      data: {'emailNotifications': emailNotifications},
+    );
+  }
+
   Future<List<AccountActivity>> fetchActivity() async {
     final response = await _apiClient.dio.get<Map<String, dynamic>>(
       '/customers/me/activity',
@@ -130,13 +169,6 @@ class SettingsService {
       }
       return AccountActivity.fromJson(Map<String, dynamic>.from(entry));
     }).toList();
-  }
-
-  Future<void> deleteMyAccount({required String currentPassword}) async {
-    await _apiClient.dio.delete<void>(
-      '/customers/me',
-      data: {'currentPassword': currentPassword},
-    );
   }
 
   static String readableError(DioException error) {

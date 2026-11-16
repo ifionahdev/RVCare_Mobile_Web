@@ -116,7 +116,9 @@ class CareArticleScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 18),
-                  _isVideo ? _VideoHero(article: article) : _ArticleHero(article: article),
+                  _isVideo
+                      ? _VideoHero(article: article)
+                      : _ArticleHero(article: article),
                   const SizedBox(height: 24),
                   const _SectionHeading('SUMMARY'),
                   const SizedBox(height: 10),
@@ -250,22 +252,104 @@ class _ArticleHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minHeight: 150),
-      padding: const EdgeInsets.all(26),
+      constraints: const BoxConstraints(minHeight: 206),
+      padding: const EdgeInsets.all(24),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: _tealDark,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0A9BA6), Color(0xFF075C68)],
+        ),
         borderRadius: BorderRadius.circular(30),
       ),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          article.title,
-          style: const TextStyle(
-            fontSize: 24,
-            height: 1.08,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
+      child: Stack(
+        children: [
+          Positioned(
+            top: -72,
+            right: -60,
+            child: Container(
+              width: 190,
+              height: 190,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
           ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(article.icon, color: Colors.white, size: 23),
+                  ),
+                  const SizedBox(width: 11),
+                  const Text(
+                    'PET CARE GUIDE',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.9,
+                      color: _sun,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Wrap(
+                spacing: 8,
+                children: [
+                  _HeroTag(label: article.displayCategory),
+                  if (article.readTime.isNotEmpty)
+                    _HeroTag(label: article.readTime),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                article.title,
+                style: const TextStyle(
+                  fontSize: 25,
+                  height: 1.1,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroTag extends StatelessWidget {
+  const _HeroTag({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: Colors.white.withValues(alpha: 0.96),
         ),
       ),
     );
@@ -295,29 +379,29 @@ class _VideoHero extends StatelessWidget {
                   CareThumbnail(source: article.thumbnail),
                   if (article.thumbnailUrl != null &&
                       article.thumbnailUrl!.isNotEmpty)
-                  Positioned(
-                    top: 10,
-                    left: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Text(
-                        'ILLUSTRATED PREVIEW',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
-                          color: Color(0xFF0B5F67),
+                    Positioned(
+                      top: 10,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Text(
+                          'ILLUSTRATED PREVIEW',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.4,
+                            color: Color(0xFF0B5F67),
+                          ),
                         ),
                       ),
                     ),
-                  ),
                   Center(
                     child: Container(
                       width: 48,

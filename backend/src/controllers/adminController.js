@@ -4,6 +4,8 @@ import { prisma } from "../config/prisma.js";
 import { findActiveCustomersWithPets } from "../models/customerModel.js";
 import { sendOwnerCredentials } from "../services/emailService.js";
 import { createAuditLog } from "../services/auditLogService.js";
+import { createCustomerNotification } from "../services/notificationService.js";
+import { emitAppointmentChanged } from "../realtime.js";
 
 const activeAppointmentRelations = {
   pet: {
@@ -938,7 +940,17 @@ export const updateAppointmentStatuses = async (req, res, next) => {
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.appointment.findMany({
         where: { appointmentId: { in: appointmentIds }, isDeleted: false },
-        select: { appointmentId: true, status: true },
+        select: {
+          appointmentId: true,
+          status: true,
+          pet: {
+            select: {
+              petName: true,
+              owner: { select: { accountId: true } },
+            },
+          },
+          service: { select: { serviceName: true } },
+        },
       });
       const updated = await tx.appointment.updateMany({
         where: { appointmentId: { in: appointmentIds }, isDeleted: false },
@@ -954,9 +966,32 @@ export const updateAppointmentStatuses = async (req, res, next) => {
           newValue: { status: req.body.status },
         }),
       ));
-      return updated;
+      return { updated, existing };
     });
-    return res.json({ updatedCount: result.count });
+
+    await Promise.all(
+      result.existing
+        .filter((appointment) => appointment.status !== req.body.status)
+        .map(async (appointment) => {
+          const accountId = appointment.pet.owner.accountId;
+          const status = String(req.body.status).toLowerCase();
+          await createCustomerNotification({
+            accountId,
+            category: "appointments",
+            title: `Appointment ${status}`,
+            message: `${appointment.pet.petName}'s ${appointment.service.serviceName} appointment is now ${status}.`,
+            relatedType: "appointment",
+            relatedId: appointment.appointmentId,
+          });
+          emitAppointmentChanged(accountId, {
+            type: "status-updated",
+            appointmentId: appointment.appointmentId,
+            status: req.body.status,
+          });
+        }),
+    );
+
+    return res.json({ updatedCount: result.updated.count });
   } catch (error) {
     return next(error);
   }

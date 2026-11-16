@@ -215,6 +215,8 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  _RecordSpecificDetails(record: record),
+                  const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
@@ -348,6 +350,237 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _RecordSpecificDetails extends StatelessWidget {
+  const _RecordSpecificDetails({required this.record});
+
+  final PetRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final details = record.details;
+    final isLab = record.type == PetRecordType.laboratory;
+    final hasDetails = isLab
+        ? details.hasLaboratoryDetails
+        : details.hasMedicalDetails;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isLab ? 'Laboratory results' : 'Medical findings',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.heading,
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (!hasDetails)
+            const Text(
+              'No additional details are available for this record.',
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.4,
+                color: AppTheme.muted,
+              ),
+            )
+          else if (isLab)
+            _LaboratoryRecordDetails(details: details)
+          else
+            _MedicalRecordDetails(details: details),
+        ],
+      ),
+    );
+  }
+}
+
+class _MedicalRecordDetails extends StatelessWidget {
+  const _MedicalRecordDetails({required this.details});
+
+  final PetRecordDetails details;
+
+  @override
+  Widget build(BuildContext context) {
+    final measurements = <({String label, String value})>[
+      if (details.weight != null)
+        (label: 'Weight (kg)', value: details.weight!),
+      if (details.temperature != null)
+        (label: 'Temperature', value: details.temperature!),
+      if (details.heartRate != null)
+        (label: 'Heart rate', value: details.heartRate!),
+    ];
+    final notes = <({String label, String value})>[
+      if (details.findings != null)
+        (label: 'Findings', value: details.findings!),
+      if (details.assessment != null)
+        (label: 'Assessment', value: details.assessment!),
+      if (details.treatmentPlan != null)
+        (label: 'Treatment plan', value: details.treatmentPlan!),
+      if (details.instructions != null)
+        (label: 'Instructions', value: details.instructions!),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (measurements.isNotEmpty)
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final item in measurements)
+                Container(
+                  constraints: const BoxConstraints(minWidth: 96),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _bg,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.label,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.value,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.heading,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        for (var i = 0; i < notes.length; i++) ...[
+          if (measurements.isNotEmpty || i > 0) const SizedBox(height: 16),
+          _DetailNote(label: notes[i].label, value: notes[i].value),
+        ],
+      ],
+    );
+  }
+}
+
+class _LaboratoryRecordDetails extends StatelessWidget {
+  const _LaboratoryRecordDetails({required this.details});
+
+  final PetRecordDetails details;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (details.interpretation != null) ...[
+          _DetailNote(label: 'Interpretation', value: details.interpretation!),
+          if (details.results.isNotEmpty) const SizedBox(height: 16),
+        ],
+        for (var i = 0; i < details.results.length; i++) ...[
+          if (i > 0) const Divider(height: 22),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      details.results[i].parameter,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.heading,
+                      ),
+                    ),
+                    if (details.results[i].referenceRange.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Reference: ${details.results[i].referenceRange}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.muted,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                [
+                  details.results[i].result.isEmpty
+                      ? 'Not provided'
+                      : details.results[i].result,
+                  if (details.results[i].unit.isNotEmpty)
+                    details.results[i].unit,
+                ].join(' '),
+                textAlign: TextAlign.end,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.heading,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _DetailNote extends StatelessWidget {
+  const _DetailNote({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.muted,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 15,
+            height: 1.4,
+            color: AppTheme.heading,
+          ),
+        ),
+      ],
     );
   }
 }

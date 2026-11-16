@@ -26,6 +26,28 @@ class AppointmentTimeslot {
       isBooked: json['isBooked'] as bool,
     );
   }
+
+  bool isPastOn(DateTime date, {DateTime? now}) {
+    final current = now ?? DateTime.now();
+    if (date.year != current.year ||
+        date.month != current.month ||
+        date.day != current.day) {
+      return false;
+    }
+
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(startTime);
+    if (match == null) {
+      throw const FormatException('The appointment slot time is invalid.');
+    }
+    final hour = int.parse(match.group(1)!);
+    final minute = int.parse(match.group(2)!);
+    if (hour > 23 || minute > 59) {
+      throw const FormatException('The appointment slot time is invalid.');
+    }
+
+    final start = DateTime(date.year, date.month, date.day, hour, minute);
+    return !start.isAfter(current);
+  }
 }
 
 class AppointmentPet {

@@ -40,9 +40,16 @@ class _AppointmentAvailabilityScreenState
   List<AppointmentVeterinarian> _vets = const [];
   AppointmentTimeslot? get _selectedTimeslot {
     for (final slot in _slots) {
-      if (slot.display == _time) return slot;
+      if (slot.display == _time && !slot.isPastOn(_selectedDate)) return slot;
     }
     return null;
+  }
+
+  List<AppointmentTimeslot> get _visibleSlots {
+    final now = DateTime.now();
+    return _slots
+        .where((slot) => !slot.isPastOn(_selectedDate, now: now))
+        .toList();
   }
 
   @override
@@ -256,6 +263,7 @@ class _AppointmentAvailabilityScreenState
         context,
         title: 'Check Availability',
         showBack: true,
+        actionIcon: Icons.calendar_month_outlined,
       ),
       body: SafeArea(
         top: false,
@@ -491,11 +499,21 @@ class _AppointmentAvailabilityScreenState
                           ),
                         ],
                       )
+                    else if (_visibleSlots.isEmpty)
+                      Text(
+                        _slots.isEmpty
+                            ? 'No available time slots for this date and veterinarian.'
+                            : 'No time slots remain for today.',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.muted,
+                        ),
+                      )
                     else
                       Wrap(
                         spacing: 10,
                         runSpacing: 10,
-                        children: _slots.map((slot) {
+                        children: _visibleSlots.map((slot) {
                           final selected = _time == slot.display;
                           return SizedBox(
                             width: (MediaQuery.sizeOf(context).width - 50) / 2,
@@ -596,7 +614,7 @@ class _AppointmentAvailabilityScreenState
                         ),
                       ),
                     )
-                  : _time == null
+                  : _selectedTimeslot == null
                   ? null
                   : () => Navigator.push(
                       context,

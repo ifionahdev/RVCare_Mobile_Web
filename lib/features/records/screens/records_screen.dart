@@ -33,13 +33,17 @@ class RecordsScreen extends StatefulWidget {
   final ValueChanged<PetRecord>? onOpenRecord;
 
   @override
-  State<RecordsScreen> createState() => _RecordsScreenState();
+  RecordsScreenState createState() => RecordsScreenState();
 }
 
-class _RecordsScreenState extends State<RecordsScreen> {
+class RecordsScreenState extends State<RecordsScreen> {
   late Future<List<PetRecord>> _recordsFuture;
   _RecordFilter _filter = _RecordFilter.all;
   final Set<String> _downloadingRecords = {};
+
+  void showLaboratoryRecords() {
+    setState(() => _filter = _RecordFilter.laboratory);
+  }
 
   @override
   void initState() {

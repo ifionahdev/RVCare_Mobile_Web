@@ -82,6 +82,78 @@ export const updateMyProfile = async (req, res, next) => {
   }
 };
 
+export const getMyNotificationPreferences = async (req, res, next) => {
+  try {
+    const owner = await prisma.petOwner.findFirst({
+      where: {
+        accountId: req.user.accountId,
+        isDeleted: false,
+        account: { is: { isDeleted: false } },
+      },
+      select: {
+        emailNotification: true,
+      },
+    });
+    if (!owner) {
+      return res.status(404).json({ message: "Customer profile not found." });
+    }
+
+    return res.json({ emailNotifications: owner.emailNotification });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+export const updateMyNotificationPreferences = async (req, res, next) => {
+  try {
+    const { emailNotifications } = req.body ?? {};
+    if (typeof emailNotifications !== "boolean") {
+      return res.status(400).json({
+        message: "Email notification preference must be boolean.",
+      });
+    }
+
+    const preferences = await prisma.$transaction(async (tx) => {
+      const owner = await tx.petOwner.findFirst({
+        where: {
+          accountId: req.user.accountId,
+          isDeleted: false,
+          account: { is: { isDeleted: false } },
+        },
+        select: {
+          ownerId: true,
+          emailNotification: true,
+        },
+      });
+      if (!owner) return null;
+
+      const updated = await tx.petOwner.update({
+        where: { ownerId: owner.ownerId },
+        data: {
+          emailNotification: emailNotifications,
+        },
+        select: { emailNotification: true },
+      });
+      await createAuditLog(tx, {
+        accountId: req.user.accountId,
+        action: "Updated",
+        targetTable: "tbl_pet_owner",
+        targetId: owner.ownerId,
+        oldValue: { emailNotification: owner.emailNotification },
+        newValue: { emailNotification: updated.emailNotification },
+      });
+      return updated;
+    });
+
+    if (!preferences) {
+      return res.status(404).json({ message: "Customer profile not found." });
+    }
+    return res.json({ emailNotifications: preferences.emailNotification });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const activityLogEntry = (entry) => {
   const labels = {
     LOGIN: ["Signed in", `Signed in from ${entry.source}.`],

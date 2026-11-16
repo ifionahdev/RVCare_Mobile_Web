@@ -81,6 +81,8 @@ const auditLogDto = (entry) => ({
   targetTable: entry.targetTable,
   module: tableLabel(entry.targetTable),
   targetId: entry.targetId,
+  previousHash: entry.previousHash,
+  hash: entry.hash,
   oldValue: redactSnapshot(parseSnapshot(entry.oldValue)),
   newValue: redactSnapshot(parseSnapshot(entry.newValue)),
 });

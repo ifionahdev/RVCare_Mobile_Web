@@ -31,6 +31,7 @@ model Account {
   passwordResets     PasswordReset[]
   activityLogs       ActivityLog[]
   auditLogs          AuditLog[]
+  notifications      CustomerNotification[]
 
   @@index([roleId], map: "tbl_account_tbl_role_FK")
   @@map("tbl_account")
@@ -47,6 +48,23 @@ model ActivityLog {
 
   @@index([accountId], map: "tbl_activity_log_tbl_account_FK")
   @@map("tbl_activity_log")
+}
+
+model CustomerNotification {
+  notificationId Int       @id @default(autoincrement()) @map("notification_id")
+  accountId      Int       @map("account_id")
+  category       String    @db.VarChar(30)
+  title          String    @db.VarChar(160)
+  message        String    @db.VarChar(500)
+  relatedType    String?   @map("related_type") @db.VarChar(30)
+  relatedId      Int?      @map("related_id")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.DateTime(0)
+  readAt         DateTime? @map("read_at") @db.DateTime(0)
+
+  account Account @relation(fields: [accountId], references: [accountId], onUpdate: Restrict, map: "tbl_notification_tbl_account_FK")
+
+  @@index([accountId, createdAt], map: "tbl_notification_account_created")
+  @@map("tbl_notification")
 }
 
 model Admin {
@@ -92,6 +110,7 @@ model AuditLog {
   targetId    Int            @map("target_id")
   oldValue    Json?          @map("old_value")
   newValue    Json?          @map("new_value")
+  previousHash String?       @map("previous_hash") @db.Char(64)
   hash        String         @db.Char(64)
   createdAt   DateTime       @default(now()) @map("created_at") @db.DateTime(0)
 

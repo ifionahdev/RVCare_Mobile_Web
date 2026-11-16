@@ -67,7 +67,11 @@ class _ManagePetProfileScreenState extends State<ManagePetProfileScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: _CircleButton(icon: Icons.more_horiz, onPressed: () {}),
+            child: Icon(
+              Icons.edit_outlined,
+              color: AppTheme.primaryDark,
+              size: 22,
+            ),
           ),
         ],
       ),

@@ -212,6 +212,7 @@ class _AppointmentSelectionScreenState
         context,
         title: 'Book Appointment',
         showBack: true,
+        actionIcon: Icons.pets_outlined,
       ),
       body: SafeArea(
         top: false,

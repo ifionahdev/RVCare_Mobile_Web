@@ -11,6 +11,7 @@ import 'features/auth/services/auth_service.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/appointments/data/appointment_service.dart';
 import 'features/pet_care/data/pet_care_service.dart';
+import 'features/notifications/data/notifications_service.dart';
 import 'features/records/data/records_service.dart';
 import 'features/settings/data/settings_service.dart';
 
@@ -31,6 +32,7 @@ void main() {
         ),
         Provider(create: (_) => AppointmentService(apiClient)),
         Provider(create: (_) => PetCareService(apiClient)),
+        Provider(create: (_) => NotificationsService(apiClient)),
         Provider(create: (_) => RecordsService(apiClient)),
         Provider(create: (_) => SettingsService(apiClient)),
         ChangeNotifierProvider(create: (_) => RealtimeProvider(storage)),

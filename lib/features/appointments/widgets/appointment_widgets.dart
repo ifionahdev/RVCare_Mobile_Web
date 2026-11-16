@@ -6,6 +6,7 @@ PreferredSizeWidget appointmentAppBar(
   BuildContext context, {
   required String title,
   required bool showBack,
+  required IconData actionIcon,
 }) {
   return AppBar(
     backgroundColor: Colors.white,
@@ -35,14 +36,8 @@ PreferredSizeWidget appointmentAppBar(
     centerTitle: true,
     actions: [
       Padding(
-        padding: const EdgeInsets.only(right: 10),
-        child: IconButton(
-          onPressed: () {},
-          style: IconButton.styleFrom(
-            side: const BorderSide(color: AppTheme.border),
-          ),
-          icon: const Icon(Icons.more_horiz, size: 21),
-        ),
+        padding: const EdgeInsets.only(right: 18),
+        child: Icon(actionIcon, size: 22, color: AppTheme.primaryDark),
       ),
     ],
   );

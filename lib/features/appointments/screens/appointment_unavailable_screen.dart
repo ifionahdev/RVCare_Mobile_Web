@@ -46,6 +46,7 @@ class AppointmentUnavailableScreen extends StatelessWidget {
         context,
         title: 'Check Availability',
         showBack: true,
+        actionIcon: Icons.event_busy_outlined,
       ),
       body: SafeArea(
         top: false,
@@ -171,6 +172,7 @@ class _NoSchedulesScreen extends StatelessWidget {
         context,
         title: 'Check Availability',
         showBack: true,
+        actionIcon: Icons.event_busy_outlined,
       ),
       body: Column(
         children: [

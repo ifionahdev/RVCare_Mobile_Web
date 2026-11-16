@@ -18,6 +18,7 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  final _recordsKey = GlobalKey<RecordsScreenState>();
   int _selectedIndex = 0;
 
   @override
@@ -41,6 +42,11 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  void _openLaboratoryRecords() {
+    _recordsKey.currentState?.showLaboratoryRecords();
+    _selectTab(2);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -48,9 +54,12 @@ class _AppShellState extends State<AppShell> {
       body: IndexedStack(
         index: _selectedIndex,
         children: [
-          HomePage(onNavigate: _selectTab),
+          HomePage(
+            onNavigate: _selectTab,
+            onOpenLaboratoryRecords: _openLaboratoryRecords,
+          ),
           const MyAppointmentsScreen(showBottomNavigation: false),
-          const RecordsScreen(),
+          RecordsScreen(key: _recordsKey),
           const PetCareScreen(),
         ],
       ),

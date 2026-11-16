@@ -1,9 +1,7 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../auth/providers/auth_provider.dart';
-import '../data/settings_service.dart';
 import 'account_settings_pages.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -201,12 +199,6 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-                _DangerSettingsTile(
-                  title: 'Delete account',
-                  subtitle: 'Deactivate your account and pet-owner profile',
-                  onTap: () => _deleteAccount(context),
-                ),
-                const SizedBox(height: 12),
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -266,137 +258,6 @@ Future<void> _confirmLogout(BuildContext context) async {
   );
   if (shouldLogout == true && context.mounted) {
     await context.read<AuthProvider>().logout();
-  }
-}
-
-Future<void> _deleteAccount(BuildContext context) async {
-  final passwordController = TextEditingController();
-  String? currentPassword;
-  try {
-    currentPassword = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete your account?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Your account and pet-owner profile will be deactivated. Enter your current password to confirm. Contact your clinic about existing records or appointments.',
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Current password',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFCF5E50),
-            ),
-            onPressed: () =>
-                Navigator.pop(dialogContext, passwordController.text),
-            child: const Text('Deactivate account'),
-          ),
-        ],
-      ),
-    );
-    if (currentPassword == null || !context.mounted) return;
-
-    await context.read<SettingsService>().deleteMyAccount(
-      currentPassword: currentPassword,
-    );
-    if (context.mounted) {
-      await context.read<AuthProvider>().logout();
-    }
-  } on DioException catch (error) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(SettingsService.readableError(error))),
-    );
-  } catch (error) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
-    );
-  } finally {
-    passwordController.dispose();
-  }
-}
-
-class _DangerSettingsTile extends StatelessWidget {
-  const _DangerSettingsTile({
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF3F1),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFEACBC6), width: 1.3),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.person_off_outlined,
-              color: Color(0xFFCF5E50),
-              size: 28,
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Color(0xFF9C3F36),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: Color(0xFF9B6A64),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: Color(0xFF9C3F36),
-              size: 26,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

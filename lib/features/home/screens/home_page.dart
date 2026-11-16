@@ -13,9 +13,10 @@ import '../../notifications/screens/notifications_screen.dart';
 import '../../../core/network/realtime_provider.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, this.onNavigate});
+  const HomePage({super.key, this.onNavigate, this.onOpenLaboratoryRecords});
 
   final ValueChanged<int>? onNavigate;
+  final VoidCallback? onOpenLaboratoryRecords;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -62,23 +63,53 @@ class _HomePageState extends State<HomePage> {
       final appointments = await context
           .read<AppointmentService>()
           .fetchAppointments();
+      const upcomingStatuses = {
+        'pending',
+        'incoming',
+        'confirmed',
+        'approved',
+        'upcoming',
+      };
       final upcoming =
-          appointments
-              .where(
-                (item) =>
-                    item['status'] == 'Pending' || item['status'] == 'Incoming',
-              )
-              .toList()
-            ..sort(
-              (a, b) => (a['scheduledDate'] as String).compareTo(
-                b['scheduledDate'] as String,
-              ),
-            );
+          appointments.where((item) {
+            final status = item['status']?.toString().toLowerCase();
+            final start = _appointmentStart(item);
+            return status != null &&
+                upcomingStatuses.contains(status) &&
+                start != null &&
+                start.isAfter(DateTime.now());
+          }).toList()..sort((a, b) {
+            final aStart = _appointmentStart(a)!;
+            final bStart = _appointmentStart(b)!;
+            return aStart.compareTo(bStart);
+          });
       if (!mounted) return;
       setState(
         () => _upcomingAppointment = upcoming.isEmpty ? null : upcoming.first,
       );
     } catch (_) {}
+  }
+
+  DateTime? _appointmentStart(Map<String, dynamic> appointment) {
+    final date = appointment['scheduledDate']?.toString();
+    final timeslot = appointment['timeslot'];
+    final startTime = timeslot is Map
+        ? timeslot['startTime']?.toString()
+        : null;
+    if (date == null || startTime == null) return null;
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(startTime);
+    final parsedDate = DateTime.tryParse(date);
+    if (match == null || parsedDate == null) return null;
+    final hour = int.tryParse(match.group(1)!);
+    final minute = int.tryParse(match.group(2)!);
+    if (hour == null || minute == null || hour > 23 || minute > 59) {
+      return null;
+    }
+    final dateOnly = parsedDate.toIso8601String().substring(0, 10);
+    return DateTime.tryParse(
+      '${dateOnly}T${hour.toString().padLeft(2, '0')}:'
+      '${minute.toString().padLeft(2, '0')}:00+08:00',
+    )?.toLocal();
   }
 
   void _openBooking() {
@@ -95,70 +126,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openDetails(String title) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 42,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppTheme.border,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-            const SizedBox(height: 22),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.heading,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This prototype section is ready for content. Mock data is used for now.',
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.5,
-                color: AppTheme.muted,
-              ),
-            ),
-            const SizedBox(height: 22),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(sheetContext),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _teal,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text('Close'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(backgroundColor: Colors.white, body: _buildHome());
@@ -167,6 +134,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildHome() {
     final auth = context.watch<AuthProvider>();
     final userName = _userName(auth.user);
+    final petsToShow = _pets.take(2).toList();
     final hour = DateTime.now().hour;
     final greeting = hour < 12
         ? 'Good morning'
@@ -285,7 +253,7 @@ class _HomePageState extends State<HomePage> {
                     icon: Icons.science_outlined,
                     title: 'Laboratory Reports',
                     badge: '2 new',
-                    onTap: () => _openDetails('Laboratory Reports'),
+                    onTap: () => widget.onOpenLaboratoryRecords?.call(),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -326,17 +294,23 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
             const SizedBox(height: 10),
-            _PetCard(
-              pet: _pets.isEmpty ? null : _pets.first,
-              onTap: () {
-                Navigator.push<void>(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ManagePetProfileScreen(),
-                  ),
-                );
-              },
-            ),
+            if (petsToShow.isEmpty)
+              _PetCard(onTap: _openMyPets)
+            else
+              for (var i = 0; i < petsToShow.length; i++) ...[
+                _PetCard(
+                  pet: petsToShow[i],
+                  onTap: () {
+                    Navigator.push<void>(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ManagePetProfileScreen(),
+                      ),
+                    );
+                  },
+                ),
+                if (i < petsToShow.length - 1) const SizedBox(height: 8),
+              ],
           ],
         ),
       ),
@@ -356,8 +330,18 @@ class _HomePageState extends State<HomePage> {
 
   String _monthName(int month) {
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     return months[month - 1];
   }
@@ -376,6 +360,18 @@ class _HomePageState extends State<HomePage> {
       hour -= 12;
     }
     return '$hour:${minute.toString().padLeft(2, '0')} $period';
+  }
+
+  DateTime _appointmentDateTime(String date, dynamic rawTime) {
+    final match = RegExp(r'^(\d{1,2}):(\d{2})')
+        .firstMatch(rawTime?.toString().trim() ?? '');
+    if (match == null) {
+      throw const FormatException('The appointment time is invalid.');
+    }
+    final hour = match.group(1)!.padLeft(2, '0');
+    final minute = match.group(2)!;
+    final dateOnly = DateTime.parse(date).toIso8601String().substring(0, 10);
+    return DateTime.parse('${dateOnly}T$hour:$minute:00+08:00').toLocal();
   }
 
   void _openUpcomingDetails() {
@@ -404,9 +400,19 @@ class _HomePageState extends State<HomePage> {
           status: status,
           reference: 'APT-${appointment['appointmentId']}',
           appointmentId: appointment['appointmentId'] as int,
+          scheduledDate: appointment['scheduledDate'] as String,
+          appointmentDateTime: _appointmentDateTime(
+            appointment['scheduledDate'] as String,
+            timeslot['startTime'],
+          ),
+          petId: appointment['petId'] as int,
+          serviceId: appointment['serviceId'] as int,
+          veterinarianId: appointment['vetId'] as int,
         ),
       ),
-    );
+    ).then((_) {
+      if (mounted) _loadUpcoming();
+    });
   }
 }
 
@@ -581,7 +587,6 @@ class _AppointmentCard extends StatelessWidget {
     ];
     return months[month - 1];
   }
-
 }
 
 class _ReminderCard extends StatelessWidget {
@@ -649,7 +654,6 @@ class _ReminderCard extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _ActionCard extends StatelessWidget {
