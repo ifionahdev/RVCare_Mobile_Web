@@ -29,7 +29,7 @@ void main() {
     await tester.tap(find.text('Open in browser'));
     await tester.pumpAndSettle();
 
-    expect(find.text('You’re leaving Raphacare'), findsOneWidget);
+    expect(find.text('You’re leaving RaphaCare'), findsOneWidget);
     expect(
       find.textContaining('This article opens in your browser'),
       findsOneWidget,
@@ -38,6 +38,6 @@ void main() {
     await tester.tap(find.text('Stay in app'));
     await tester.pumpAndSettle();
 
-    expect(find.text('You’re leaving Raphacare'), findsNothing);
+    expect(find.text('You’re leaving RaphaCare'), findsNothing);
   });
 }

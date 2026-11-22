@@ -57,7 +57,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 28),
                 const Text(
-                  'Your Raphacare account',
+                  'Your RaphaCare account',
                   style: TextStyle(
                     color: Color(0xFF1B2E39),
                     fontSize: 24,
@@ -243,7 +243,7 @@ Future<void> _confirmLogout(BuildContext context) async {
     context: context,
     builder: (dialogContext) => AlertDialog(
       title: const Text('Log out?'),
-      content: const Text('You can sign back in to your Raphacare account.'),
+      content: const Text('You can sign back in to your RaphaCare account.'),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, false),

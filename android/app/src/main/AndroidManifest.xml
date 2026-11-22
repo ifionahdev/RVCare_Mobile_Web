@@ -2,7 +2,7 @@
     <application
     
         android:usesCleartextTraffic="true"
-        android:label="rvcare"
+        android:label="RaphaCare"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

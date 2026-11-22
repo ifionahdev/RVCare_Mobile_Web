@@ -187,6 +187,38 @@ class AppointmentService {
     } on DioException catch (e) {
       throw Exception(_message(e, 'Failed to fetch user pets'));
     }
+
+    Future<AppointmentPet> createPet({
+      required String name,
+      required String species,
+      required String breed,
+      required String gender,
+      required String dateOfBirth,
+      double? weightKg,
+      String? color,
+      String? note,
+    }) async {
+      try {
+        final response = await _apiClient.dio.post(
+          '/pets',
+          data: {
+            'name': name,
+            'species': species,
+            'breed': breed,
+            'gender': gender,
+            'dateOfBirth': dateOfBirth,
+            if (weightKg != null) 'weightKg': weightKg,
+            if (color != null && color.trim().isNotEmpty) 'color': color.trim(),
+            if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+          },
+        );
+        return AppointmentPet.fromJson(
+          Map<String, dynamic>.from(response.data as Map),
+        );
+      } on DioException catch (e) {
+        throw Exception(_message(e, 'Failed to create pet profile'));
+      }
+    }
   }
 
   Future<List<AppointmentServiceOption>> fetchServices() async {

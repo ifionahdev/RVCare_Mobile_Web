@@ -182,7 +182,7 @@ const Sidebar = () => {
       <div className="flex flex-col items-center mb-6">
         <img src="/assets/raphacare-logo.png" alt="RaphaCare" className="w-24 mb-4 select-none" />
         <div className="font-baloo text-md sm:text-lg md:text-xl leading-none">
-            <span className="text-[#000000]">RV</span>
+            <span className="text-[#000000]">Rapha</span>
             <span className="text-[#5EE6FE]">Care</span>
         </div>
       </div>

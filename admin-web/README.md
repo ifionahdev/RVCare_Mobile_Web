@@ -1,6 +1,6 @@
 # RaphaCare admin/vet website
 
-Place `admin-web/` inside the root of your existing `rvcare/` repository, alongside `backend/` and `lib/`. Do not replace the Flutter `web/` directory.
+Place `admin-web/` inside the root of your existing `RaphaCare/` repository, alongside `backend/` and `lib/`. Do not replace the Flutter `web/` directory.
 
 ## Run
 

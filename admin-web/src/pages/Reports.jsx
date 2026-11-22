@@ -172,7 +172,7 @@ const Reports = () => {
       {/* Header */}
       <div data-print-report-header className="hidden">
         <p className="text-sm font-semibold uppercase tracking-widest text-sky-600">
-          RV Care Clinic Portal
+          RaphaCare Clinic Portal
         </p>
         <h1 className="mt-1 text-3xl font-bold text-gray-900">Reports &amp; Analytics</h1>
         <p className="mt-2 text-sm text-gray-600">

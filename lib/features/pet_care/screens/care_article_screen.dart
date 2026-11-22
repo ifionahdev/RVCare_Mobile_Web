@@ -610,7 +610,7 @@ class _LeavingDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Brand name as shown in the design; change if the app name differs.
-    const appName = 'Raphacare';
+    const appName = 'RaphaCare';
 
     return Dialog(
       insetPadding: const EdgeInsets.all(24),

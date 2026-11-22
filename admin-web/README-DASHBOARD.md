@@ -1,8 +1,8 @@
 # RaphaCare admin dashboard update
 
-Copy **only the contents of `admin-web/`** into your existing `rvcare/admin-web/` folder. Keep your Flutter `lib/`, `web/`, and `backend/` folders unchanged.
+Copy **only the contents of `admin-web/`** into your existing `RaphaCare/admin-web/` folder. Keep your Flutter `lib/`, `web/`, and `backend/` folders unchanged.
 
-From `rvcare/admin-web` run:
+From `RaphaCare/admin-web` run:
 
 ```bash
 npm install

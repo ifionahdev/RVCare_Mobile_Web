@@ -267,7 +267,7 @@ const renderRecord = (doc, record) => {
     .font("Helvetica")
     .fontSize(8)
     .text(
-      `Generated ${new Date().toISOString().slice(0, 10)} by Raphacare.`,
+      `Generated ${new Date().toISOString().slice(0, 10)} by RaphaCare.`,
       { align: "center" },
     );
 };
@@ -279,7 +279,7 @@ export const generateRecordPdf = (record) =>
       margins: { top: margin, right: margin, bottom: margin, left: margin },
       info: {
         Title: `${record.petName} - ${record.type === "medical" ? "Medical Record" : "Laboratory Report"}`,
-        Author: "Raphacare",
+        Author: "RaphaCare",
         Subject: `Veterinary record ${record.recordId}`,
       },
     });

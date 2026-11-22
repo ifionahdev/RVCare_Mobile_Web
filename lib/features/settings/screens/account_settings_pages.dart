@@ -308,7 +308,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
         const _SettingsIntro(
           title: 'Stay in touch, your way',
           description:
-              'Choose which Raphacare notifications you’d like to receive.',
+              'Choose which RaphaCare notifications you’d like to receive.',
         ),
         const SizedBox(height: 26),
         const _SettingsSectionLabel('NOTIFICATION CHOICES'),
@@ -691,7 +691,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
               ),
               _PrivacySection(
                 title: 'How information is used',
-                body: 'This information helps the clinic coordinate care, manage bookings, maintain pet records and send relevant service messages. Account details also help support your use of Raphacare.',
+                body: 'This information helps the clinic coordinate care, manage bookings, maintain pet records and send relevant service messages. Account details also help support your use of RaphaCare.',
               ),
               _PrivacySection(
                 title: 'Sharing for care and services',
@@ -699,7 +699,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
               ),
               _PrivacySection(
                 title: 'Your notification choices',
-                body: 'You can review email and app-update notification choices in Settings → Preferences. These choices help you manage how you hear from Raphacare.',
+                body: 'You can review email and app-update notification choices in Settings → Preferences. These choices help you manage how you hear from RaphaCare.',
               ),
               _PrivacySection(
                 title: 'Questions and privacy requests',
