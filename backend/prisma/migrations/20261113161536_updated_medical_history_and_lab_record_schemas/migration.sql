@@ -7,25 +7,26 @@
   - Added the required column `hash` to the `tbl_audit_log` table without a default value. This is not possible if the table is not empty.
 
 */
--- DropForeignKey
-ALTER TABLE `tbl_medical_record` DROP FOREIGN KEY `tbl_medical_record_tbl_medical_record_type_FK`;
-
--- DropForeignKey
-ALTER TABLE `tbl_medical_record` DROP FOREIGN KEY `tbl_medical_record_tbl_visit_FK`;
-
--- DropForeignKey
-ALTER TABLE `tbl_medical_record_file` DROP FOREIGN KEY `tbl_medical_record_file_tbl_account_FK`;
-
--- DropForeignKey
-ALTER TABLE `tbl_medical_record_file` DROP FOREIGN KEY `tbl_medical_record_file_tbl_medical_record_FK`;
-
 -- AlterTable
-ALTER TABLE `tbl_audit_log` ADD COLUMN `hash` CHAR(64) NOT NULL;
+SET @add_audit_hash = (
+  SELECT IF(
+    COUNT(*) = 0,
+    'ALTER TABLE `tbl_audit_log` ADD COLUMN `hash` CHAR(64) NOT NULL',
+    'SELECT 1'
+  )
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'tbl_audit_log'
+    AND COLUMN_NAME = 'hash'
+);
+PREPARE add_audit_hash FROM @add_audit_hash;
+EXECUTE add_audit_hash;
+DEALLOCATE PREPARE add_audit_hash;
 
 -- AlterTable
 ALTER TABLE `tbl_visit` ADD COLUMN `visit_type` ENUM('Walk-in', 'Appointment', 'Follow-up') NOT NULL DEFAULT 'Walk-in',
-    MODIFY `visit_date` DATE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    MODIFY `visit_time` TIME(0) NOT NULL DEFAULT CURRENT_TIMESTAMP(0);
+    MODIFY `visit_date` DATE NOT NULL DEFAULT (curdate()),
+    MODIFY `visit_time` TIME(0) NOT NULL DEFAULT (curtime());
 
 -- DropTable
 DROP TABLE `tbl_medical_record`;
