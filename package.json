@@ -7,7 +7,7 @@
     "admin-web"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "start": "npm run start --workspace=backend",
