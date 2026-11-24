@@ -1,7 +1,7 @@
 {
   "name": "rvcare",
   "private": true,
-  "packageManager": "npm@10",
+  "packageManager": "npm@10.8.2",
   "workspaces": [
     "backend",
     "admin-web"
