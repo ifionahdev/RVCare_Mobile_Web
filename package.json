@@ -1,7 +1,17 @@
 {
-  "dependencies": {
-    "framer-motion": "^14.9.0",
-    "recharts": "^3.10.1",
-    "socket.io": "^4.8.4"
+  "name": "rvcare",
+  "private": true,
+  "packageManager": "npm@10",
+  "workspaces": [
+    "backend",
+    "admin-web"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "npm run start --workspace=backend",
+    "build": "npm run build --workspace=admin-web",
+    "start:admin": "npm run preview --workspace=admin-web -- --host 0.0.0.0"
   }
 }

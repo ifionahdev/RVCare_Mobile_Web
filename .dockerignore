@@ -1,0 +1,10 @@
+node_modules
+.git
+.dart_tool
+build
+android
+ios
+macos
+linux
+windows
+**/node_modules
